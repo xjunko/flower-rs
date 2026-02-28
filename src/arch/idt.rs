@@ -13,6 +13,9 @@ use crate::{
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     idt.general_protection_fault.set_handler_fn(gpf_handler);
+    idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
+    idt.device_not_available
+        .set_handler_fn(device_not_available_handler);
     idt.breakpoint.set_handler_fn(breakpoint_handler);
     idt.page_fault.set_handler_fn(page_fault_handler);
 
@@ -44,6 +47,18 @@ pub fn print_stack_frame(frame: InterruptStackFrame) {
 extern "x86-interrupt" fn gpf_handler(stack_frame: InterruptStackFrame, error_code: u64) {
     error!("general Protection Fault triggered!");
     println!("error code: {:#x}", error_code);
+    print_stack_frame(stack_frame);
+    panic!("");
+}
+
+extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: InterruptStackFrame) {
+    error!("invalid opcode (#UD) triggered!");
+    print_stack_frame(stack_frame);
+    panic!("");
+}
+
+extern "x86-interrupt" fn device_not_available_handler(stack_frame: InterruptStackFrame) {
+    error!("device not available (#NM) triggered!");
     print_stack_frame(stack_frame);
     panic!("");
 }
