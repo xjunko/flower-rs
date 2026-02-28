@@ -17,3 +17,20 @@ thought experiment, just wanted to see if its possible.
 - apic
 - apic
 - lapic
+
+## building
+you will need:
+```
+- git
+- qemu-system-*
+- cargo
+- xorriso
+```
+to build the kernel just run
+```
+make
+```
+to run it
+```
+make run
+```
