@@ -3,9 +3,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::sync::atomic::{AtomicUsize, Ordering};
-
-use limine::file::File;
 
 use super::types::*;
 use crate::{boot::limine::MODULE_REQUESTS, error};
@@ -13,9 +10,9 @@ use crate::{boot::limine::MODULE_REQUESTS, error};
 unsafe impl Send for TarFile {}
 unsafe impl Sync for TarFile {}
 struct TarFile {
-    path: String,
+    data_position: usize,
     position: usize,
-    offset: AtomicUsize,
+    path: String,
     size: usize,
     fs: Option<*const TarFS>,
 }
@@ -24,20 +21,14 @@ impl VFSFile for TarFile {
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
         self.fs.ok_or(VFSError::NotFound).map(|fs| {
             let fs = unsafe { &*fs };
-            let offset = self.offset.load(Ordering::Acquire);
+            let position = self.position;
 
-            if offset >= self.size {
-                return 0;
-            }
+            let bytes_to_read = core::cmp::min(buf.len(), self.size);
+            let source = unsafe { fs.data.as_ptr().add(position) };
 
-            let bytes_to_read = core::cmp::min(buf.len(), self.size - offset);
-            let src = unsafe { fs.addr.add(self.position + offset) };
             unsafe {
-                core::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), bytes_to_read);
+                core::ptr::copy_nonoverlapping(source, buf.as_mut_ptr(), bytes_to_read);
             }
-
-            self.offset
-                .store(offset.saturating_add(bytes_to_read), Ordering::Release);
 
             bytes_to_read
         })
@@ -47,23 +38,31 @@ impl VFSFile for TarFile {
         unimplemented!()
     }
 
-    fn seek(&self, pos: super::types::VFSSeek) -> VFSResult<usize> {
-        let current = self.offset.load(Ordering::Acquire);
-        let new_offset = match pos {
-            VFSSeek::Start(offset) => offset,
-            VFSSeek::Current(offset) => current.saturating_add(offset),
-            VFSSeek::End(offset) => self.size.saturating_sub(offset),
-        }
-        .min(self.size);
+    fn seek(&mut self, pos: super::types::VFSSeek) -> VFSResult<usize> {
+        let mut new_pos = match pos {
+            VFSSeek::Start(n) => self.data_position as isize + n as isize,
+            VFSSeek::Current(n) => n as isize,
+            VFSSeek::End(n) => self.data_position as isize + self.size as isize + n as isize,
+        };
 
-        self.offset.store(new_offset, Ordering::Release);
-        Ok(new_offset)
+        if new_pos < 0 {
+            return Err(VFSError::InvalidSeek);
+        }
+
+        // clamp inside the data_position and data_position + size
+        new_pos = core::cmp::min(
+            core::cmp::max(self.data_position, new_pos as usize),
+            self.data_position + self.size,
+        ) as isize;
+
+        self.position = new_pos as usize;
+        Ok(self.position)
     }
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {
-        self.fs.ok_or(VFSError::NotFound).and_then(|fs| {
-            let fs = unsafe { &*fs };
-            fs.metadata(&self.path)
+        Ok(VFSMetadata {
+            file_type: VFSFileType::File,
+            size: self.size,
         })
     }
 }
@@ -71,36 +70,35 @@ impl VFSFile for TarFile {
 unsafe impl Send for TarFS {}
 unsafe impl Sync for TarFS {}
 pub struct TarFS {
-    addr: *mut u8,
+    data: Vec<u8>,
     files: Vec<TarFile>,
 }
 
 impl TarFS {
     pub fn new() -> Self {
-        let mut files: Vec<TarFile> = Vec::new();
-        let mut addr: Option<*mut u8> = None;
-
-        {
-            let mut initram_file: Option<&File> = None;
-
-            for file in MODULE_REQUESTS
+        let mut files = Vec::new();
+        let file = {
+            MODULE_REQUESTS
                 .get_response()
-                .expect("tarfs not found")
+                .expect("no modules provider")
                 .modules()
-            {
-                if file.path().to_str().expect("invalid file path") == "/boot/initramfs.tar" {
-                    initram_file = Some(file);
-                    addr = Some(file.addr());
-                    break;
-                }
-            }
+                .iter()
+                .find(|m| {
+                    m.path()
+                        .to_str()
+                        .map(|path| path == "/boot/initramfs.tar")
+                        .unwrap_or(false)
+                })
+        }
+        .ok_or("failed to find initramfs");
 
-            if initram_file.is_none() {
-                panic!("tarfs not found");
-            }
+        if let Err(e) = file {
+            error!("tarfs: {}", e);
+            panic!("failed to initialize tarfs");
+        }
 
+        if let Ok(file) = file {
             // stream the file into memory
-            let file = initram_file.unwrap();
             let size = file.size() as usize;
             let mut data = alloc::vec![0u8; size];
             unsafe {
@@ -128,24 +126,34 @@ impl TarFS {
                     path = "/".to_string() + &path;
                 }
 
+                // copy the data right away
                 if file_size > 0 {
                     files.push(TarFile {
-                        path,
-                        position: offset + 512,
+                        data_position: offset + 512,
+                        position: 0,
+                        path: path.clone(),
                         size: file_size,
-                        offset: AtomicUsize::new(0),
                         fs: None,
-                    })
+                    });
                 }
 
                 offset += (((file_size + 511) / 512) + 1) * 512;
             }
+
+            return Self { data, files };
         }
 
         Self {
-            addr: addr.unwrap(),
-            files,
+            data: Vec::new(),
+            files: Vec::new(),
         }
+    }
+
+    fn get_file(&self, path: &str) -> VFSResult<&TarFile> {
+        self.files
+            .iter()
+            .find(|f| f.path == path)
+            .ok_or(VFSError::NotFound)
     }
 }
 
@@ -155,29 +163,19 @@ impl VFSImplementation for TarFS {
         path: &str,
         _flags: u32,
     ) -> super::VFSResult<alloc::boxed::Box<dyn super::VFSFile>> {
-        if let Some(file) = self.files.iter().find(|f| f.path == path) {
-            // NOTE: can't i just clone this ?
-            Ok(Box::new(TarFile {
-                path: file.path.clone(),
-                position: file.position,
-                size: file.size,
-                offset: AtomicUsize::new(file.offset.load(Ordering::Acquire)),
-                fs: Some(self),
-            }))
-        } else {
-            Err(VFSError::NotFound)
-        }
+        let file = self.get_file(path)?;
+        Ok(Box::new(TarFile {
+            data_position: file.data_position,
+            position: 0,
+            path: file.path.clone(),
+            size: file.size,
+            fs: Some(self as *const TarFS),
+        }))
     }
 
     fn metadata(&self, path: &str) -> VFSResult<VFSMetadata> {
-        if let Some(file) = self.files.iter().find(|f| f.path == path) {
-            Ok(VFSMetadata {
-                file_type: super::types::VFSFileType::File,
-                size: file.size,
-            })
-        } else {
-            Err(VFSError::NotFound)
-        }
+        let file = self.get_file(path)?;
+        file.metadata()
     }
 }
 

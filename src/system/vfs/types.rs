@@ -24,6 +24,7 @@ pub enum VFSSeek {
 pub enum VFSError {
     NotFound,
     AlreadyExists,
+    InvalidSeek,
     Unknown,
 }
 
@@ -37,7 +38,7 @@ pub trait VFSFile: Send + Sync {
     fn write(&self, buf: &mut [u8]) -> VFSResult<usize>;
 
     /// seeks to the given position and returns the new position
-    fn seek(&self, pos: VFSSeek) -> VFSResult<usize>;
+    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize>;
 
     /// gets the info for the file
     fn metadata(&self) -> VFSResult<VFSMetadata>;
