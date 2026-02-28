@@ -1,0 +1,8 @@
+# build
+target/
+*.iso
+
+# initramfs
+/boot/initramfs/**/*.txt
+/boot/initramfs/*.hash
+/boot/*.tar

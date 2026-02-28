@@ -1,0 +1,15 @@
+# xjunko's style of rust, this will be what i used on everything rust i've written.
+
+# mostly default options
+reorder_imports = true
+reorder_modules = true
+fn_params_layout = "Tall"
+match_arm_leading_pipes = "Never"
+match_block_trailing_comma = true
+merge_derives = true
+newline_style = "Unix"
+remove_nested_parens = true
+
+# non-stable options
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"

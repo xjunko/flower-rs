@@ -1,0 +1,22 @@
+[[bin]]
+name = "flower-rs"
+test = false
+bench = false
+
+[package]
+name = "flower-rs"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+limine = "0.5.0"
+linked_list_allocator = "0.10.5"
+pic8259 = "0.11.0"
+spin = "0.10.0"
+x86_64 = "0.15.4"
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
