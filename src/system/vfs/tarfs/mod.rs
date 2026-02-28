@@ -4,8 +4,7 @@ use alloc::{
     vec::Vec,
 };
 
-use super::types::*;
-use crate::{boot::limine::MODULE_REQUESTS, error};
+use crate::{boot::limine::MODULE_REQUESTS, error, system::vfs::types::*};
 
 unsafe impl Send for TarFile {}
 unsafe impl Sync for TarFile {}
@@ -38,7 +37,7 @@ impl VFSFile for TarFile {
         unimplemented!()
     }
 
-    fn seek(&mut self, pos: super::types::VFSSeek) -> VFSResult<usize> {
+    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
         let mut new_pos = match pos {
             VFSSeek::Start(n) => self.data_position as isize + n as isize,
             VFSSeek::Current(n) => n as isize,
@@ -158,11 +157,7 @@ impl TarFS {
 }
 
 impl VFSImplementation for TarFS {
-    fn open(
-        &self,
-        path: &str,
-        _flags: u32,
-    ) -> super::VFSResult<alloc::boxed::Box<dyn super::VFSFile>> {
+    fn open(&self, path: &str, _flags: u32) -> VFSResult<alloc::boxed::Box<dyn VFSFile>> {
         let file = self.get_file(path)?;
         Ok(Box::new(TarFile {
             data_position: file.data_position,

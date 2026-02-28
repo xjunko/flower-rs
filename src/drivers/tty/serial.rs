@@ -81,7 +81,7 @@ pub fn _print(args: fmt::Arguments) {
         let mut serial = SERIAL.lock();
         let _ = serial.write_fmt(args);
 
-        if let Some(flanterm_context) = super::flanterm::CONTEXT.lock().as_mut() {
+        if let Some(mut flanterm_context) = super::flanterm::get() {
             let _ = flanterm_context.write_fmt(args);
         }
     });

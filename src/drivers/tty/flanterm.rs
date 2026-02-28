@@ -84,3 +84,10 @@ pub fn install() {
         }
     }
 }
+
+pub fn get() -> Option<FlantermContext> {
+    CONTEXT
+        .lock()
+        .as_ref()
+        .map(|ctx| FlantermContext(ctx.0, ctx.1))
+}

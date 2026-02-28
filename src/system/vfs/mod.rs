@@ -9,7 +9,8 @@ use spin::{Lazy, Mutex};
 mod tarfs;
 mod types;
 
-use self::{tarfs::TarFS, types::*};
+use self::types::*;
+use crate::system::vfs::tarfs::TarFS;
 
 pub struct Mount {
     path: String,
