@@ -15,7 +15,6 @@ thought experiment, just wanted to see if its possible.
 - vmm
 - heap
 - apic
-- apic
 - lapic
 
 ## building
