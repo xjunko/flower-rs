@@ -128,7 +128,6 @@ pub fn page_unmap(virt: VirtAddr) -> Result<PhysAddr, &'static str> {
 }
 
 pub fn page_is_mapped(virt: VirtAddr) -> bool {
-    debug!("checking if page at virt {:#x} is mapped", virt.as_u64(),);
     unsafe {
         let mapper = page_get_current_table();
         mapper.translate_addr(virt).is_some()

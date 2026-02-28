@@ -1,4 +1,4 @@
-use core::fmt::Write;
+use core::fmt::{self, Write};
 
 use spin::Mutex;
 use x86_64::instructions::{interrupts, port::Port};
@@ -35,21 +35,27 @@ impl SerialPort {
         }
     }
 
-    pub fn wait(&mut self) {
-        unsafe { while (self.status.read() & 0x20) == 0 {} }
+    // honestly this seems a little bit hacky
+    // because if the status line is stuck it's most likely
+    // that something terribly has gone wrong, but whatever
+    // limit the wait anyway....
+    fn wait_ready(&mut self) -> bool {
+        for _ in 0..100_000 {
+            unsafe {
+                if (self.status.read() & 0x20) != 0 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub unsafe fn write(&mut self, byte: u8) {
-        interrupts::without_interrupts(|| {
-            if let Some(context) = super::flanterm::CONTEXT.lock().as_mut() {
-                context.write(byte);
-            }
-
-            self.wait();
+        if self.wait_ready() {
             unsafe {
                 self.data.write(byte);
             }
-        })
+        }
     }
 }
 
@@ -70,11 +76,21 @@ pub fn install() {
     SERIAL.lock().init()
 }
 
+pub fn _print(args: fmt::Arguments) {
+    interrupts::without_interrupts(|| {
+        let mut serial = SERIAL.lock();
+        let _ = serial.write_fmt(args);
+
+        if let Some(flanterm_context) = super::flanterm::CONTEXT.lock().as_mut() {
+            let _ = flanterm_context.write_fmt(args);
+        }
+    });
+}
+
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {{
-        use core::fmt::Write;
-        let _ = write!(&mut *$crate::drivers::tty::serial::SERIAL.lock(), $($arg)*);
+        $crate::drivers::tty::serial::_print(format_args!($($arg)*));
     }};
 }
 

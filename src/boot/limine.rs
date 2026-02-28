@@ -2,7 +2,7 @@ use limine::{
     BaseRevision,
     request::{
         FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RequestsEndMarker,
-        RequestsStartMarker,
+        RequestsStartMarker, RsdpRequest,
     },
 };
 
@@ -29,6 +29,11 @@ pub static MEMORY_MAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static MODULE_REQUESTS: ModuleRequest = ModuleRequest::new();
+
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+pub static RSDP_REQUEST: RsdpRequest = RsdpRequest::new();
+
 #[used]
 #[unsafe(link_section = ".limine_requests_end")]
 pub static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();

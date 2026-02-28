@@ -3,9 +3,8 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, Pag
 
 use crate::{
     arch::{
-        self,
         gdt::DOUBLE_FAULT_IST_INDEX,
-        interrupts::{InterruptIndex, spurious_interrupt_handler},
+        interrupts::{InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler},
     },
     error, println, warn,
 };
@@ -26,14 +25,14 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     }
 
     // spurious
-    idt[InterruptIndex::Timer.as_u8()].set_handler_fn(spurious_interrupt_handler);
+    idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
+    idt[InterruptIndex::Spurious.as_u8()].set_handler_fn(spurious_interrupt_handler);
 
     idt
 });
 
 pub fn install() {
     IDT.load();
-    arch::interrupts::install();
 }
 
 pub fn print_stack_frame(frame: InterruptStackFrame) {

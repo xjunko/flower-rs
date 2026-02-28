@@ -21,12 +21,21 @@ unsafe extern "C" fn kmain() -> ! {
     drivers::tty::serial::install();
 
     // cpu init
-    arch::install();
+    arch::install_cpu_features();
+    arch::gdt::install();
+    arch::idt::install();
 
     // memory
     system::mem::pmm::install();
     system::mem::vmm::install();
     system::mem::heap::install().expect("failed to install heap");
+
+    // acpi
+    arch::acpi::install();
+
+    // apic
+    arch::apic::install();
+    arch::interrupts::install();
 
     // past this point, the kernel can now do dynamic allocation
     drivers::tty::flanterm::install();
