@@ -14,6 +14,20 @@ mod system;
 
 use alloc::vec;
 
+fn core_test() {
+    debug!("test!");
+}
+
+fn core_test2() {
+    debug!("test 2!");
+}
+
+fn k_init() {
+    debug!("init process started");
+    system::proc::spawn("core_test", core_test);
+    system::proc::spawn("core_test2", core_test2);
+}
+
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     assert!(boot::limine::BASE_REVISION.is_supported());
@@ -36,6 +50,9 @@ unsafe extern "C" fn kmain() -> ! {
     // apic
     arch::apic::install();
     arch::interrupts::install();
+
+    // scheduler
+    system::proc::install();
 
     // past this point, the kernel can now do dynamic allocation
     drivers::tty::flanterm::install();
@@ -61,6 +78,9 @@ unsafe extern "C" fn kmain() -> ! {
 
     // test breakpoint
     x86_64::instructions::interrupts::int3();
+
+    // test
+    system::proc::spawn("init", k_init);
 
     warn!("nothing to do, halting!");
     arch::halt();

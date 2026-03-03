@@ -2,7 +2,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 
 use x86_64::{instructions::interrupts, structures::idt::InterruptStackFrame};
 
-use crate::print;
+use crate::system::proc;
 
 static TICKS: AtomicU64 = AtomicU64::new(0);
 
@@ -29,14 +29,12 @@ pub fn install() {
 
 pub extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     TICKS.fetch_add(1, Ordering::Relaxed);
-    print!(".");
-
     super::apic::eoi();
+    proc::schedule();
 }
 
 pub extern "x86-interrupt" fn spurious_interrupt_handler(_stack_frame: InterruptStackFrame) {
     TICKS.fetch_add(1, Ordering::Relaxed);
-    print!(".");
-
     super::apic::eoi();
+    proc::schedule();
 }
