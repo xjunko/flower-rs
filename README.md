@@ -14,6 +14,12 @@ thought experiment, just wanted to see if its possible.
 - heap
 - apic
 - lapic
+- scheduling
+- kernel multi-threading
+
+## what doenst work yet
+- userspace multi-threading
+- proper syscalls (kernel handles it but does nothing with the frame)
 
 ## building
 you will need:
