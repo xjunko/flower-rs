@@ -3,6 +3,7 @@ pub mod apic;
 pub mod gdt;
 pub mod idt;
 pub mod interrupts;
+pub mod syscalls;
 
 use core::arch::asm;
 

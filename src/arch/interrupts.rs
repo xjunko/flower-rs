@@ -10,6 +10,7 @@ static TICKS: AtomicU64 = AtomicU64::new(0);
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = 32,
+    Syscall = 128,
     Spurious = 255,
 }
 

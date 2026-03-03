@@ -78,6 +78,9 @@ unsafe extern "C" fn kmain() -> ! {
 
     // test breakpoint
     x86_64::instructions::interrupts::int3();
+    unsafe {
+        x86_64::instructions::interrupts::software_interrupt::<0x80>();
+    }
 
     // test
     system::proc::spawn("init", k_init);

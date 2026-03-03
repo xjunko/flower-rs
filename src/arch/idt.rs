@@ -5,6 +5,7 @@ use crate::{
     arch::{
         gdt::DOUBLE_FAULT_IST_INDEX,
         interrupts::{InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler},
+        syscalls::syscall_handler,
     },
     error, println, warn,
 };
@@ -27,6 +28,9 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     // spurious
     idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
     idt[InterruptIndex::Spurious.as_u8()].set_handler_fn(spurious_interrupt_handler);
+
+    // syscall
+    idt[InterruptIndex::Syscall.as_u8()].set_handler_fn(syscall_handler);
 
     idt
 });
