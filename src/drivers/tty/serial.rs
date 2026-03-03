@@ -116,7 +116,7 @@ macro_rules! debug {
         $crate::print!(
             "\x1b[32m[D]\x1b[0m [{}:{}] {}\n",
             file!(), line!(), format_args!($($arg)*)
-        );
+        )
     };
 }
 
@@ -126,7 +126,7 @@ macro_rules! warn {
         $crate::print!(
             "\x1b[33m[W]\x1b[0m [{}:{}] {}\n",
             file!(), line!(), format_args!($($arg)*)
-        );
+        )
     };
 }
 
@@ -136,6 +136,6 @@ macro_rules! error {
         $crate::print!(
             "\x1b[31m[E]\x1b[0m [{}:{}] {}\n",
             file!(), line!(), format_args!($($arg)*)
-        );
+        )
     };
 }
