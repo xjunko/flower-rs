@@ -1,14 +1,14 @@
 use alloc::vec::Vec;
 use core::ptr::NonNull;
 
-use acpi::{
-    AcpiTables, PhysicalMapping,
-    sdt::madt::{Madt, MadtEntry},
-};
+use acpi::sdt::madt::{Madt, MadtEntry};
+use acpi::{AcpiTables, PhysicalMapping};
 use spin::Once;
-use x86_64::{PhysAddr, structures::paging::PageTableFlags};
+use x86_64::PhysAddr;
+use x86_64::structures::paging::PageTableFlags;
 
-use crate::{boot::limine::RSDP_REQUEST, system::mem::vmm};
+use crate::boot::limine::RSDP_REQUEST;
+use crate::system::mem::vmm;
 
 #[derive(Clone, Debug)]
 pub struct AcpiReader;
@@ -19,7 +19,8 @@ impl acpi::Handler for AcpiReader {
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
-        let virt_addr = vmm::phys_to_virt(PhysAddr::new(physical_address as u64));
+        let virt_addr =
+            vmm::phys_to_virt(PhysAddr::new(physical_address as u64));
 
         if !vmm::page_is_mapped(virt_addr)
             && let Err(e) = vmm::page_map(
@@ -47,61 +48,33 @@ impl acpi::Handler for AcpiReader {
         // noop.
     }
 
-    fn read_u8(&self, _address: usize) -> u8 {
-        todo!()
-    }
+    fn read_u8(&self, _address: usize) -> u8 { todo!() }
 
-    fn read_u16(&self, _address: usize) -> u16 {
-        todo!()
-    }
+    fn read_u16(&self, _address: usize) -> u16 { todo!() }
 
-    fn read_u32(&self, _address: usize) -> u32 {
-        todo!()
-    }
+    fn read_u32(&self, _address: usize) -> u32 { todo!() }
 
-    fn read_u64(&self, _address: usize) -> u64 {
-        todo!()
-    }
+    fn read_u64(&self, _address: usize) -> u64 { todo!() }
 
-    fn write_u8(&self, _address: usize, _value: u8) {
-        todo!()
-    }
+    fn write_u8(&self, _address: usize, _value: u8) { todo!() }
 
-    fn write_u16(&self, _address: usize, _value: u16) {
-        todo!()
-    }
+    fn write_u16(&self, _address: usize, _value: u16) { todo!() }
 
-    fn write_u32(&self, _address: usize, _value: u32) {
-        todo!()
-    }
+    fn write_u32(&self, _address: usize, _value: u32) { todo!() }
 
-    fn write_u64(&self, _address: usize, _svalue: u64) {
-        todo!()
-    }
+    fn write_u64(&self, _address: usize, _svalue: u64) { todo!() }
 
-    fn read_io_u8(&self, _port: u16) -> u8 {
-        todo!()
-    }
+    fn read_io_u8(&self, _port: u16) -> u8 { todo!() }
 
-    fn read_io_u16(&self, _port: u16) -> u16 {
-        todo!()
-    }
+    fn read_io_u16(&self, _port: u16) -> u16 { todo!() }
 
-    fn read_io_u32(&self, _port: u16) -> u32 {
-        todo!()
-    }
+    fn read_io_u32(&self, _port: u16) -> u32 { todo!() }
 
-    fn write_io_u8(&self, _port: u16, _value: u8) {
-        todo!()
-    }
+    fn write_io_u8(&self, _port: u16, _value: u8) { todo!() }
 
-    fn write_io_u16(&self, _port: u16, _value: u16) {
-        todo!()
-    }
+    fn write_io_u16(&self, _port: u16, _value: u16) { todo!() }
 
-    fn write_io_u32(&self, _port: u16, _value: u32) {
-        todo!()
-    }
+    fn write_io_u32(&self, _port: u16, _value: u32) { todo!() }
 
     fn read_pci_u8(&self, _address: acpi::PciAddress, _offset: u16) -> u8 {
         todo!()
@@ -115,41 +88,50 @@ impl acpi::Handler for AcpiReader {
         todo!()
     }
 
-    fn write_pci_u8(&self, _address: acpi::PciAddress, _offset: u16, _value: u8) {
+    fn write_pci_u8(
+        &self,
+        _address: acpi::PciAddress,
+        _offset: u16,
+        _value: u8,
+    ) {
         todo!()
     }
 
-    fn write_pci_u16(&self, _address: acpi::PciAddress, _offset: u16, _value: u16) {
+    fn write_pci_u16(
+        &self,
+        _address: acpi::PciAddress,
+        _offset: u16,
+        _value: u16,
+    ) {
         todo!()
     }
 
-    fn write_pci_u32(&self, _address: acpi::PciAddress, _offset: u16, _value: u32) {
+    fn write_pci_u32(
+        &self,
+        _address: acpi::PciAddress,
+        _offset: u16,
+        _value: u32,
+    ) {
         todo!()
     }
 
-    fn nanos_since_boot(&self) -> u64 {
+    fn nanos_since_boot(&self) -> u64 { todo!() }
+
+    fn stall(&self, _microseconds: u64) { todo!() }
+
+    fn sleep(&self, _milliseconds: u64) { todo!() }
+
+    fn create_mutex(&self) -> acpi::Handle { todo!() }
+
+    fn acquire(
+        &self,
+        _mutex: acpi::Handle,
+        _timeout: u16,
+    ) -> Result<(), acpi::aml::AmlError> {
         todo!()
     }
 
-    fn stall(&self, _microseconds: u64) {
-        todo!()
-    }
-
-    fn sleep(&self, _milliseconds: u64) {
-        todo!()
-    }
-
-    fn create_mutex(&self) -> acpi::Handle {
-        todo!()
-    }
-
-    fn acquire(&self, _mutex: acpi::Handle, _timeout: u16) -> Result<(), acpi::aml::AmlError> {
-        todo!()
-    }
-
-    fn release(&self, _mutex: acpi::Handle) {
-        todo!()
-    }
+    fn release(&self, _mutex: acpi::Handle) { todo!() }
 }
 
 #[derive(Debug)]
@@ -181,13 +163,11 @@ pub fn install() {
     let mut tables = KernelAcpiTables::default();
 
     unsafe {
-        let rsdp = RSDP_REQUEST
-            .get_response()
-            .expect("failed to get rsdp")
-            .address();
+        let rsdp =
+            RSDP_REQUEST.get_response().expect("failed to get rsdp").address();
 
-        let acpi_tables =
-            AcpiTables::from_rsdp(AcpiReader, rsdp).expect("failed to parse acpi tables");
+        let acpi_tables = AcpiTables::from_rsdp(AcpiReader, rsdp)
+            .expect("failed to parse acpi tables");
 
         for madt in acpi_tables.find_tables::<Madt>() {
             for entry in madt.get().entries() {
@@ -199,10 +179,12 @@ pub fn install() {
                             flags: lapic.flags,
                         });
                     },
-                    MadtEntry::IoApic(ioapic) => tables.ioapics.push(IoApicInfo {
-                        id: ioapic.io_apic_id,
-                        address: ioapic.io_apic_address,
-                    }),
+                    MadtEntry::IoApic(ioapic) => {
+                        tables.ioapics.push(IoApicInfo {
+                            id: ioapic.io_apic_id,
+                            address: ioapic.io_apic_address,
+                        })
+                    },
                     _ => {},
                 }
             }

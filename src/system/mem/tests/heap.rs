@@ -1,4 +1,5 @@
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 pub fn test_heap_basic() {
     let x = Box::new(100);
@@ -27,9 +28,7 @@ pub fn test_heap_fragmentation() {
     drop(boxes);
 }
 
-pub fn test_heap_large() {
-    let _ = Vec::<u8>::with_capacity(512 * 1024);
-}
+pub fn test_heap_large() { let _ = Vec::<u8>::with_capacity(512 * 1024); }
 
 pub fn test_heap_oom() {
     // HACK: this works but it crashes the kernel

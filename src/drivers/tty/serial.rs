@@ -1,7 +1,8 @@
 use core::fmt::{self, Write};
 
 use spin::Mutex;
-use x86_64::instructions::{interrupts, port::Port};
+use x86_64::instructions::interrupts;
+use x86_64::instructions::port::Port;
 pub struct SerialPort {
     data: Port<u8>,
     interrupt: Port<u8>,
@@ -69,12 +70,11 @@ impl Write for SerialPort {
 }
 
 const _DEFAULT_COM_PORT: u16 = 0x3F8;
-pub static SERIAL: Mutex<SerialPort> = Mutex::new(SerialPort::new(_DEFAULT_COM_PORT));
+pub static SERIAL: Mutex<SerialPort> =
+    Mutex::new(SerialPort::new(_DEFAULT_COM_PORT));
 
 // public APIs
-pub fn install() {
-    SERIAL.lock().init()
-}
+pub fn install() { SERIAL.lock().init() }
 
 pub fn _print(args: fmt::Arguments) {
     interrupts::without_interrupts(|| {

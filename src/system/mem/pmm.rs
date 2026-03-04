@@ -2,7 +2,8 @@ use limine::memory_map::EntryType;
 use spin::Mutex;
 use x86_64::VirtAddr;
 
-use crate::{error, info, system::mem::PAGE_SIZE};
+use crate::system::mem::PAGE_SIZE;
+use crate::{error, info};
 
 static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);
 
@@ -64,9 +65,7 @@ impl BitmapAllocator {
     }
 }
 
-fn page_to_mb(page: usize) -> usize {
-    (page * PAGE_SIZE) / (1024 * 1024)
-}
+fn page_to_mb(page: usize) -> usize { (page * PAGE_SIZE) / (1024 * 1024) }
 
 pub fn install() {
     let (hhdm, mmap) = {
@@ -98,7 +97,9 @@ pub fn install() {
 
     let mut bitmap_addr: Option<u64> = None;
     for entry in mmap {
-        if entry.entry_type == EntryType::USABLE && entry.length >= bitmap_size as u64 {
+        if entry.entry_type == EntryType::USABLE
+            && entry.length >= bitmap_size as u64
+        {
             bitmap_addr = Some(entry.base);
             break;
         }
@@ -133,7 +134,8 @@ pub fn install() {
     }
 
     let bitmap_start_page = (bitmap_addr as usize) / PAGE_SIZE;
-    let bitmap_end_page = ((bitmap_addr as usize) + bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    let bitmap_end_page =
+        ((bitmap_addr as usize) + bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
 
     for page in bitmap_start_page..bitmap_end_page {
         if !allocator.test_bit(page) {
@@ -162,11 +164,7 @@ pub fn install() {
 }
 
 pub fn alloc() -> Option<u64> {
-    if let Some(pmm) = PMM.lock().as_mut() {
-        pmm.alloc_page()
-    } else {
-        None
-    }
+    if let Some(pmm) = PMM.lock().as_mut() { pmm.alloc_page() } else { None }
 }
 
 pub fn free(addr: u64) {
@@ -182,7 +180,5 @@ pub fn free(addr: u64) {
 }
 
 pub fn max_phys_address() -> Option<u64> {
-    PMM.lock()
-        .as_ref()
-        .map(|pmm| (pmm.total_pages * PAGE_SIZE) as u64)
+    PMM.lock().as_ref().map(|pmm| (pmm.total_pages * PAGE_SIZE) as u64)
 }

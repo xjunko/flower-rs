@@ -1,9 +1,11 @@
-use core::{fmt::Write, ptr::null_mut};
+use core::fmt::Write;
+use core::ptr::null_mut;
 
 use flanterm::sys::{flanterm_context, flanterm_fb_init, flanterm_write};
 use spin::Mutex;
 
-use crate::{boot::limine::FRAMEBUFFER_REQUEST, debug, error, info};
+use crate::boot::limine::FRAMEBUFFER_REQUEST;
+use crate::{debug, error, info};
 
 pub static CONTEXT: Mutex<Option<FlantermContext>> = Mutex::new(None);
 
@@ -86,8 +88,5 @@ pub fn install() {
 }
 
 pub fn get() -> Option<FlantermContext> {
-    CONTEXT
-        .lock()
-        .as_ref()
-        .map(|ctx| FlantermContext(ctx.0, ctx.1))
+    CONTEXT.lock().as_ref().map(|ctx| FlantermContext(ctx.0, ctx.1))
 }

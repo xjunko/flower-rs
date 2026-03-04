@@ -1,12 +1,10 @@
 use spin::Mutex;
-use x86_64::{
-    PhysAddr, VirtAddr,
-    registers::control::Cr3,
-    structures::paging::{
-        FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame,
-        Size4KiB, Translate,
-    },
+use x86_64::registers::control::Cr3;
+use x86_64::structures::paging::{
+    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags,
+    PhysFrame, Size4KiB, Translate,
 };
+use x86_64::{PhysAddr, VirtAddr};
 
 use crate::{debug, error, info, system};
 
@@ -23,10 +21,7 @@ unsafe impl FrameAllocator<Size4KiB> for PMMFrameAllocator {
 
 pub fn install() {
     *HHDM.lock() = Some(
-        crate::boot::limine::HHDM_REQUEST
-            .get_response()
-            .unwrap()
-            .offset(),
+        crate::boot::limine::HHDM_REQUEST.get_response().unwrap().offset(),
     );
 
     let (pml4_frame, _) = Cr3::read();
@@ -36,9 +31,7 @@ pub fn install() {
     info!("PML4 physical address: {:#x}", pml4_frame.start_address());
 }
 
-fn hhdm() -> u64 {
-    HHDM.lock().expect("no hhdm")
-}
+fn hhdm() -> u64 { HHDM.lock().expect("no hhdm") }
 
 pub fn phys_to_virt(phys: PhysAddr) -> VirtAddr {
     VirtAddr::new(phys.as_u64() + hhdm())
@@ -80,7 +73,11 @@ unsafe fn page_get_table_at(pml4_phys: PhysAddr) -> OffsetPageTable<'static> {
     unsafe { OffsetPageTable::new(pml4, VirtAddr::new(hhdm())) }
 }
 
-pub fn page_map(virt: VirtAddr, phys: PhysAddr, flags: PageTableFlags) -> Result<(), &'static str> {
+pub fn page_map(
+    virt: VirtAddr,
+    phys: PhysAddr,
+    flags: PageTableFlags,
+) -> Result<(), &'static str> {
     let page: Page<Size4KiB> = Page::containing_address(virt);
     let frame = PhysFrame::containing_address(phys);
 
@@ -97,7 +94,10 @@ pub fn page_map(virt: VirtAddr, phys: PhysAddr, flags: PageTableFlags) -> Result
     Ok(())
 }
 
-pub fn page_map_alloc(virt: VirtAddr, flags: PageTableFlags) -> Result<PhysAddr, &'static str> {
+pub fn page_map_alloc(
+    virt: VirtAddr,
+    flags: PageTableFlags,
+) -> Result<PhysAddr, &'static str> {
     let phys_addr = system::mem::pmm::alloc().ok_or("oom")?;
     let phys = PhysAddr::new(phys_addr);
 
@@ -121,7 +121,8 @@ pub fn page_unmap(virt: VirtAddr) -> Result<PhysAddr, &'static str> {
 
     unsafe {
         let mut mapper = page_get_current_table();
-        let (frame, flush) = mapper.unmap(page).map_err(|_| "failed to unmap page")?;
+        let (frame, flush) =
+            mapper.unmap(page).map_err(|_| "failed to unmap page")?;
         flush.flush();
         Ok(frame.start_address())
     }
@@ -141,7 +142,8 @@ unsafe fn page_table_free(table_phys: PhysAddr, level: u8) {
         level
     );
 
-    let table = unsafe { &mut *phys_to_virt(table_phys).as_mut_ptr::<PageTable>() };
+    let table =
+        unsafe { &mut *phys_to_virt(table_phys).as_mut_ptr::<PageTable>() };
     let entry_limit = if level == 4 { 256 } else { 512 };
 
     for index in 0..entry_limit {
@@ -195,9 +197,7 @@ impl AddressSpace {
         Ok(Self { pml4_phys })
     }
 
-    pub fn cr3(&self) -> u64 {
-        self.pml4_phys.as_u64()
-    }
+    pub fn cr3(&self) -> u64 { self.pml4_phys.as_u64() }
 
     pub fn map_page(
         &self,
@@ -272,13 +272,12 @@ impl AddressSpace {
         while offset < len {
             let current_virt = VirtAddr::new(virt.as_u64() + offset as u64);
             let page_offset = (current_virt.as_u64() & 0xFFF) as usize;
-            let bytes_in_page = core::cmp::min(4096 - page_offset, len - offset);
+            let bytes_in_page =
+                core::cmp::min(4096 - page_offset, len - offset);
 
             let phys = unsafe {
                 let mapper = page_get_table_at(self.pml4_phys);
-                mapper
-                    .translate_addr(current_virt)
-                    .ok_or("page not mapped")?
+                mapper.translate_addr(current_virt).ok_or("page not mapped")?
             };
 
             unsafe {
@@ -292,24 +291,31 @@ impl AddressSpace {
         Ok(())
     }
 
-    pub fn write(&self, virt: VirtAddr, data: &[u8]) -> Result<(), &'static str> {
+    pub fn write(
+        &self,
+        virt: VirtAddr,
+        data: &[u8],
+    ) -> Result<(), &'static str> {
         let mut offset = 0;
 
         while offset < data.len() {
             let current_virt = VirtAddr::new(virt.as_u64() + offset as u64);
             let page_offset = (current_virt.as_u64() & 0xFFF) as usize;
-            let bytes_in_page = core::cmp::min(4096 - page_offset, data.len() - offset);
+            let bytes_in_page =
+                core::cmp::min(4096 - page_offset, data.len() - offset);
 
             let phys = unsafe {
                 let mapper = page_get_table_at(self.pml4_phys);
-                mapper
-                    .translate_addr(current_virt)
-                    .ok_or("page not mapped")?
+                mapper.translate_addr(current_virt).ok_or("page not mapped")?
             };
 
             unsafe {
                 let dest = phys_to_virt(phys).as_mut_ptr::<u8>();
-                core::ptr::copy_nonoverlapping(data.as_ptr().add(offset), dest, bytes_in_page);
+                core::ptr::copy_nonoverlapping(
+                    data.as_ptr().add(offset),
+                    dest,
+                    bytes_in_page,
+                );
             }
 
             offset += bytes_in_page;

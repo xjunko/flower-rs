@@ -1,10 +1,10 @@
 use linked_list_allocator::LockedHeap;
-use x86_64::{VirtAddr, structures::paging::PageTableFlags};
+use x86_64::VirtAddr;
+use x86_64::structures::paging::PageTableFlags;
 
-use crate::{
-    info,
-    system::{self, mem::PAGE_SIZE},
-};
+use crate::info;
+use crate::system::mem::PAGE_SIZE;
+use crate::system::{self};
 
 const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
 const HEAP_SIZE: usize = 1024 * 1024;
@@ -18,7 +18,9 @@ pub fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
 }
 
 pub fn install() -> Result<(), &'static str> {
-    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+    let flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::NO_EXECUTE;
     let heap_pages = (HEAP_SIZE + PAGE_SIZE - 1) / PAGE_SIZE;
 
     for i in 0..heap_pages {

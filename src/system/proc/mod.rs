@@ -1,11 +1,14 @@
-use alloc::{collections::vec_deque::VecDeque, string::String};
+use alloc::collections::vec_deque::VecDeque;
+use alloc::string::String;
 use core::arch::naked_asm;
 
 pub use process::*;
 use spin::Mutex;
-use x86_64::{VirtAddr, instructions::interrupts};
+use x86_64::VirtAddr;
+use x86_64::instructions::interrupts;
 
-use crate::{arch::gdt, debug};
+use crate::arch::gdt;
+use crate::debug;
 pub mod process;
 mod trampoline;
 
@@ -17,12 +20,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new() -> Self {
-        Self {
-            processes: VecDeque::new(),
-            current: 0,
-        }
-    }
+    pub fn new() -> Self { Self { processes: VecDeque::new(), current: 0 } }
 
     /// adds a process to the scheduler.
     pub fn add(&mut self, process: Process) {
@@ -53,7 +51,9 @@ impl Scheduler {
         let mut i = self.processes.len();
         while i > 0 {
             i -= 1;
-            if i != self.current && self.processes[i].state == ProcessState::Dead {
+            if i != self.current
+                && self.processes[i].state == ProcessState::Dead
+            {
                 debug!("reaping process {}", self.processes[i].name);
                 self.processes.remove(i);
                 if i < self.current {
@@ -164,14 +164,18 @@ pub fn schedule() {
         };
 
         if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
-            unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack) }
+            unsafe {
+                Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
+            }
         }
     });
 }
 
 /// returns the current pid
 pub fn current() -> Option<usize> {
-    interrupts::without_interrupts(|| SCHEDULER.lock().as_ref().map(|sched| sched.current))
+    interrupts::without_interrupts(|| {
+        SCHEDULER.lock().as_ref().map(|sched| sched.current)
+    })
 }
 
 /// gets the current process name

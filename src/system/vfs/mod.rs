@@ -1,8 +1,6 @@
-use alloc::{
-    boxed::Box,
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use spin::{Lazy, Mutex};
 
@@ -24,12 +22,14 @@ pub struct Vfs {
 // internals
 impl Vfs {
     /// creates a new VFS instance
-    pub fn new() -> Self {
-        Self { mounts: Vec::new() }
-    }
+    pub fn new() -> Self { Self { mounts: Vec::new() } }
 
     /// mounts the given filesystem at the given path
-    pub fn mount(&mut self, path: &str, fs: Box<dyn VFSImplementation>) -> VFSResult<()> {
+    pub fn mount(
+        &mut self,
+        path: &str,
+        fs: Box<dyn VFSImplementation>,
+    ) -> VFSResult<()> {
         let path = path.to_string();
 
         if self.mounts.iter().any(|m| m.path == path) {
@@ -55,7 +55,10 @@ impl Vfs {
     }
 
     /// resolves the given path to a filesystem and relative path
-    pub fn resolve(&self, path: &str) -> VFSResult<(&dyn VFSImplementation, String)> {
+    pub fn resolve(
+        &self,
+        path: &str,
+    ) -> VFSResult<(&dyn VFSImplementation, String)> {
         let path = path.to_string();
 
         for mount in &self.mounts {

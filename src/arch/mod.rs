@@ -21,7 +21,9 @@ pub fn install_cpu_features() {
 
         unsafe {
             Cr0::update(|flags| {
-                flags.remove(Cr0Flags::EMULATE_COPROCESSOR | Cr0Flags::TASK_SWITCHED);
+                flags.remove(
+                    Cr0Flags::EMULATE_COPROCESSOR | Cr0Flags::TASK_SWITCHED,
+                );
                 flags.insert(Cr0Flags::MONITOR_COPROCESSOR);
             });
 

@@ -52,7 +52,5 @@ pub trait VFSImplementation: Send + Sync {
     fn metadata(&self, path: &str) -> VFSResult<VFSMetadata>;
 
     /// checks if the file exists
-    fn exists(&self, path: &str) -> bool {
-        self.metadata(path).is_ok()
-    }
+    fn exists(&self, path: &str) -> bool { self.metadata(path).is_ok() }
 }

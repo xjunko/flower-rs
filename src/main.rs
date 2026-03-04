@@ -98,7 +98,8 @@ unsafe extern "C" fn kmain() -> ! {
     system::vfs::install();
 
     // file reading test
-    let file = system::vfs::open("/init/hello.txt", 0).expect("failed to open file");
+    let file =
+        system::vfs::open("/init/hello.txt", 0).expect("failed to open file");
     let metadata = file.metadata().expect("failed to get metadata");
     info!("file size: {} bytes", metadata.size);
 

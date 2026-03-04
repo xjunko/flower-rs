@@ -1,13 +1,11 @@
 use spin::Lazy;
-use x86_64::{
-    VirtAddr,
-    instructions::tables::load_tss,
-    registers::segmentation::{CS, DS, SS, Segment},
-    structures::{
-        gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector},
-        tss::TaskStateSegment,
-    },
+use x86_64::VirtAddr;
+use x86_64::instructions::tables::load_tss;
+use x86_64::registers::segmentation::{CS, DS, SS, Segment};
+use x86_64::structures::gdt::{
+    Descriptor, GlobalDescriptorTable, SegmentSelector,
 };
+use x86_64::structures::tss::TaskStateSegment;
 
 pub struct GDTSegments {
     pub kernel_code: SegmentSelector,
@@ -52,16 +50,7 @@ static GDT: Lazy<(GlobalDescriptorTable, GDTSegments)> = Lazy::new(|| {
 
     let tss = gdt.append(Descriptor::tss_segment(&TSS));
 
-    (
-        gdt,
-        GDTSegments {
-            kernel_code,
-            kernel_data,
-            user_data,
-            user_code,
-            tss,
-        },
-    )
+    (gdt, GDTSegments { kernel_code, kernel_data, user_data, user_code, tss })
 });
 
 pub fn install() {
@@ -75,9 +64,7 @@ pub fn install() {
     }
 }
 
-pub fn segments() -> &'static GDTSegments {
-    &GDT.1
-}
+pub fn segments() -> &'static GDTSegments { &GDT.1 }
 
 pub fn set_kernel_stack(stack_top: VirtAddr) {
     unsafe {

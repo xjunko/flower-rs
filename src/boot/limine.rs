@@ -1,9 +1,7 @@
-use limine::{
-    BaseRevision,
-    request::{
-        FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest, RequestsEndMarker,
-        RequestsStartMarker, RsdpRequest,
-    },
+use limine::BaseRevision;
+use limine::request::{
+    FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest,
+    RequestsEndMarker, RequestsStartMarker, RsdpRequest,
 };
 
 #[used]

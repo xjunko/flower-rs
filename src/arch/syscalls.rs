@@ -1,15 +1,12 @@
 use core::arch::naked_asm;
 
-use x86_64::{
-    VirtAddr,
-    registers::{
-        control::{Efer, EferFlags},
-        model_specific::{KernelGsBase, LStar, SFMask, Star},
-        rflags::RFlags,
-    },
-};
+use x86_64::VirtAddr;
+use x86_64::registers::control::{Efer, EferFlags};
+use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
+use x86_64::registers::rflags::RFlags;
 
-use crate::{arch::gdt, error};
+use crate::arch::gdt;
+use crate::error;
 
 #[repr(C, align(16))]
 struct CPUStack {
@@ -40,7 +37,8 @@ pub fn install() {
         Efer::write(efer | EferFlags::SYSTEM_CALL_EXTENSIONS);
 
         let cpu_local = &raw const CPU_STACK as *const _ as u64;
-        CPU_STACK.kernel = SYSCALL_STACK.as_ptr() as u64 + SYSCALL_STACK.len() as u64;
+        CPU_STACK.kernel =
+            SYSCALL_STACK.as_ptr() as u64 + SYSCALL_STACK.len() as u64;
         KernelGsBase::write(VirtAddr::new(cpu_local));
     }
 }

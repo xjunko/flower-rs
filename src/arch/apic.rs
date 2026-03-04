@@ -1,12 +1,13 @@
 use raw_cpuid::CpuId;
-use x86_64::{
-    PhysAddr, VirtAddr,
-    instructions::{interrupts, port::Port},
-    registers::model_specific::{ApicBase, ApicBaseFlags},
-    structures::paging::PageTableFlags,
-};
+use x86_64::instructions::interrupts;
+use x86_64::instructions::port::Port;
+use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
+use x86_64::structures::paging::PageTableFlags;
+use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{arch::interrupts::InterruptIndex, debug, error, system::mem::vmm};
+use crate::arch::interrupts::InterruptIndex;
+use crate::system::mem::vmm;
+use crate::{debug, error};
 
 // legacy pic
 const PIC1: u16 = 0x20;
@@ -126,7 +127,10 @@ pub fn install() {
         if !apic_flags.contains(ApicBaseFlags::LAPIC_ENABLE) {
             debug!("lapic not enabled, enabling...");
             unsafe {
-                ApicBase::write(apic_base, apic_flags | ApicBaseFlags::LAPIC_ENABLE);
+                ApicBase::write(
+                    apic_base,
+                    apic_flags | ApicBaseFlags::LAPIC_ENABLE,
+                );
             }
             debug!("enabled!");
         } else {
@@ -134,9 +138,15 @@ pub fn install() {
         }
 
         // map it
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_CACHE;
-        vmm::page_map(VirtAddr::new(LAPIC_VIRT), apic_base.start_address(), flags)
-            .expect("failed to map lapic.");
+        let flags = PageTableFlags::PRESENT
+            | PageTableFlags::WRITABLE
+            | PageTableFlags::NO_CACHE;
+        vmm::page_map(
+            VirtAddr::new(LAPIC_VIRT),
+            apic_base.start_address(),
+            flags,
+        )
+        .expect("failed to map lapic.");
 
         // also map ioapic
         let acpi_tables = super::acpi::get();
@@ -154,7 +164,10 @@ pub fn install() {
 
         // enable spurious
         unsafe {
-            lapic_write(LAPIC_SPURIOUS, 0x100 | InterruptIndex::Spurious as u32);
+            lapic_write(
+                LAPIC_SPURIOUS,
+                0x100 | InterruptIndex::Spurious as u32,
+            );
         }
 
         calibrate_timer();
@@ -163,12 +176,13 @@ pub fn install() {
         let ticks_10ms = unsafe { TICKS_PER_MS * 10 };
         unsafe {
             lapic_write(LAPIC_TIMER_DIV, 0x3);
-            lapic_write(LAPIC_TIMER_LVT, (1 << 17) | InterruptIndex::Timer as u32);
+            lapic_write(
+                LAPIC_TIMER_LVT,
+                (1 << 17) | InterruptIndex::Timer as u32,
+            );
             lapic_write(LAPIC_TIMER_INIT, ticks_10ms);
         }
     }
 }
 
-pub fn eoi() {
-    unsafe { lapic_write(LAPIC_EOI, 0) }
-}
+pub fn eoi() { unsafe { lapic_write(LAPIC_EOI, 0) } }

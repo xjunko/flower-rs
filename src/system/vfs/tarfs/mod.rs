@@ -1,10 +1,10 @@
-use alloc::{
-    boxed::Box,
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
-use crate::{boot::limine::MODULE_REQUESTS, error, system::vfs::types::*};
+use crate::boot::limine::MODULE_REQUESTS;
+use crate::error;
+use crate::system::vfs::types::*;
 
 unsafe impl Send for TarFile {}
 unsafe impl Sync for TarFile {}
@@ -26,22 +26,26 @@ impl VFSFile for TarFile {
             let source = unsafe { fs.data.as_ptr().add(position) };
 
             unsafe {
-                core::ptr::copy_nonoverlapping(source, buf.as_mut_ptr(), bytes_to_read);
+                core::ptr::copy_nonoverlapping(
+                    source,
+                    buf.as_mut_ptr(),
+                    bytes_to_read,
+                );
             }
 
             bytes_to_read
         })
     }
 
-    fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> {
-        unimplemented!()
-    }
+    fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> { unimplemented!() }
 
     fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
         let mut new_pos = match pos {
             VFSSeek::Start(n) => self.data_position as isize + n as isize,
             VFSSeek::Current(n) => n as isize,
-            VFSSeek::End(n) => self.data_position as isize + self.size as isize + n as isize,
+            VFSSeek::End(n) => {
+                self.data_position as isize + self.size as isize + n as isize
+            },
         };
 
         if new_pos < 0 {
@@ -59,10 +63,7 @@ impl VFSFile for TarFile {
     }
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {
-        Ok(VFSMetadata {
-            file_type: VFSFileType::File,
-            size: self.size,
-        })
+        Ok(VFSMetadata { file_type: VFSFileType::File, size: self.size })
     }
 }
 
@@ -101,7 +102,11 @@ impl TarFS {
             let size = file.size() as usize;
             let mut data = alloc::vec![0u8; size];
             unsafe {
-                core::ptr::copy_nonoverlapping(file.addr(), data.as_mut_ptr(), size);
+                core::ptr::copy_nonoverlapping(
+                    file.addr(),
+                    data.as_mut_ptr(),
+                    size,
+                );
             }
 
             // read all the files
@@ -109,14 +114,19 @@ impl TarFS {
 
             while offset < data.len() {
                 if data[offset + 257..offset + 257 + 5] != *b"ustar" {
-                    error!("tarfs: invalid header at offset {}, stopping...", offset);
+                    error!(
+                        "tarfs: invalid header at offset {}, stopping...",
+                        offset
+                    );
                     break;
                 }
 
-                let file_size = oct_to_bin(&data[offset + 0x7c..offset + 0x7c + 11]);
-                let mut path = String::from_utf8_lossy(&data[offset..offset + 100])
-                    .trim_matches(char::from(0))
-                    .to_string();
+                let file_size =
+                    oct_to_bin(&data[offset + 0x7c..offset + 0x7c + 11]);
+                let mut path =
+                    String::from_utf8_lossy(&data[offset..offset + 100])
+                        .trim_matches(char::from(0))
+                        .to_string();
 
                 // resolve path
                 if path.starts_with(".") {
@@ -142,22 +152,20 @@ impl TarFS {
             return Self { data, files };
         }
 
-        Self {
-            data: Vec::new(),
-            files: Vec::new(),
-        }
+        Self { data: Vec::new(), files: Vec::new() }
     }
 
     fn get_file(&self, path: &str) -> VFSResult<&TarFile> {
-        self.files
-            .iter()
-            .find(|f| f.path == path)
-            .ok_or(VFSError::NotFound)
+        self.files.iter().find(|f| f.path == path).ok_or(VFSError::NotFound)
     }
 }
 
 impl VFSImplementation for TarFS {
-    fn open(&self, path: &str, _flags: u32) -> VFSResult<alloc::boxed::Box<dyn VFSFile>> {
+    fn open(
+        &self,
+        path: &str,
+        _flags: u32,
+    ) -> VFSResult<alloc::boxed::Box<dyn VFSFile>> {
         let file = self.get_file(path)?;
         Ok(Box::new(TarFile {
             data_position: file.data_position,
@@ -175,9 +183,7 @@ impl VFSImplementation for TarFS {
 }
 
 impl Default for TarFS {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 fn oct_to_bin(bytes: &[u8]) -> usize {
