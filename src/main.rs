@@ -12,20 +12,49 @@ mod boot;
 mod drivers;
 mod system;
 
-use alloc::vec;
-
-fn core_test() {
-    debug!("test!");
-}
-
-fn core_test2() {
-    debug!("test 2!");
-}
+use alloc::{format, vec};
 
 fn k_init() {
-    debug!("init process started");
-    system::proc::spawn("core_test", core_test);
-    system::proc::spawn("core_test2", core_test2);
+    system::proc::spawn("one-level", || {
+        debug!("hello world from {}", system::proc::name());
+    });
+
+    system::proc::spawn("two-level", || {
+        for i in 0..5 {
+            debug!("hello world from {}: {}", system::proc::name(), i);
+        }
+
+        system::proc::spawn("two-level-inside", || {
+            for i in 0..5 {
+                debug!("hello world from {}: {}", system::proc::name(), i);
+            }
+        })
+    });
+
+    system::proc::spawn("three-level", || {
+        for i in 0..5 {
+            debug!("hello world from {}: {}", system::proc::name(), i);
+        }
+
+        system::proc::spawn("three-level-inner", || {
+            debug!("hello world from {}", system::proc::name());
+            system::proc::spawn("three-level-inner-inside", || {
+                for i in 0..5 {
+                    debug!("hello world from {}: {}", system::proc::name(), i);
+                }
+            })
+        })
+    });
+
+    // stress test the scheduling
+    const NUM_PROCESSES: usize = 100;
+    for i in 0..NUM_PROCESSES {
+        system::proc::spawn(&format!("stress-{}", i), || {
+            for j in 0..5 {
+                debug!("hello world from {}: {}", system::proc::name(), j);
+            }
+        });
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -49,10 +78,15 @@ unsafe extern "C" fn kmain() -> ! {
 
     // apic
     arch::apic::install();
-    arch::interrupts::install();
+
+    // syscall
+    arch::syscalls::install();
 
     // scheduler
     system::proc::install();
+
+    // enable interrupts after APIC and scheduler are ready
+    arch::interrupts::install();
 
     // past this point, the kernel can now do dynamic allocation
     drivers::tty::flanterm::install();
@@ -75,12 +109,6 @@ unsafe extern "C" fn kmain() -> ! {
         "file contents: {}",
         core::str::from_utf8(&buf).expect("invalid contents")
     );
-
-    // test breakpoint
-    x86_64::instructions::interrupts::int3();
-    unsafe {
-        x86_64::instructions::interrupts::software_interrupt::<0x80>();
-    }
 
     // test
     system::proc::spawn("init", k_init);
