@@ -1,4 +1,4 @@
-use alloc::collections::vec_deque::VecDeque;
+use alloc::{collections::vec_deque::VecDeque, string::String};
 use core::arch::naked_asm;
 
 pub use process::*;
@@ -152,22 +152,21 @@ pub fn exit() {
 
 /// schedules the process
 pub fn schedule() {
-    if SCHEDULER.lock().is_none() {
-        panic!("trying to schedule while not initialized!");
-    }
+    interrupts::without_interrupts(|| {
+        let ctx_change = {
+            let mut guard = SCHEDULER.lock();
+            if let Some(sched) = guard.as_mut() {
+                sched.reap();
+                sched.next().map(|next| sched.switch_to(next))
+            } else {
+                panic!("trying to schedule while not initialized!");
+            }
+        };
 
-    let ctx_change = interrupts::without_interrupts(|| {
-        if let Some(sched) = SCHEDULER.lock().as_mut() {
-            sched.reap();
-            sched.next().map(|next| sched.switch_to(next))
-        } else {
-            None
+        if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
+            unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack) }
         }
     });
-
-    if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
-        unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack) }
-    }
 }
 
 /// returns the current pid
@@ -175,6 +174,18 @@ pub fn current() -> Option<usize> {
     interrupts::without_interrupts(|| SCHEDULER.lock().as_ref().map(|sched| sched.current))
 }
 
+/// gets the current process name
+pub fn name() -> String {
+    interrupts::without_interrupts(|| {
+        SCHEDULER
+            .lock()
+            .as_ref()
+            .map(|sched| sched.processes[sched.current].name.clone())
+            .unwrap_or(String::from("undefined"))
+    })
+}
+
+/// installs the scheduler, initializing the null process and adding it to the scheduler.
 pub fn install() {
     let mut scheduler = Scheduler::new();
     scheduler.add(null_process());
