@@ -130,10 +130,12 @@ impl Scheduler {
 pub fn spawn(name: &str, entry: fn()) {
     let new_process = Process::new(name, entry);
     debug!("created process {}", new_process.name);
-    if let Some(sched) = SCHEDULER.lock().as_mut() {
-        debug!("adding process {} to scheduler", new_process.name);
-        sched.add(new_process);
-    }
+    interrupts::without_interrupts(|| {
+        if let Some(sched) = SCHEDULER.lock().as_mut() {
+            debug!("adding process {} to scheduler", new_process.name);
+            sched.add(new_process);
+        }
+    });
 }
 
 /// exits the current process.
@@ -150,6 +152,10 @@ pub fn exit() {
 
 /// schedules the process
 pub fn schedule() {
+    if SCHEDULER.lock().is_none() {
+        panic!("trying to schedule while not initialized!");
+    }
+
     let ctx_change = interrupts::without_interrupts(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             sched.reap();
@@ -166,11 +172,13 @@ pub fn schedule() {
 
 /// returns the current pid
 pub fn current() -> Option<usize> {
-    SCHEDULER.lock().as_ref().map(|sched| sched.current)
+    interrupts::without_interrupts(|| SCHEDULER.lock().as_ref().map(|sched| sched.current))
 }
 
 pub fn install() {
     let mut scheduler = Scheduler::new();
     scheduler.add(null_process());
-    *SCHEDULER.lock() = Some(scheduler);
+    interrupts::without_interrupts(|| {
+        *SCHEDULER.lock() = Some(scheduler);
+    });
 }
