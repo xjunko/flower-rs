@@ -1,0 +1,13 @@
+[[bin]]
+name = "apps-template"
+test = false
+bench = false
+
+[package]
+name = "apps-template"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+flower-libc = { path = "../../flower-libc" }
