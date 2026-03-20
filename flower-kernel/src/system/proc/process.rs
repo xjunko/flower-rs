@@ -30,9 +30,7 @@ pub struct Process {
     pub state: ProcessState,
     pub level: ProcessLevel,
     pub address_space: Option<AddressSpace>,
-
     pub wake_at: Option<u64>,
-
     pub fds: FdTable,
 
     pub cr3: u64,

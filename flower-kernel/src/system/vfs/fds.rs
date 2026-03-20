@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use crate::system::vfs::types::{VFSError, VFSFile, VFSResult};
 
-pub const MAX_FDS: usize = 256;
+pub const MAX_FDS: usize = 8;
 
 pub enum FdKind {
     File(Box<dyn VFSFile>),
@@ -17,7 +17,7 @@ pub struct FdTable {
 
 impl FdTable {
     pub fn new() -> Self {
-        let mut table = Self { fds: [const { None }; MAX_FDS] };
+        let mut table = Self { fds: core::array::from_fn(|_| None) };
         table.fds[0] = Some(FdKind::Stdin);
         table.fds[1] = Some(FdKind::Stdout);
         table.fds[2] = Some(FdKind::Stderr);
