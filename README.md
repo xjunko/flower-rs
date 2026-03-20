@@ -1,7 +1,7 @@
 ## flower-rs
 a x86_64 kernel written in rust.
+<img width="1410" height="905" alt="image" src="https://github.com/user-attachments/assets/09c01cd9-ad8f-47f2-898a-8c5724e9d3a8" />
 
-<img width="770" height="665" alt="image" src="https://github.com/user-attachments/assets/035fcc1a-0b85-4a70-b002-cbffa3b30985" />
 
 ## why
 thought experiment, just wanted to see if its possible.
