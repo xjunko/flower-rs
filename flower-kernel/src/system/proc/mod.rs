@@ -124,10 +124,6 @@ impl Scheduler {
 
         let kernel_stack = self.processes[next].kernel_stack_top;
 
-        if kernel_stack != 0 {
-            gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
-        }
-
         (old_sp, new_sp, cr3_to_load, kernel_stack)
     }
 }
@@ -205,6 +201,9 @@ pub fn schedule() {
         };
 
         if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
+            if kernel_stack != 0 {
+                gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
+            }
             unsafe {
                 Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
             }

@@ -3,6 +3,7 @@ use core::arch::{asm, naked_asm};
 use x86_64::instructions::interrupts;
 
 use crate::arch::gdt;
+use crate::debug;
 use crate::system::proc;
 
 #[allow(improper_ctypes_definitions)]
@@ -25,6 +26,10 @@ pub unsafe extern "C" fn kernel_trampoline_entry() -> ! {
 
 #[allow(improper_ctypes_definitions)]
 extern "C" fn user_process_entry(user_entry: u64, user_stack: u64) -> ! {
+    debug!(
+        "entering user process at entry point {:#x} with stack {:#x}",
+        user_entry, user_stack
+    );
     interrupts::enable();
     {
         let segments = gdt::segments();
