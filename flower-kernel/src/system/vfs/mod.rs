@@ -4,10 +4,12 @@ use alloc::vec::Vec;
 
 use spin::{Lazy, Mutex};
 
+mod fds;
 mod tarfs;
 mod types;
 
-use self::types::*;
+pub use self::fds::*;
+pub use self::types::*;
 use crate::system::vfs::tarfs::TarFS;
 
 pub struct Mount {

@@ -25,6 +25,9 @@ pub enum VFSError {
     NotFound,
     AlreadyExists,
     InvalidSeek,
+    PermissionDenied,
+    NoSpace,
+    IOError,
     Unknown,
 }
 

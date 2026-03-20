@@ -9,6 +9,7 @@ use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 
 use crate::arch::gdt;
+use crate::system::vfs::{FdKind, VFSError};
 use crate::{debug, error, print, system};
 
 #[repr(C, align(16))]
@@ -141,15 +142,19 @@ extern "C" fn syscall_handler(
             let buf = arg2 as *const u8;
             let len = arg3 as usize;
 
-            if fd == 1 {
-                for i in 0..len {
-                    let c = unsafe { *buf.add(i) };
-                    print!("{}", c as char);
-                }
+            let result =
+                system::proc::with_fd_table(|table| match table.get(fd)? {
+                    FdKind::Stdout | FdKind::Stderr => {
+                        for i in 0..len {
+                            let byte = unsafe { *buf.add(i) };
+                            print!("{}", byte as char);
+                        }
+                        Ok(len)
+                    },
+                    _ => Err(VFSError::PermissionDenied),
+                });
 
-                return len as u64;
-            }
-            unreachable!(); // TODO: support other fds
+            result.unwrap_or(0) as u64
         },
         SYS_OPEN => {
             unimplemented!();

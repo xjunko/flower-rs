@@ -12,6 +12,7 @@ use crate::arch::{self, gdt};
 use crate::debug;
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::vfs::{FdTable, VFSError, VFSResult};
 
 pub mod process;
 mod trampoline;
@@ -216,6 +217,15 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     }
 
     Ok(proc_id)
+}
+
+/// loops over the file descriptors of the current process
+pub fn with_fd_table<F, R>(f: F) -> VFSResult<R>
+where F: FnOnce(&mut FdTable) -> VFSResult<R> {
+    let mut guard = SCHEDULER.lock();
+    let sched = guard.as_mut().ok_or(VFSError::IOError)?;
+    let task = sched.current().ok_or(VFSError::IOError)?;
+    f(&mut task.fds)
 }
 
 /// sleeps the current process for the given number of ticks.

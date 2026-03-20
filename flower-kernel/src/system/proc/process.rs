@@ -6,6 +6,7 @@ use x86_64::registers::control::Cr3;
 
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
+use crate::system::vfs::FdTable;
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -31,6 +32,8 @@ pub struct Process {
     pub address_space: Option<AddressSpace>,
 
     pub wake_at: Option<u64>,
+
+    pub fds: FdTable,
 
     pub cr3: u64,
 
@@ -89,6 +92,7 @@ impl Process {
             level: ProcessLevel::RING3,
             address_space: None,
             wake_at: None,
+            fds: FdTable::new(),
 
             cr3: pml4_frame.start_address().as_u64(),
 
@@ -149,6 +153,7 @@ impl Process {
             level: ProcessLevel::RING3,
             address_space: Some(address_space),
             wake_at: None,
+            fds: FdTable::new(),
             cr3,
 
             stack_ptr,
@@ -172,6 +177,7 @@ pub fn null_process() -> Process {
         level: ProcessLevel::RING0,
         address_space: None,
         wake_at: None,
+        fds: FdTable::new(),
 
         cr3: pml4_frame.start_address().as_u64(),
 
