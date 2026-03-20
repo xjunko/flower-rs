@@ -9,15 +9,20 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::{self, gdt};
-use crate::debug;
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
+use crate::{debug, system};
 
 pub mod process;
 mod trampoline;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
+
+const USER_STACK_TOP_PAGE: u64 = 0x0007_FFFF_F000;
+const USER_STACK_PAGES: u64 = 4;
+const USER_STACK_INITIAL_SLACK: u64 = 0x100;
+const PAGE_SIZE: u64 = system::mem::PAGE_SIZE as u64;
 
 pub struct Scheduler {
     processes: VecDeque<Process>,
@@ -195,15 +200,19 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
         | PageTableFlags::USER_ACCESSIBLE
         | PageTableFlags::NO_EXECUTE;
 
-    let user_stack_top_page: u64 = 0x0007_FFFF_F000;
-    let user_stack_pages = 4;
-
-    for i in 0..user_stack_pages {
-        let page_addr = user_stack_top_page - (i * 0x1000);
+    for i in 0..USER_STACK_PAGES {
+        let page_addr = USER_STACK_TOP_PAGE - (i * PAGE_SIZE);
         address_space.map_page_alloc(VirtAddr::new(page_addr), flags)?;
     }
 
-    let user_stack_top = user_stack_top_page + 4096 - 8;
+    let stack_low =
+        USER_STACK_TOP_PAGE + PAGE_SIZE - (USER_STACK_PAGES * PAGE_SIZE);
+    let user_stack_top =
+        USER_STACK_TOP_PAGE + PAGE_SIZE - 8 - USER_STACK_INITIAL_SLACK;
+    debug_assert!(
+        user_stack_top >= stack_low
+            && user_stack_top < USER_STACK_TOP_PAGE + PAGE_SIZE
+    );
     let proc =
         Process::new_user(name, address_space, loaded.entry, user_stack_top);
     let proc_id = proc.id;
