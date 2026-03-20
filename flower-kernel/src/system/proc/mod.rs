@@ -69,6 +69,20 @@ impl Scheduler {
         }
     }
 
+    /// wakes up any sleeping processes whose wake time has come.
+    pub fn wake_sleeping(&mut self) {
+        let ticks = arch::interrupts::get_ticks();
+        for proc in self.processes.iter_mut() {
+            if proc.state == ProcessState::Sleeping
+                && let Some(wake_at) = proc.wake_at
+                && ticks >= wake_at
+            {
+                proc.state = ProcessState::Ready;
+                proc.wake_at = None;
+            }
+        }
+    }
+
     /// returns a mutable reference to the current process, if any.
     fn current(&mut self) -> Option<&mut Process> {
         self.processes.get_mut(self.current)
@@ -128,6 +142,31 @@ impl Scheduler {
     }
 }
 
+/// schedules the process
+pub fn schedule() {
+    interrupts::without_interrupts(|| {
+        let ctx_change = {
+            let mut guard = SCHEDULER.lock();
+            if let Some(sched) = guard.as_mut() {
+                sched.reap();
+                sched.wake_sleeping();
+                sched.next().map(|next| sched.switch_to(next))
+            } else {
+                panic!("trying to schedule while not initialized!");
+            }
+        };
+
+        if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
+            if kernel_stack != 0 {
+                gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
+            }
+            unsafe {
+                Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
+            }
+        }
+    });
+}
+
 /// spawns a new process with the given entry point and name.
 pub fn spawn(name: &str, entry: fn()) {
     let new_process = Process::new(name, entry);
@@ -178,6 +217,24 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     Ok(proc_id)
 }
 
+/// sleeps the current process for the given number of ticks.
+pub fn sleep(ticks: u64) {
+    let wake_at = arch::ticks() + ticks;
+    interrupts::without_interrupts(|| {
+        if let Some(sched) = SCHEDULER.lock().as_mut() {
+            if let Some(proc) = sched.current() {
+                proc.state = ProcessState::Sleeping;
+                proc.wake_at = Some(wake_at);
+            } else {
+                panic!("no current process to sleep!");
+            }
+        } else {
+            panic!("trying to sleep while not initialized!");
+        }
+    });
+    schedule();
+}
+
 /// exits the current process.
 pub fn exit() {
     arch::syscalls::restore_kernel_gs_base();
@@ -188,31 +245,7 @@ pub fn exit() {
         }
     });
     schedule();
-    unreachable!("should never reached here!! oh no!!!");
-}
-
-/// schedules the process
-pub fn schedule() {
-    interrupts::without_interrupts(|| {
-        let ctx_change = {
-            let mut guard = SCHEDULER.lock();
-            if let Some(sched) = guard.as_mut() {
-                sched.reap();
-                sched.next().map(|next| sched.switch_to(next))
-            } else {
-                panic!("trying to schedule while not initialized!");
-            }
-        };
-
-        if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
-            if kernel_stack != 0 {
-                gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
-            }
-            unsafe {
-                Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
-            }
-        }
-    });
+    unreachable!();
 }
 
 /// returns the current pid

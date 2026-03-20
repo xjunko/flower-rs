@@ -35,6 +35,8 @@ pub fn install_cpu_features() {
     }
 }
 
+pub fn ticks() -> u64 { interrupts::get_ticks() }
+
 pub fn halt() -> ! {
     loop {
         unsafe {

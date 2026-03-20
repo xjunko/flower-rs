@@ -1,4 +1,5 @@
 use raw_cpuid::CpuId;
+use spin::{Lazy, Mutex};
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
@@ -8,7 +9,7 @@ use x86_64::{PhysAddr, VirtAddr};
 use crate::arch::acpi;
 use crate::arch::interrupts::InterruptIndex;
 use crate::system::mem::vmm;
-use crate::{debug, error};
+use crate::{debug, error, info};
 
 // legacy pic
 const PIC1: u16 = 0x20;
@@ -72,7 +73,10 @@ pub unsafe fn ioapic_write(reg: u32, value: u32) {
 const PIT_FREQ: u32 = 1193182;
 const CALIBRATE_MS: u32 = 10;
 
-static mut TICKS_PER_MS: u32 = 0;
+// lmao, just for a one time value.
+// couldve went with just a static mut, but the thing kept bugging me so whatever
+// here it is then, a very super secure mutex protected use-once global variable
+static TICKS_PER_MS: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
 
 fn calibrate_timer() {
     unsafe {
@@ -99,7 +103,9 @@ fn calibrate_timer() {
 
         lapic_write(LAPIC_TIMER_INIT, 0);
 
-        TICKS_PER_MS = elapsed / CALIBRATE_MS;
+        *TICKS_PER_MS.lock() = elapsed / CALIBRATE_MS;
+
+        info!("calibrated lapic timer: {} ticks/ms", *TICKS_PER_MS.lock());
     }
 }
 
@@ -174,14 +180,15 @@ pub fn install() {
         calibrate_timer();
 
         // finish
-        let ticks_10ms = unsafe { TICKS_PER_MS * 10 };
+        let ticks_1ms = TICKS_PER_MS.lock();
+
         unsafe {
             lapic_write(LAPIC_TIMER_DIV, 0x3);
             lapic_write(
                 LAPIC_TIMER_LVT,
                 (1 << 17) | InterruptIndex::Timer as u32,
             );
-            lapic_write(LAPIC_TIMER_INIT, ticks_10ms);
+            lapic_write(LAPIC_TIMER_INIT, *ticks_1ms);
         }
     }
 }

@@ -63,6 +63,13 @@ fn k_init() {
     }
 }
 
+fn k_timer() {
+    loop {
+        info!("sleeping for 1 second...");
+        system::proc::sleep(1000);
+    }
+}
+
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     assert!(boot::limine::BASE_REVISION.is_supported());
@@ -119,13 +126,14 @@ unsafe extern "C" fn kmain() -> ! {
 
     // kernel-process test
     // system::proc::spawn("init", k_init);
+    system::proc::spawn("timer", k_timer);
 
     // usermode process test
-    system::proc::spawn_elf("hello", HELLO_ELF)
-        .expect("failed to spawn elf process");
+    // system::proc::spawn_elf("hello", HELLO_ELF)
+    //     .expect("failed to spawn elf process");
 
-    system::proc::spawn_elf("hello-c", HELLO_C_ELF)
-        .expect("failed to spawn elf process");
+    // system::proc::spawn_elf("hello-c", HELLO_C_ELF)
+    //     .expect("failed to spawn elf process");
 
     warn!("nothing to do, halting!");
     arch::halt();

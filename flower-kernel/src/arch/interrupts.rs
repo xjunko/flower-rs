@@ -25,6 +25,8 @@ pub fn enable() { interrupts::enable(); }
 
 pub fn disable() { interrupts::disable(); }
 
+pub fn get_ticks() -> u64 { TICKS.load(Ordering::Relaxed) }
+
 pub extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: InterruptStackFrame,
 ) {

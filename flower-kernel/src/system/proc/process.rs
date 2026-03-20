@@ -30,6 +30,8 @@ pub struct Process {
     pub level: ProcessLevel,
     pub address_space: Option<AddressSpace>,
 
+    pub wake_at: Option<u64>,
+
     pub cr3: u64,
 
     pub stack_ptr: u64,
@@ -86,6 +88,7 @@ impl Process {
             state: ProcessState::Ready,
             level: ProcessLevel::RING3,
             address_space: None,
+            wake_at: None,
 
             cr3: pml4_frame.start_address().as_u64(),
 
@@ -145,7 +148,7 @@ impl Process {
             state: ProcessState::Ready,
             level: ProcessLevel::RING3,
             address_space: Some(address_space),
-
+            wake_at: None,
             cr3,
 
             stack_ptr,
@@ -168,6 +171,7 @@ pub fn null_process() -> Process {
         state: ProcessState::Running,
         level: ProcessLevel::RING0,
         address_space: None,
+        wake_at: None,
 
         cr3: pml4_frame.start_address().as_u64(),
 
