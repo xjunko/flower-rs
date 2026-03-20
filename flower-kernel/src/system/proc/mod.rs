@@ -9,9 +9,9 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::{self, gdt};
+use crate::debug;
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
-use crate::{debug, info};
 
 pub mod process;
 mod trampoline;
@@ -166,7 +166,10 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     let proc =
         Process::new_user(name, address_space, loaded.entry, user_stack_top);
     let proc_id = proc.id;
-    info!("created process {} with entry point {:#x}", proc.name, loaded.entry);
+    debug!(
+        "created process {} with entry point {:#x}",
+        proc.name, loaded.entry
+    );
 
     if let Some(sched) = SCHEDULER.lock().as_mut() {
         sched.add(proc);
