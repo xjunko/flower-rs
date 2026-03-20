@@ -14,19 +14,15 @@ thought experiment, just wanted to see if its possible.
 - heap
 - apic
 - lapic
-- scheduling
-- kernel multi-threading
-
-## what doenst work yet
-- userspace multi-threading
-- proper syscalls (kernel handles it but does nothing with the frame)
+- kernel/userspace scheduling
+- basic syscall
 
 ## building
 you will need:
 ```
 - git
 - qemu-system-*
-- cargo
+- rust
 - xorriso
 ```
 to build the kernel just run
