@@ -6,6 +6,12 @@ use flower_libc::std;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     std::write(1, b"hello from userspace rust!\n");
+    let mut i = 0;
+    while i < 5 {
+        std::sleep(1000);
+        i += 1;
+        std::write(1, b"one second sleeping!\n");
+    }
     std::exit(0);
 }
 
