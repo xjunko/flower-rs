@@ -2,19 +2,22 @@ use linked_list_allocator::LockedHeap;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::info;
 use crate::system::mem::PAGE_SIZE;
 use crate::system::{self};
+use crate::{error, info};
 
 const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
-const HEAP_SIZE: usize = 1024 * 1024;
+const HEAP_SIZE: usize = 4 * 1024 * 1024;
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 #[alloc_error_handler]
 pub fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
-    panic!("allocation error: {:?}", layout);
+    error!("allocation error in process: {}", system::proc::name());
+    error!("requested: {:?}", layout);
+    system::proc::exit();
+    unreachable!();
 }
 
 pub fn install() -> Result<(), &'static str> {
