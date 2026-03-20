@@ -1,4 +1,5 @@
 use spin::Lazy;
+use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
@@ -86,6 +87,10 @@ extern "x86-interrupt" fn page_fault_handler(
     error_code: PageFaultErrorCode,
 ) {
     error!("page fault triggered!");
+    match Cr2::read() {
+        Ok(addr) => println!("CR2:    {:#x}", addr.as_u64()),
+        Err(addr) => println!("CR2 (invalid): {:?}", addr),
+    }
     println!("error code: {:#x}", error_code);
     print_stack_frame(stack_frame);
 }

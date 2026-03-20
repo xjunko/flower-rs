@@ -5,6 +5,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use x86_64::registers::control::Cr3;
 
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::proc::trampoline;
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -49,15 +50,14 @@ impl Process {
         let stack = alloc::vec![0u8; Self::STACK_SIZE];
 
         let stack_top = stack.as_ptr() as u64 + Self::STACK_SIZE as u64;
-        let stack_top = stack_top & !0xF; // align to 16 bytes
+        let stack_top = stack_top & !0xF;
 
         let mut stack_ptr = stack_top;
 
         unsafe {
             stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(
-                super::trampoline::kernel_trampoline_entry as *const () as u64,
-            );
+            (stack_ptr as *mut u64)
+                .write(trampoline::kernel_trampoline_entry as *const () as u64);
 
             stack_ptr -= 8;
             (stack_ptr as *mut u64).write(0);
@@ -115,9 +115,8 @@ impl Process {
 
         unsafe {
             stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(
-                super::trampoline::user_trampoline_entry as *const () as u64,
-            );
+            (stack_ptr as *mut u64)
+                .write(trampoline::user_trampoline_entry as *const () as u64);
 
             stack_ptr -= 8;
             (stack_ptr as *mut u64).write(0);
@@ -166,7 +165,7 @@ pub fn null_process() -> Process {
     Process {
         id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
         name: String::from("null"),
-        state: ProcessState::Ready,
+        state: ProcessState::Running,
         level: ProcessLevel::RING0,
         address_space: None,
 

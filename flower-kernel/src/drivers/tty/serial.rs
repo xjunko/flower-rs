@@ -3,6 +3,8 @@ use core::fmt::{self, Write};
 use spin::Mutex;
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
+
+use crate::drivers::tty::flanterm;
 pub struct SerialPort {
     data: Port<u8>,
     interrupt: Port<u8>,
@@ -81,7 +83,7 @@ pub fn _print(args: fmt::Arguments) {
         let mut serial = SERIAL.lock();
         let _ = serial.write_fmt(args);
 
-        if let Some(mut flanterm_context) = super::flanterm::get() {
+        if let Some(mut flanterm_context) = flanterm::get() {
             let _ = flanterm_context.write_fmt(args);
         }
     });

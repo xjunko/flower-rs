@@ -3,12 +3,13 @@ use core::arch::{asm, naked_asm};
 use x86_64::instructions::interrupts;
 
 use crate::arch::gdt;
+use crate::system::proc;
 
 #[allow(improper_ctypes_definitions)]
 extern "C" fn kernel_process_entry(entry: fn()) -> ! {
     interrupts::enable();
     entry();
-    super::exit();
+    proc::exit();
     unreachable!();
 }
 

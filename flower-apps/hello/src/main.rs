@@ -5,7 +5,7 @@ use flower_libc::std;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    std::write(1, b"hello from userspace!\n");
+    std::write(1, b"hello from userspace rust!\n");
     std::exit(0);
 }
 

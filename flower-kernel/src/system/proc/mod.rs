@@ -8,10 +8,11 @@ use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::gdt;
+use crate::arch::{self, gdt};
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 use crate::{debug, info};
+
 pub mod process;
 mod trampoline;
 
@@ -27,7 +28,9 @@ impl Scheduler {
 
     /// adds a process to the scheduler.
     pub fn add(&mut self, process: Process) {
-        if process.state != ProcessState::Ready {
+        if process.state != ProcessState::Ready
+            && process.state != ProcessState::Running
+        {
             panic!(
                 "cannot add process {} to scheduler because it is not ready",
                 process.name
@@ -147,7 +150,7 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     let loaded = elf::load_into(elf_data, &address_space)?;
 
     if !address_space.is_mapped(VirtAddr::new(loaded.entry & !0xFFF)) {
-        return Err("entry point is already mapped");
+        return Err("entry point is not mapped");
     }
 
     let flags = PageTableFlags::PRESENT
@@ -185,7 +188,7 @@ pub fn exit() {
         }
     });
     schedule();
-    crate::arch::halt();
+    arch::halt();
 }
 
 /// schedules the process

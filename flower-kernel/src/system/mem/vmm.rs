@@ -6,7 +6,7 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{debug, error, info, system};
+use crate::{boot, debug, error, info, system};
 
 static HHDM: Mutex<Option<u64>> = Mutex::new(None);
 static PML4: Mutex<Option<PhysAddr>> = Mutex::new(None);
@@ -20,9 +20,8 @@ unsafe impl FrameAllocator<Size4KiB> for PMMFrameAllocator {
 }
 
 pub fn install() {
-    *HHDM.lock() = Some(
-        crate::boot::limine::HHDM_REQUEST.get_response().unwrap().offset(),
-    );
+    *HHDM.lock() =
+        Some(boot::limine::HHDM_REQUEST.get_response().unwrap().offset());
 
     let (pml4_frame, _) = Cr3::read();
     *PML4.lock() = Some(pml4_frame.start_address());

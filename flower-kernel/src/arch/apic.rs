@@ -5,6 +5,7 @@ use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 use x86_64::structures::paging::PageTableFlags;
 use x86_64::{PhysAddr, VirtAddr};
 
+use crate::arch::acpi;
 use crate::arch::interrupts::InterruptIndex;
 use crate::system::mem::vmm;
 use crate::{debug, error};
@@ -149,7 +150,7 @@ pub fn install() {
         .expect("failed to map lapic.");
 
         // also map ioapic
-        let acpi_tables = super::acpi::get();
+        let acpi_tables = acpi::get();
         if acpi_tables.ioapics.is_empty() {
             panic!("no ioapic found in acpi tables");
         }

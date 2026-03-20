@@ -3,7 +3,7 @@ use spin::Mutex;
 use x86_64::VirtAddr;
 
 use crate::system::mem::PAGE_SIZE;
-use crate::{error, info};
+use crate::{boot, error, info};
 
 static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);
 
@@ -71,12 +71,12 @@ pub fn install() {
     let (hhdm, mmap) = {
         (
             VirtAddr::new(
-                crate::boot::limine::HHDM_REQUEST
+                boot::limine::HHDM_REQUEST
                     .get_response()
                     .expect("no hhdm")
                     .offset(),
             ),
-            crate::boot::limine::MEMORY_MAP_REQUEST
+            boot::limine::MEMORY_MAP_REQUEST
                 .get_response()
                 .expect("no mmap")
                 .entries(),
