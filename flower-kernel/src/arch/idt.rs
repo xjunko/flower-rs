@@ -8,7 +8,7 @@ use crate::arch::gdt::DOUBLE_FAULT_IST_INDEX;
 use crate::arch::interrupts::{
     InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
 };
-use crate::{error, println, warn};
+use crate::{error, println, system, warn};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
@@ -86,11 +86,14 @@ extern "x86-interrupt" fn page_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
 ) {
-    error!("page fault triggered!");
+    error!("page fault triggered, in process: {}", system::proc::name());
     match Cr2::read() {
         Ok(addr) => println!("CR2:    {:#x}", addr.as_u64()),
         Err(addr) => println!("CR2 (invalid): {:?}", addr),
     }
     println!("error code: {:#x}", error_code);
     print_stack_frame(stack_frame);
+
+    // HACK: for now we just kill the offending process.
+    system::proc::exit();
 }

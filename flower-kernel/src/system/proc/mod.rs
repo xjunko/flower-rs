@@ -177,14 +177,15 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
 
 /// exits the current process.
 pub fn exit() {
+    arch::syscalls::restore_kernel_gs_base();
+
     interrupts::without_interrupts(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
-            debug!("exiting process {}", sched.processes[sched.current].name);
             sched.processes[sched.current].state = ProcessState::Dead;
         }
     });
     schedule();
-    arch::halt();
+    unreachable!("should never reached here!! oh no!!!");
 }
 
 /// schedules the process

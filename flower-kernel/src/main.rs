@@ -124,9 +124,6 @@ unsafe extern "C" fn kmain() -> ! {
     system::proc::spawn_elf("hello", HELLO_ELF)
         .expect("failed to spawn elf process");
 
-    system::proc::spawn_elf("hello", HELLO_ELF)
-        .expect("failed to spawn elf process");
-
     system::proc::spawn_elf("hello-c", HELLO_C_ELF)
         .expect("failed to spawn elf process");
 

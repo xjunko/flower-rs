@@ -18,6 +18,11 @@ struct CPUStack {
 static mut CPU_STACK: CPUStack = CPUStack { user: 0, kernel: 0 };
 static mut SYSCALL_STACK: [u8; 4096 * 4] = [0; 4096 * 4];
 
+pub fn restore_kernel_gs_base() {
+    let cpu_local = &raw const CPU_STACK as *const _ as u64;
+    KernelGsBase::write(VirtAddr::new(cpu_local));
+}
+
 #[allow(static_mut_refs)]
 pub fn install() {
     let segments = gdt::segments();
@@ -32,7 +37,7 @@ pub fn install() {
         .expect("failed to write STAR");
 
         LStar::write(VirtAddr::new(syscall_entry as *const () as u64));
-        SFMask::write(RFlags::empty());
+        SFMask::write(RFlags::INTERRUPT_FLAG);
 
         let efer = Efer::read();
         Efer::write(efer | EferFlags::SYSTEM_CALL_EXTENSIONS);
@@ -47,6 +52,7 @@ pub fn install() {
 #[unsafe(naked)]
 unsafe extern "C" fn syscall_entry() {
     naked_asm!(
+        "cli",
         "swapgs",
         "mov gs:[0], rsp",
         "mov rsp, gs:[8]",
@@ -117,11 +123,10 @@ extern "C" fn syscall_handler(
         "syscall: num = {}, arg1 = {}, arg2 = {}, arg3 = {}, arg4 = {}, arg5 = {}",
         num, arg1, arg2, arg3, arg4, arg5
     );
-
     match num {
         SYS_EXIT => {
             system::proc::exit();
-            0
+            unreachable!();
         },
         SYS_WRITE => {
             let fd = arg1 as usize;
