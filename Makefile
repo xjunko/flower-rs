@@ -16,10 +16,7 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: kernel
 kernel:
-	RUSTFLAGS="-C relocation-model=static" cargo build \
-				-Zbuild-std=core,alloc \
-				--target x86_64-unknown-none \
-				--profile release
+	make -C kernel
 
 # limine
 LIMINE_ROOT := $(TEMP)/limine
@@ -40,7 +37,7 @@ $(IMAGE_NAME).iso: $(LIMINE_ROOT)/limine $(INITRAMFS_FILE) kernel
 	mkdir -p $(TEMP)/iso_root/boot
 
 	# copy the kernel
-	cp -v target/x86_64-unknown-none/release/flower-rs $(TEMP)/iso_root/boot/kernel
+	cp -v target/x86_64-unknown-none/release/flower-kernel $(TEMP)/iso_root/boot/kernel
 
 	# copy initramfs
 	cp -v $(INITRAMFS_FILE) $(TEMP)/iso_root/boot/

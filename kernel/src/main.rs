@@ -86,7 +86,7 @@ unsafe extern "C" fn kmain() -> ! {
     system::proc::install();
 
     // enable interrupts after APIC and scheduler are ready
-    arch::interrupts::install();
+    arch::interrupts::enable();
 
     // past this point, the kernel can now do dynamic allocation
     drivers::tty::flanterm::install();
