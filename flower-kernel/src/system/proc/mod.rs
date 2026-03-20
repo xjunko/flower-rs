@@ -6,9 +6,12 @@ pub use process::*;
 use spin::Mutex;
 use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
+use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::gdt;
-use crate::debug;
+use crate::system::elf;
+use crate::system::mem::vmm::AddressSpace;
+use crate::{debug, info};
 pub mod process;
 mod trampoline;
 
@@ -136,6 +139,41 @@ pub fn spawn(name: &str, entry: fn()) {
             sched.add(new_process);
         }
     });
+}
+
+/// spawns an elf process with the given name and elf bytes.
+pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
+    let address_space = AddressSpace::new()?;
+    let loaded = elf::load_into(elf_data, &address_space)?;
+
+    if !address_space.is_mapped(VirtAddr::new(loaded.entry & !0xFFF)) {
+        return Err("entry point is already mapped");
+    }
+
+    let flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::USER_ACCESSIBLE
+        | PageTableFlags::NO_EXECUTE;
+
+    let user_stack_top_page: u64 = 0x0007_FFFF_F000;
+    let user_stack_pages = 4;
+
+    for i in 0..user_stack_pages {
+        let page_addr = user_stack_top_page - (i * 0x1000);
+        address_space.map_page_alloc(VirtAddr::new(page_addr), flags)?;
+    }
+
+    let user_stack_top = user_stack_top_page + 4096 - 8;
+    let proc =
+        Process::new_user(name, address_space, loaded.entry, user_stack_top);
+    let proc_id = proc.id;
+    info!("created process {} with entry point {:#x}", proc.name, loaded.entry);
+
+    if let Some(sched) = SCHEDULER.lock().as_mut() {
+        sched.add(proc);
+    }
+
+    Ok(proc_id)
 }
 
 /// exits the current process.

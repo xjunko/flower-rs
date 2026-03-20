@@ -14,6 +14,9 @@ mod system;
 
 use alloc::{format, vec};
 
+static HELLO_ELF: &[u8] =
+    include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
+
 fn k_init() {
     system::proc::spawn("one-level", || {
         debug!("hello world from {}", system::proc::name());
@@ -112,7 +115,11 @@ unsafe extern "C" fn kmain() -> ! {
     );
 
     // test
-    system::proc::spawn("init", k_init);
+    // system::proc::spawn("init", k_init);
+
+    // elf test
+    system::proc::spawn_elf("hello", HELLO_ELF)
+        .expect("failed to spawn elf process");
 
     warn!("nothing to do, halting!");
     arch::halt();

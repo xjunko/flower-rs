@@ -6,7 +6,7 @@ use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 
 use crate::arch::gdt;
-use crate::error;
+use crate::{debug, error, print, system};
 
 #[repr(C, align(16))]
 struct CPUStack {
@@ -102,6 +102,10 @@ unsafe extern "C" fn syscall_entry() {
     )
 }
 
+// syscall implementations
+pub const SYS_EXIT: u64 = 0;
+pub const SYS_WRITE: u64 = 1;
+
 extern "C" fn syscall_handler(
     num: u64,
     arg1: u64,
@@ -110,9 +114,34 @@ extern "C" fn syscall_handler(
     arg4: u64,
     arg5: u64,
 ) -> u64 {
-    error!(
+    debug!(
         "syscall: num = {}, arg1 = {}, arg2 = {}, arg3 = {}, arg4 = {}, arg5 = {}",
         num, arg1, arg2, arg3, arg4, arg5
     );
-    unimplemented!();
+
+    match num {
+        SYS_EXIT => {
+            system::proc::exit();
+            0
+        },
+        SYS_WRITE => {
+            let fd = arg1 as usize;
+            let buf = arg2 as *const u8;
+            let len = arg3 as usize;
+
+            if fd == 1 {
+                for i in 0..len {
+                    let c = unsafe { *buf.add(i) };
+                    print!("{}", c as char);
+                }
+
+                return len as u64;
+            }
+            unreachable!(); // TODO: support other fds
+        },
+        _ => {
+            error!("unknown syscall: {}", num);
+            u64::MAX
+        },
+    }
 }
