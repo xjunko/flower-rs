@@ -1,6 +1,8 @@
 use core::arch::naked_asm;
 
-use flower_mono::syscalls::{SYS_EXIT, SYS_WRITE};
+use flower_mono::syscalls::{
+    SYS_CLOSE, SYS_EXIT, SYS_MSLEEP, SYS_OPEN, SYS_READ, SYS_WRITE,
+};
 use x86_64::VirtAddr;
 use x86_64::registers::control::{Efer, EferFlags};
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
@@ -16,7 +18,12 @@ struct CPUStack {
 }
 
 static mut CPU_STACK: CPUStack = CPUStack { user: 0, kernel: 0 };
-static mut SYSCALL_STACK: [u8; 4096 * 4] = [0; 4096 * 4];
+
+pub fn set_kernel_stack(stack_top: u64) {
+    unsafe {
+        CPU_STACK.kernel = stack_top;
+    }
+}
 
 pub fn restore_kernel_gs_base() {
     let cpu_local = &raw const CPU_STACK as *const _ as u64;
@@ -37,14 +44,12 @@ pub fn install() {
         .expect("failed to write STAR");
 
         LStar::write(VirtAddr::new(syscall_entry as *const () as u64));
-        SFMask::write(RFlags::INTERRUPT_FLAG);
+        SFMask::write(RFlags::empty());
 
         let efer = Efer::read();
         Efer::write(efer | EferFlags::SYSTEM_CALL_EXTENSIONS);
 
         let cpu_local = &raw const CPU_STACK as *const _ as u64;
-        CPU_STACK.kernel =
-            SYSCALL_STACK.as_ptr() as u64 + SYSCALL_STACK.len() as u64;
         KernelGsBase::write(VirtAddr::new(cpu_local));
     }
 }
@@ -128,6 +133,9 @@ extern "C" fn syscall_handler(
             system::proc::exit();
             unreachable!();
         },
+        SYS_READ => {
+            unimplemented!();
+        },
         SYS_WRITE => {
             let fd = arg1 as usize;
             let buf = arg2 as *const u8;
@@ -142,6 +150,17 @@ extern "C" fn syscall_handler(
                 return len as u64;
             }
             unreachable!(); // TODO: support other fds
+        },
+        SYS_OPEN => {
+            unimplemented!();
+        },
+        SYS_CLOSE => {
+            unimplemented!();
+        },
+        SYS_MSLEEP => {
+            let millis = arg1;
+            system::proc::sleep(millis);
+            0
         },
         _ => {
             error!("unknown syscall: {}", num);
