@@ -15,12 +15,16 @@ run: $(IMAGE_NAME).iso
 apps-hello:
 	make -C flower-apps/hello
 
+.PHONY: apps-hello-c
+apps-hello-c:
+	make -C flower-apps-c/hello
+
 # kernel build
 .PHONY: $(IMAGE_NAME).iso
 all: $(IMAGE_NAME).iso
 
 .PHONY: kernel
-kernel: apps-hello
+kernel: apps-hello apps-hello-c
 	make -C flower-kernel
 
 # limine
