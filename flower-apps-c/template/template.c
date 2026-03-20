@@ -1,1 +1,1 @@
-void _start() { asm volatile("syscall" ::"a"(0)); }
+void _start() { asm volatile("syscall" ::"a"(60)); }
