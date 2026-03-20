@@ -1,9 +1,8 @@
 #![no_std]
 #![no_main]
-#![feature(alloc_error_handler)]
-#![feature(abi_x86_interrupt)]
-#![allow(dead_code)]
-#![allow(clippy::manual_div_ceil)]
+#![feature(abi_x86_interrupt, alloc_error_handler)]
+#![allow(dead_code)] // everything is WIP, i dont care
+#![allow(clippy::manual_div_ceil)] // i dont trust the .div_ceil implementation 
 
 extern crate alloc;
 
@@ -125,15 +124,19 @@ unsafe extern "C" fn kmain() -> ! {
     );
 
     // kernel-process test
-    // system::proc::spawn("init", k_init);
-    system::proc::spawn("timer", k_timer);
+    system::proc::spawn("init", k_init);
+    // system::proc::spawn("timer", k_timer);
 
-    // usermode process test
-    system::proc::spawn_elf("hello", HELLO_ELF)
-        .expect("failed to spawn elf process");
+    // // usermode process test
+    // system::proc::spawn_elf("hello", HELLO_ELF)
+    //     .expect("failed to spawn elf process");
 
-    system::proc::spawn_elf("hello-c", HELLO_C_ELF)
-        .expect("failed to spawn elf process");
+    // system::proc::spawn("test-userspace", || {
+    //     for i in 0..100 {
+    //         system::proc::spawn_elf(&format!("hello-c-{}", i), HELLO_C_ELF)
+    //             .expect("failed to spawn elf process");
+    //     }
+    // });
 
     warn!("nothing to do, halting!");
     arch::halt();

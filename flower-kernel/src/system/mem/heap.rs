@@ -1,3 +1,5 @@
+use core::panic;
+
 use linked_list_allocator::LockedHeap;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
@@ -16,8 +18,7 @@ static ALLOCATOR: LockedHeap = LockedHeap::empty();
 pub fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
     error!("allocation error in process: {}", system::proc::name());
     error!("requested: {:?}", layout);
-    system::proc::exit();
-    unreachable!();
+    panic!("allocation error");
 }
 
 pub fn install() -> Result<(), &'static str> {

@@ -89,7 +89,7 @@ impl Process {
             id,
             name: String::from(name),
             state: ProcessState::Ready,
-            level: ProcessLevel::RING3,
+            level: ProcessLevel::RING0,
             address_space: None,
             wake_at: None,
             fds: FdTable::new(),

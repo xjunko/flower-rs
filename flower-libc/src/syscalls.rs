@@ -117,3 +117,32 @@ pub fn syscall5(
     }
     ret
 }
+
+pub fn syscall6(
+    num: u64,
+    arg1: u64,
+    arg2: u64,
+    arg3: u64,
+    arg4: u64,
+    arg5: u64,
+    arg6: u64,
+) -> u64 {
+    let ret: u64;
+    unsafe {
+        asm!(
+            "syscall",
+            in("rax") num,
+            in("rdi") arg1,
+            in("rsi") arg2,
+            in("rdx") arg3,
+            in("r10") arg4,
+            in("r8") arg5,
+            in("r9") arg6,
+            lateout("rax") ret,
+            lateout("rcx") _,
+            lateout("r11") _,
+            options(nostack)
+        );
+    }
+    ret
+}

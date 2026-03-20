@@ -165,8 +165,9 @@ pub fn schedule() {
         if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
             if kernel_stack != 0 {
                 gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
-                arch::syscalls::set_kernel_stack(kernel_stack);
             }
+            arch::syscalls::set_kernel_stack(kernel_stack);
+            arch::syscalls::write_cpu_context();
             unsafe {
                 Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
             }
@@ -252,13 +253,13 @@ pub fn sleep(ticks: u64) {
             panic!("trying to sleep while not initialized!");
         }
     });
-    arch::syscalls::restore_kernel_gs_base();
+    arch::syscalls::write_cpu_context();
     schedule();
 }
 
 /// exits the current process.
 pub fn exit() {
-    arch::syscalls::restore_kernel_gs_base();
+    arch::syscalls::write_cpu_context();
 
     interrupts::without_interrupts(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
