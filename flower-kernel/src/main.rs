@@ -11,7 +11,7 @@ mod boot;
 mod drivers;
 mod system;
 
-use alloc::{format, vec};
+use alloc::format;
 
 static HELLO_ELF: &[u8] =
     include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
@@ -61,7 +61,7 @@ fn k_init() {
 
 fn k_timer() {
     loop {
-        info!("sleeping for 1 second...");
+        info!("timer tick from {}", system::proc::name());
         system::proc::sleep(1000);
     }
 }
@@ -91,20 +91,6 @@ unsafe extern "C" fn kmain() -> ! {
     system::vfs::install();
 
     system::mem::self_test();
-
-    // file reading test
-    let file =
-        system::vfs::open("/init/hello.txt", 0).expect("failed to open file");
-    let metadata = file.metadata().expect("failed to get metadata");
-    info!("file size: {} bytes", metadata.size);
-
-    let mut buf = vec![0u8; metadata.size as usize];
-    let bytes_read = file.read(&mut buf).expect("failed to read file");
-    info!("read {} bytes from file", bytes_read);
-    info!(
-        "file contents: {}",
-        core::str::from_utf8(&buf).expect("invalid contents")
-    );
 
     // kernel-process test
     system::proc::spawn("init", k_init);

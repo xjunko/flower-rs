@@ -8,12 +8,12 @@ pub extern "C" fn _start() -> ! {
     // stdout write
     std::write(1, b"hello from userspace rust!\n");
 
-    // // timing test
+    // timing test
     let mut i = 0;
     while i < 5 {
-        std::sleep(1000);
+        std::sleep(16);
         i += 1;
-        std::write(1, b"one second sleeping!\n");
+        std::write(1, b"quick sleep!\n");
     }
 
     // read file test
@@ -37,4 +37,7 @@ pub extern "C" fn _start() -> ! {
 }
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! { std::exit(1); }
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    std::write(2, b"application panicked!\n");
+    std::exit(1);
+}

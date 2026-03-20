@@ -112,6 +112,7 @@ macro_rules! info {
     };
 }
 
+#[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
@@ -120,6 +121,12 @@ macro_rules! debug {
             file!(), line!(), format_args!($($arg)*)
         )
     };
+}
+
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)*) => {};
 }
 
 #[macro_export]
