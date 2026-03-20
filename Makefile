@@ -16,7 +16,7 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: kernel
 kernel:
-	make -C kernel
+	make -C flower-kernel
 
 # limine
 LIMINE_ROOT := $(TEMP)/limine
@@ -26,10 +26,10 @@ $(LIMINE_ROOT)/limine:
 	$(MAKE) -C $(TEMP)/limine
 
 # initramfs
-INITRAMFS_FILE := boot/initramfs.tar
+INITRAMFS_FILE := flower-boot/initramfs.tar
 .PHONY: $(INITRAMFS_FILE)
 $(INITRAMFS_FILE):
-	make -C boot/initramfs
+	make -C flower-boot/initramfs
 
 
 $(IMAGE_NAME).iso: $(LIMINE_ROOT)/limine $(INITRAMFS_FILE) kernel
@@ -44,7 +44,7 @@ $(IMAGE_NAME).iso: $(LIMINE_ROOT)/limine $(INITRAMFS_FILE) kernel
 
 	# limine stuff
 	mkdir -p $(TEMP)/iso_root/boot/limine
-	cp boot/limine.conf $(TEMP)/iso_root/boot/limine/
+	cp flower-boot/limine.conf $(TEMP)/iso_root/boot/limine/
 
 	# limine important stuff
 	mkdir -p $(TEMP)/iso_root/EFI/BOOT

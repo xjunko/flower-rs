@@ -1,0 +1,9 @@
+cargo-features = ["panic-immediate-abort"]
+
+[package]
+name = "flower-libc"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
