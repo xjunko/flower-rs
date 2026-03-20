@@ -13,13 +13,12 @@ use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
 use crate::{debug, system};
-
 pub mod process;
 mod trampoline;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
-const USER_STACK_TOP_PAGE: u64 = 0x0007_FFFF_F000;
+const USER_STACK_TOP_PAGE: u64 = 0x7_FFFF_F000;
 const USER_STACK_PAGES: u64 = 4;
 const USER_STACK_INITIAL_SLACK: u64 = 0x100;
 const PAGE_SIZE: u64 = system::mem::PAGE_SIZE as u64;
@@ -75,9 +74,9 @@ impl Scheduler {
         }
     }
 
-    /// wakes up any sleeping processes whose wake time has come.
-    pub fn wake_sleeping(&mut self) {
-        let ticks = arch::interrupts::get_ticks();
+    /// awakens any sleeping processes whose wake time has passed, setting them to ready.
+    pub fn awaken(&mut self) {
+        let ticks = arch::ticks();
         for proc in self.processes.iter_mut() {
             if proc.state == ProcessState::Sleeping
                 && let Some(wake_at) = proc.wake_at
@@ -94,13 +93,12 @@ impl Scheduler {
         self.processes.get_mut(self.current)
     }
 
-    #[unsafe(naked)]
     /// performs a context switch to the process with the given pid, returning the old stack pointer and the new stack pointer.
+    #[unsafe(naked)]
     unsafe extern "C" fn switch_context(
         old_sp: *mut u64,
         new_sp: u64,
         new_cr3: u64,
-        new_stack_top: u64,
     ) {
         naked_asm!(
             "push rbp",
@@ -155,7 +153,7 @@ pub fn schedule() {
             let mut guard = SCHEDULER.lock();
             if let Some(sched) = guard.as_mut() {
                 sched.reap();
-                sched.wake_sleeping();
+                sched.awaken();
                 sched.next().map(|next| sched.switch_to(next))
             } else {
                 panic!("trying to schedule while not initialized!");
@@ -165,11 +163,11 @@ pub fn schedule() {
         if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
             if kernel_stack != 0 {
                 gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
-                arch::syscalls::set_kernel_stack(kernel_stack);
+                system::syscalls::set_kernel_stack(kernel_stack);
+                system::syscalls::write_cpu_context();
             }
-            unsafe {
-                Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
-            }
+
+            unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3) }
         }
     });
 }
@@ -237,32 +235,38 @@ where F: FnOnce(&mut FdTable) -> VFSResult<R> {
     f(&mut task.fds)
 }
 
-/// sleeps the current process for the given number of ticks.
-pub fn sleep(ticks: u64) {
-    let wake_at = arch::ticks() + ticks;
+/// sleeps the current process for the given number of milliseconds.
+pub fn sleep(millis: u64) {
+    let wake_at = arch::ticks() + millis;
+
     interrupts::without_interrupts(|| {
+        system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
-                proc.state = ProcessState::Sleeping;
                 proc.wake_at = Some(wake_at);
+                proc.state = ProcessState::Sleeping;
             } else {
-                panic!("no current process to sleep!");
+                panic!("trying to sleep while no process is running!");
             }
         } else {
             panic!("trying to sleep while not initialized!");
         }
     });
-    arch::syscalls::restore_kernel_gs_base();
     schedule();
 }
 
 /// exits the current process.
 pub fn exit() {
-    arch::syscalls::restore_kernel_gs_base();
-
     interrupts::without_interrupts(|| {
+        system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
-            sched.processes[sched.current].state = ProcessState::Dead;
+            if let Some(proc) = sched.current() {
+                proc.state = ProcessState::Dead;
+            } else {
+                panic!("trying to exit while no process is running!");
+            }
+        } else {
+            panic!("trying to exit while not initialized!");
         }
     });
     schedule();

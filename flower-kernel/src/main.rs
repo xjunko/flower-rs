@@ -1,9 +1,8 @@
 #![no_std]
 #![no_main]
-#![feature(alloc_error_handler)]
-#![feature(abi_x86_interrupt)]
-#![allow(dead_code)]
-#![allow(clippy::manual_div_ceil)]
+#![feature(abi_x86_interrupt, alloc_error_handler)]
+#![allow(dead_code)] // everything is WIP, i dont care
+#![allow(clippy::manual_div_ceil)] // i dont trust the .div_ceil implementation 
 
 extern crate alloc;
 
@@ -16,9 +15,6 @@ use alloc::{format, vec};
 
 static HELLO_ELF: &[u8] =
     include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
-
-static HELLO_C_ELF: &[u8] =
-    include_bytes!("../../target/x86_64-unknown-none/release/hello-c");
 
 fn k_init() {
     system::proc::spawn("one-level", || {
@@ -73,42 +69,28 @@ fn k_timer() {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     assert!(boot::limine::BASE_REVISION.is_supported());
-    // com1 serial logging
     drivers::tty::serial::install();
 
-    // cpu init
     arch::install_cpu_features();
     arch::gdt::install();
     arch::idt::install();
 
-    // memory
     system::mem::pmm::install();
     system::mem::vmm::install();
     system::mem::heap::install().expect("failed to install heap");
 
-    // acpi
     arch::acpi::install();
-
-    // apic
     arch::apic::install();
 
-    // syscall
-    arch::syscalls::install();
-
-    // scheduler
+    system::syscalls::install();
     system::proc::install();
-
-    // enable interrupts after APIC and scheduler are ready
     arch::interrupts::enable();
 
     // past this point, the kernel can now do dynamic allocation
     drivers::tty::flanterm::install();
-
-    // self test, more to be added.
-    system::mem::self_test();
-
-    // vfs test
     system::vfs::install();
+
+    system::mem::self_test();
 
     // file reading test
     let file =
@@ -125,14 +107,11 @@ unsafe extern "C" fn kmain() -> ! {
     );
 
     // kernel-process test
-    // system::proc::spawn("init", k_init);
+    system::proc::spawn("init", k_init);
     system::proc::spawn("timer", k_timer);
 
     // usermode process test
     system::proc::spawn_elf("hello", HELLO_ELF)
-        .expect("failed to spawn elf process");
-
-    system::proc::spawn_elf("hello-c", HELLO_C_ELF)
         .expect("failed to spawn elf process");
 
     warn!("nothing to do, halting!");

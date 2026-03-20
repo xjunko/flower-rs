@@ -30,9 +30,7 @@ pub struct Process {
     pub state: ProcessState,
     pub level: ProcessLevel,
     pub address_space: Option<AddressSpace>,
-
     pub wake_at: Option<u64>,
-
     pub fds: FdTable,
 
     pub cr3: u64,
@@ -89,7 +87,7 @@ impl Process {
             id,
             name: String::from(name),
             state: ProcessState::Ready,
-            level: ProcessLevel::RING3,
+            level: ProcessLevel::RING0,
             address_space: None,
             wake_at: None,
             fds: FdTable::new(),

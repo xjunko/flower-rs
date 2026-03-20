@@ -5,7 +5,7 @@ override TEMP := /tmp/$(IMAGE_NAME)-build
 # running
 .PHONY: run
 run: $(IMAGE_NAME).iso
-	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 16M -vga virtio \
+	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 32M -vga virtio \
 		               -serial stdio -no-reboot -no-shutdown \
 					   -audio driver=sdl,model=ac97,id=0 \
 					   -cdrom $(IMAGE_NAME).iso -d int
@@ -15,16 +15,12 @@ run: $(IMAGE_NAME).iso
 apps-hello:
 	make -C flower-apps/hello
 
-.PHONY: apps-hello-c
-apps-hello-c:
-	make -C flower-apps-c/hello
-
 # kernel build
 .PHONY: $(IMAGE_NAME).iso
 all: $(IMAGE_NAME).iso
 
 .PHONY: kernel
-kernel: apps-hello apps-hello-c
+kernel: apps-hello
 	make -C flower-kernel
 
 # limine

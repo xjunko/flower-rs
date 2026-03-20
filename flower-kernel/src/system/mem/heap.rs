@@ -1,3 +1,5 @@
+use core::panic;
+
 use linked_list_allocator::LockedHeap;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
@@ -7,7 +9,7 @@ use crate::system::{self};
 use crate::{error, info};
 
 const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
-const HEAP_SIZE: usize = 4 * 1024 * 1024;
+const HEAP_SIZE: usize = 16 * 1024 * 1024;
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
@@ -16,8 +18,7 @@ static ALLOCATOR: LockedHeap = LockedHeap::empty();
 pub fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
     error!("allocation error in process: {}", system::proc::name());
     error!("requested: {:?}", layout);
-    system::proc::exit();
-    unreachable!();
+    panic!("allocation error");
 }
 
 pub fn install() -> Result<(), &'static str> {
