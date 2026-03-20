@@ -7,3 +7,4 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+flower-mono = { path = "../flower-mono" }

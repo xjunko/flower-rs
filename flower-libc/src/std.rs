@@ -1,7 +1,6 @@
-use crate::syscalls::{syscall1, syscall3};
+use flower_mono::syscalls::{SYS_EXIT, SYS_WRITE};
 
-pub const SYS_EXIT: u64 = 0;
-pub const SYS_WRITE: u64 = 1;
+use crate::syscalls::{syscall1, syscall3};
 
 pub fn exit(s: u64) -> ! {
     syscall1(SYS_EXIT, s);

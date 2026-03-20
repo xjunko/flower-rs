@@ -1,5 +1,5 @@
 [workspace]
-members = ["flower-kernel", "flower-libc", "flower-apps/*"]
+members = ["flower-kernel", "flower-libc", "flower-apps/*", "flower-mono"]
 resolver = "3"
 
 [workspace.package]

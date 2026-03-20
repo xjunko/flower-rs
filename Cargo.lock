@@ -78,6 +78,7 @@ version = "0.0.1"
 dependencies = [
  "acpi",
  "flanterm",
+ "flower-mono",
  "limine",
  "linked_list_allocator",
  "raw-cpuid",
@@ -87,6 +88,13 @@ dependencies = [
 
 [[package]]
 name = "flower-libc"
+version = "0.0.1"
+dependencies = [
+ "flower-mono",
+]
+
+[[package]]
+name = "flower-mono"
 version = "0.0.1"
 
 [[package]]

@@ -1,5 +1,6 @@
 use core::arch::naked_asm;
 
+use flower_mono::syscalls::{SYS_EXIT, SYS_WRITE};
 use x86_64::VirtAddr;
 use x86_64::registers::control::{Efer, EferFlags};
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
@@ -103,8 +104,6 @@ unsafe extern "C" fn syscall_entry() {
 }
 
 // syscall implementations
-pub const SYS_EXIT: u64 = 0;
-pub const SYS_WRITE: u64 = 1;
 
 extern "C" fn syscall_handler(
     num: u64,
