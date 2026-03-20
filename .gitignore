@@ -3,6 +3,6 @@ target/
 *.iso
 
 # initramfs
-/boot/initramfs/**/*.txt
-/boot/initramfs/*.hash
-/boot/*.tar
+/flower-boot/initramfs/**/*.txt
+/flower-boot/initramfs/*.hash
+/flower-boot/*.tar
