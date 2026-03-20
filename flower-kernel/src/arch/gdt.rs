@@ -66,6 +66,7 @@ pub fn install() {
 
 pub fn segments() -> &'static GDTSegments { &GDT.1 }
 
+/// sets the kernel stack pointer in the TSS to the given value.
 pub fn set_kernel_stack(stack_top: VirtAddr) {
     unsafe {
         // NOTE: is this the right way of doing it?

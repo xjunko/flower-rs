@@ -93,13 +93,12 @@ impl Scheduler {
         self.processes.get_mut(self.current)
     }
 
-    #[unsafe(naked)]
     /// performs a context switch to the process with the given pid, returning the old stack pointer and the new stack pointer.
+    #[unsafe(naked)]
     unsafe extern "C" fn switch_context(
         old_sp: *mut u64,
         new_sp: u64,
         new_cr3: u64,
-        new_stack_top: u64,
     ) {
         naked_asm!(
             "push rbp",
@@ -164,13 +163,11 @@ pub fn schedule() {
         if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
             if kernel_stack != 0 {
                 gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
-                arch::syscalls::set_kernel_stack(kernel_stack);
-                arch::syscalls::write_cpu_context();
+                system::syscalls::set_kernel_stack(kernel_stack);
+                system::syscalls::write_cpu_context();
             }
 
-            unsafe {
-                Scheduler::switch_context(old_sp, new_sp, new_cr3, kernel_stack)
-            }
+            unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3) }
         }
     });
 }
@@ -243,7 +240,7 @@ pub fn sleep(millis: u64) {
     let wake_at = arch::ticks() + millis;
 
     interrupts::without_interrupts(|| {
-        arch::syscalls::write_cpu_context();
+        system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
                 proc.wake_at = Some(wake_at);
@@ -261,7 +258,7 @@ pub fn sleep(millis: u64) {
 /// exits the current process.
 pub fn exit() {
     interrupts::without_interrupts(|| {
-        arch::syscalls::write_cpu_context();
+        system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
                 proc.state = ProcessState::Dead;
