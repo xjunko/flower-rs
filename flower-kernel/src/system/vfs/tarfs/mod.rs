@@ -1,64 +1,55 @@
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::boot::limine::MODULE_REQUESTS;
 use crate::error;
 use crate::system::vfs::types::*;
 
-unsafe impl Send for TarFile {}
-unsafe impl Sync for TarFile {}
 struct TarFile {
     data_position: usize,
     position: usize,
     path: String,
     size: usize,
-    fs: Option<*const TarFS>,
+    data: Arc<Vec<u8>>,
 }
 
 impl VFSFile for TarFile {
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
-        self.fs.ok_or(VFSError::NotFound).map(|fs| {
-            let fs = unsafe { &*fs };
-            let position = self.position;
+        let position = self.position;
 
-            let bytes_to_read = core::cmp::min(buf.len(), self.size);
-            let source = unsafe { fs.data.as_ptr().add(position) };
+        if position >= self.size {
+            return Ok(0);
+        }
 
-            unsafe {
-                core::ptr::copy_nonoverlapping(
-                    source,
-                    buf.as_mut_ptr(),
-                    bytes_to_read,
-                );
-            }
+        let bytes_to_read = core::cmp::min(buf.len(), self.size - position);
+        let source =
+            unsafe { self.data.as_ptr().add(self.data_position + position) };
 
-            bytes_to_read
-        })
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                source,
+                buf.as_mut_ptr(),
+                bytes_to_read,
+            );
+        }
+
+        Ok(bytes_to_read)
     }
 
     fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> { unimplemented!() }
 
     fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
         let mut new_pos = match pos {
-            VFSSeek::Start(n) => self.data_position as isize + n as isize,
-            VFSSeek::Current(n) => n as isize,
-            VFSSeek::End(n) => {
-                self.data_position as isize + self.size as isize + n as isize
-            },
+            VFSSeek::Start(n) => n,
+            VFSSeek::Current(n) => self.position.saturating_add(n),
+            VFSSeek::End(n) => self.size.saturating_add(n),
         };
 
-        if new_pos < 0 {
-            return Err(VFSError::InvalidSeek);
-        }
+        new_pos = core::cmp::min(new_pos, self.size);
 
-        // clamp inside the data_position and data_position + size
-        new_pos = core::cmp::min(
-            core::cmp::max(self.data_position, new_pos as usize),
-            self.data_position + self.size,
-        ) as isize;
-
-        self.position = new_pos as usize;
+        self.position = new_pos;
         Ok(self.position)
     }
 
@@ -67,10 +58,8 @@ impl VFSFile for TarFile {
     }
 }
 
-unsafe impl Send for TarFS {}
-unsafe impl Sync for TarFS {}
 pub struct TarFS {
-    data: Vec<u8>,
+    data: Arc<Vec<u8>>,
     files: Vec<TarFile>,
 }
 
@@ -108,11 +97,18 @@ impl TarFS {
                     size,
                 );
             }
+            let data = Arc::new(data);
 
             // read all the files
             let mut offset = 0;
 
-            while offset < data.len() {
+            while offset + 512 <= data.len() {
+                let header = &data[offset..offset + 512];
+
+                if header.iter().all(|&b| b == 0) {
+                    break;
+                }
+
                 if data[offset + 257..offset + 257 + 5] != *b"ustar" {
                     error!(
                         "tarfs: invalid header at offset {}, stopping...",
@@ -121,12 +117,10 @@ impl TarFS {
                     break;
                 }
 
-                let file_size =
-                    oct_to_bin(&data[offset + 0x7c..offset + 0x7c + 11]);
-                let mut path =
-                    String::from_utf8_lossy(&data[offset..offset + 100])
-                        .trim_matches(char::from(0))
-                        .to_string();
+                let file_size = oct_to_bin(&header[0x7c..0x7c + 11]);
+                let mut path = String::from_utf8_lossy(&header[..100])
+                    .trim_matches(char::from(0))
+                    .to_string();
 
                 // resolve path
                 if path.starts_with(".") {
@@ -137,22 +131,38 @@ impl TarFS {
 
                 // copy the data right away
                 if file_size > 0 {
+                    let data_position = offset + 512;
+                    if data_position + file_size > data.len() {
+                        error!(
+                            "tarfs: file {} exceeds archive bounds, stopping...",
+                            path
+                        );
+                        break;
+                    }
+
                     files.push(TarFile {
-                        data_position: offset + 512,
+                        data_position,
                         position: 0,
                         path: path.clone(),
                         size: file_size,
-                        fs: None,
+                        data: Arc::clone(&data),
                     });
                 }
 
-                offset += (((file_size + 511) / 512) + 1) * 512;
+                let next = (((file_size + 511) / 512) + 1) * 512;
+                offset = match offset.checked_add(next) {
+                    Some(value) => value,
+                    None => {
+                        error!("tarfs: archive offset overflow, stopping...");
+                        break;
+                    },
+                };
             }
 
             return Self { data, files };
         }
 
-        Self { data: Vec::new(), files: Vec::new() }
+        Self { data: Arc::new(Vec::new()), files: Vec::new() }
     }
 
     fn get_file(&self, path: &str) -> VFSResult<&TarFile> {
@@ -172,7 +182,7 @@ impl VFSImplementation for TarFS {
             position: 0,
             path: file.path.clone(),
             size: file.size,
-            fs: Some(self as *const TarFS),
+            data: Arc::clone(&self.data),
         }))
     }
 
@@ -189,8 +199,15 @@ impl Default for TarFS {
 fn oct_to_bin(bytes: &[u8]) -> usize {
     let mut n: usize = 0;
     for &b in bytes {
-        n *= 8;
-        n += (b - b'0') as usize;
+        if b == 0 || b == b' ' {
+            break;
+        }
+
+        if !(b'0'..=b'7').contains(&b) {
+            break;
+        }
+
+        n = n.saturating_mul(8).saturating_add((b - b'0') as usize);
     }
     n
 }
