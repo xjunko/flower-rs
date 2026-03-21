@@ -5,4 +5,5 @@ target/
 # initramfs
 /flower-boot/initramfs/**/*.txt
 /flower-boot/initramfs/*.hash
+/flower-boot/initramfs/*
 /flower-boot/*.tar

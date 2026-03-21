@@ -17,7 +17,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     // read file test
-    let file_fd = std::open(b"/init/hello.txt", 0);
+    let file_fd = std::open(b"/init/hello.txt", 0, 0);
     std::write(1, b"opened file /init/hello.txt\n");
     if file_fd > 0 {
         std::write(1, b"reading file /init/hello.txt\n");
@@ -34,10 +34,4 @@ pub extern "C" fn _start() -> ! {
 
     // should properly exit
     std::exit(0);
-}
-
-#[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
-    std::write(2, b"application panicked!\n");
-    std::exit(1);
 }
