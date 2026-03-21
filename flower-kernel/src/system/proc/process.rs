@@ -43,6 +43,10 @@ pub struct Process {
     pub user_entry: u64,
     pub user_stack: u64,
 
+    pub user_heap: u64,
+    pub user_heap_position: u64,
+
+    pub _fsbase: u64,
     _stack: Vec<u8>,
 }
 
@@ -115,6 +119,10 @@ impl Process {
             user_entry: 0,
             user_stack: 0,
 
+            user_heap: 0,
+            user_heap_position: 0,
+
+            _fsbase: 0,
             _stack: stack,
         }
     }
@@ -124,6 +132,7 @@ impl Process {
         address_space: AddressSpace,
         user_entry: u64,
         user_stack: u64,
+        user_heap: u64,
     ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let stack = alloc::vec![0u8; Self::STACK_SIZE];
@@ -175,6 +184,10 @@ impl Process {
             user_entry,
             user_stack,
 
+            user_heap,
+            user_heap_position: user_heap,
+
+            _fsbase: 0,
             _stack: stack,
         }
     }
@@ -200,6 +213,10 @@ pub fn null_process() -> Process {
         user_entry: 0,
         user_stack: 0,
 
+        user_heap: 0,
+        user_heap_position: 0,
+
+        _fsbase: 0,
         _stack: Vec::new(),
     }
 }

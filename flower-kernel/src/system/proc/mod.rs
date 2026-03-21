@@ -1,11 +1,16 @@
+pub mod process;
+mod trampoline;
+
 use alloc::collections::vec_deque::VecDeque;
 use alloc::string::String;
+use alloc::sync::Arc;
 use core::arch::naked_asm;
 
 pub use process::*;
 use spin::Mutex;
 use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
+use x86_64::registers::model_specific::FsBase;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::{self};
@@ -13,8 +18,6 @@ use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
 use crate::{debug, system};
-pub mod process;
-mod trampoline;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -24,7 +27,7 @@ const USER_STACK_INITIAL_SLACK: u64 = 0x100;
 const PAGE_SIZE: u64 = system::mem::PAGE_SIZE as u64;
 
 pub struct Scheduler {
-    processes: VecDeque<Process>,
+    processes: VecDeque<Arc<Mutex<Process>>>,
     current: usize,
 }
 
@@ -33,12 +36,13 @@ impl Scheduler {
 
     /// adds a process to the scheduler.
     pub fn add(&mut self, process: Process) {
-        if process.state != ProcessState::Ready
-            && process.state != ProcessState::Running
+        let process = Arc::new(Mutex::new(process));
+        if process.lock().state != ProcessState::Ready
+            && process.lock().state != ProcessState::Running
         {
             panic!(
                 "cannot add process {} to scheduler because it is not ready",
-                process.name
+                process.lock().name
             );
         }
 
@@ -50,7 +54,7 @@ impl Scheduler {
         let length = self.processes.len();
         for i in 1..length {
             let idx = (self.current + i) % length;
-            if self.processes[idx].state == ProcessState::Ready {
+            if self.processes[idx].lock().state == ProcessState::Ready {
                 return Some(idx);
             }
         }
@@ -63,9 +67,9 @@ impl Scheduler {
         while i > 0 {
             i -= 1;
             if i != self.current
-                && self.processes[i].state == ProcessState::Dead
+                && self.processes[i].lock().state == ProcessState::Dead
             {
-                debug!("reaping process {}", self.processes[i].name);
+                debug!("reaping process {}", self.processes[i].lock().name);
                 self.processes.remove(i);
                 if i < self.current {
                     self.current -= 1;
@@ -78,6 +82,7 @@ impl Scheduler {
     pub fn awaken(&mut self) {
         let ticks = arch::ticks();
         for proc in self.processes.iter_mut() {
+            let mut proc = proc.lock();
             if proc.state == ProcessState::Sleeping
                 && let Some(wake_at) = proc.wake_at
                 && ticks >= wake_at
@@ -89,8 +94,8 @@ impl Scheduler {
     }
 
     /// returns a mutable reference to the current process, if any.
-    fn current(&mut self) -> Option<&mut Process> {
-        self.processes.get_mut(self.current)
+    fn current(&mut self) -> Option<Arc<Mutex<Process>>> {
+        self.processes.get(self.current).cloned()
     }
 
     /// performs a context switch to the process with the given pid, returning the old stack pointer and the new stack pointer.
@@ -123,27 +128,54 @@ impl Scheduler {
         );
     }
 
+    /// maps a page in the current process's user address space
+    fn map_user_page(
+        &self,
+        virt: VirtAddr,
+        flags: PageTableFlags,
+    ) -> Result<x86_64::PhysAddr, &'static str> {
+        let proc = self
+            .processes
+            .get(self.current)
+            .ok_or("no current process")?
+            .lock();
+        let as_ = proc.address_space.as_ref().ok_or("no address space")?;
+        as_.map_page_alloc(virt, flags)
+    }
+
     /// switches to the process with the given pid, returning the old stack pointer and the new stack pointer.
     fn switch_to(&mut self, next: usize) -> (*mut u64, u64, u64) {
         let current = self.current;
 
         self.current = next;
-        if self.processes[current].state == ProcessState::Running {
-            self.processes[current].state = ProcessState::Ready;
+
+        let mut current_proc = self.processes[current].lock();
+        let mut next_proc = self.processes[next].lock();
+
+        if current_proc.state == ProcessState::Running {
+            current_proc.state = ProcessState::Ready;
         }
-        self.processes[next].state = ProcessState::Running;
+        next_proc.state = ProcessState::Running;
 
-        let old_sp = &mut self.processes[current].stack_ptr as *mut u64;
-        let new_sp = self.processes[next].stack_ptr;
+        let old_sp = &mut current_proc.stack_ptr as *mut u64;
+        let new_sp = next_proc.stack_ptr;
 
-        let old_cr3 = self.processes[current].cr3;
-        let new_cr3 = self.processes[next].cr3;
+        let old_cr3 = current_proc.cr3;
+        let new_cr3 = next_proc.cr3;
         let cr3_to_load = if old_cr3 != new_cr3 { new_cr3 } else { 0 };
 
-        // NOTE: i would prefer to do it in the same
-        // if stmt as the context switch, but oh well.
-        if self.processes[next].valid_stack() {
-            self.processes[next].switch_stack();
+        if current_proc.level == ProcessLevel::RING3 {
+            current_proc._fsbase = FsBase::read().as_u64();
+        }
+
+        if next_proc.valid_stack() {
+            next_proc.switch_stack();
+        }
+
+        if next_proc.level == ProcessLevel::RING3 {
+            FsBase::write(VirtAddr::new(next_proc._fsbase));
+        } else {
+            FsBase::write(VirtAddr::new(0));
         }
 
         (old_sp, new_sp, cr3_to_load)
@@ -193,8 +225,14 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
 
     let flags = PageTableFlags::PRESENT
         | PageTableFlags::WRITABLE
-        | PageTableFlags::USER_ACCESSIBLE
-        | PageTableFlags::NO_EXECUTE;
+        | PageTableFlags::USER_ACCESSIBLE;
+
+    let mut user_heap = loaded.entry + loaded.size as u64;
+    {
+        user_heap = (user_heap + PAGE_SIZE - 1) & !0xFFF; // align to page
+        address_space.map_page_alloc(VirtAddr::new(user_heap), flags)?;
+        user_heap += PAGE_SIZE; // bump past the pre-mapped page
+    }
 
     for i in 0..USER_STACK_PAGES {
         let page_addr = USER_STACK_TOP_PAGE - (i * PAGE_SIZE);
@@ -204,13 +242,18 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     let stack_low =
         USER_STACK_TOP_PAGE + PAGE_SIZE - (USER_STACK_PAGES * PAGE_SIZE);
     let user_stack_top =
-        USER_STACK_TOP_PAGE + PAGE_SIZE - 8 - USER_STACK_INITIAL_SLACK;
+        (USER_STACK_TOP_PAGE + PAGE_SIZE - USER_STACK_INITIAL_SLACK) & !0xF;
     debug_assert!(
         user_stack_top >= stack_low
             && user_stack_top < USER_STACK_TOP_PAGE + PAGE_SIZE
     );
-    let proc =
-        Process::new_user(name, address_space, loaded.entry, user_stack_top);
+    let proc = Process::new_user(
+        name,
+        address_space,
+        loaded.entry,
+        user_stack_top,
+        user_heap,
+    );
     let proc_id = proc.id;
     debug!(
         "created process {} with entry point {:#x}",
@@ -230,7 +273,7 @@ where F: FnOnce(&mut FdTable) -> VFSResult<R> {
     let mut guard = SCHEDULER.lock();
     let sched = guard.as_mut().ok_or(VFSError::IOError)?;
     let task = sched.current().ok_or(VFSError::IOError)?;
-    f(&mut task.fds)
+    f(&mut task.lock().fds)
 }
 
 /// sleeps the current process for the given number of milliseconds.
@@ -241,6 +284,7 @@ pub fn sleep(millis: u64) {
         system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
+                let mut proc = proc.lock();
                 proc.wake_at = Some(wake_at);
                 proc.state = ProcessState::Sleeping;
             } else {
@@ -259,6 +303,7 @@ pub fn exit() {
         system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
+                let mut proc = proc.lock();
                 proc.state = ProcessState::Dead;
             } else {
                 panic!("trying to exit while no process is running!");
@@ -271,8 +316,15 @@ pub fn exit() {
     unreachable!();
 }
 
+/// returns the current process
+pub fn current() -> Option<Arc<Mutex<Process>>> {
+    interrupts::without_interrupts(|| {
+        SCHEDULER.lock().as_mut().and_then(|sched| sched.current())
+    })
+}
+
 /// returns the current pid
-pub fn current() -> Option<usize> {
+pub fn current_pid() -> Option<usize> {
     interrupts::without_interrupts(|| {
         SCHEDULER.lock().as_ref().map(|sched| sched.current)
     })
@@ -284,7 +336,7 @@ pub fn name() -> String {
         SCHEDULER
             .lock()
             .as_ref()
-            .map(|sched| sched.processes[sched.current].name.clone())
+            .map(|sched| sched.processes[sched.current].lock().name.clone())
             .unwrap_or(String::from("undefined"))
     })
 }
