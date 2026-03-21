@@ -211,10 +211,20 @@ impl AddressSpace {
             let mut mapper = page_get_table_at(self.pml4_phys);
             let mut allocator = PMMFrameAllocator;
 
-            mapper
-                .map_to(page, frame, flags, &mut allocator)
-                .map_err(|_| "failed to map page in address space")?
-                .ignore();
+            match mapper.map_to(page, frame, flags, &mut allocator) {
+                Ok(flush) => {
+                    flush.ignore();
+                },
+                Err(e) => {
+                    debug!(
+                        "map_to failed for virt={:#x} phys={:#x}: {:?}",
+                        virt.as_u64(),
+                        phys.as_u64(),
+                        e
+                    );
+                    return Err("failed to map page in address space");
+                },
+            }
         }
 
         Ok(())
