@@ -34,19 +34,9 @@ pub struct Scheduler {
 impl Scheduler {
     pub fn new() -> Self { Self { processes: VecDeque::new(), current: 0 } }
 
-    /// adds a process to the scheduler.
-    pub fn add(&mut self, process: Process) {
-        let process = Arc::new(Mutex::new(process));
-        if process.lock().state != ProcessState::Ready
-            && process.lock().state != ProcessState::Running
-        {
-            panic!(
-                "cannot add process {} to scheduler because it is not ready",
-                process.lock().name
-            );
-        }
-
-        self.processes.push_back(process);
+    /// returns a mutable reference to the current process, if any.
+    fn current(&mut self) -> Option<Arc<Mutex<Process>>> {
+        self.processes.get(self.current).cloned()
     }
 
     /// finds the next ready process to run, returning its index if found.
@@ -79,7 +69,7 @@ impl Scheduler {
     }
 
     /// awakens any sleeping processes whose wake time has passed, setting them to ready.
-    pub fn awaken(&mut self) {
+    fn awaken(&mut self) {
         let ticks = arch::ticks();
         for proc in self.processes.iter_mut() {
             let mut proc = proc.lock();
@@ -91,11 +81,6 @@ impl Scheduler {
                 proc.wake_at = None;
             }
         }
-    }
-
-    /// returns a mutable reference to the current process, if any.
-    fn current(&mut self) -> Option<Arc<Mutex<Process>>> {
-        self.processes.get(self.current).cloned()
     }
 
     /// performs a context switch to the process with the given pid, returning the old stack pointer and the new stack pointer.
@@ -126,21 +111,6 @@ impl Scheduler {
             "pop rbp",
             "ret",
         );
-    }
-
-    /// maps a page in the current process's user address space
-    fn map_user_page(
-        &self,
-        virt: VirtAddr,
-        flags: PageTableFlags,
-    ) -> Result<x86_64::PhysAddr, &'static str> {
-        let proc = self
-            .processes
-            .get(self.current)
-            .ok_or("no current process")?
-            .lock();
-        let as_ = proc.address_space.as_ref().ok_or("no address space")?;
-        as_.map_page_alloc(virt, flags)
     }
 
     /// switches to the process with the given pid, returning the old stack pointer and the new stack pointer.
@@ -179,6 +149,21 @@ impl Scheduler {
         }
 
         (old_sp, new_sp, cr3_to_load)
+    }
+
+    /// adds a process to the scheduler.
+    pub fn add(&mut self, process: Process) {
+        let process = Arc::new(Mutex::new(process));
+        if process.lock().state != ProcessState::Ready
+            && process.lock().state != ProcessState::Running
+        {
+            panic!(
+                "cannot add process {} to scheduler because it is not ready",
+                process.lock().name
+            );
+        }
+
+        self.processes.push_back(process);
     }
 }
 
