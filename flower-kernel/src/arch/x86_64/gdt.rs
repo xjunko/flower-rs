@@ -1,7 +1,7 @@
 use spin::Lazy;
 use x86_64::VirtAddr;
 use x86_64::instructions::tables::load_tss;
-use x86_64::registers::segmentation::{CS, DS, SS, Segment};
+use x86_64::registers::segmentation::{CS, DS, ES, SS, Segment};
 use x86_64::structures::gdt::{
     Descriptor, GlobalDescriptorTable, SegmentSelector,
 };
@@ -59,7 +59,8 @@ pub fn install() {
     unsafe {
         CS::set_reg(GDT.1.kernel_code);
         DS::set_reg(GDT.1.kernel_data);
-        SS::set_reg(SegmentSelector(0));
+        ES::set_reg(GDT.1.kernel_data);
+        SS::set_reg(GDT.1.kernel_data);
         load_tss(GDT.1.tss);
     }
 }

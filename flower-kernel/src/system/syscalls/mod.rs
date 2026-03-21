@@ -30,6 +30,13 @@ pub fn set_kernel_stack(stack_top: u64) {
 }
 
 #[allow(static_mut_refs)]
+pub fn set_user_stack(stack_top: u64) {
+    unsafe {
+        CPU_CONTEXT.user = stack_top;
+    }
+}
+
+#[allow(static_mut_refs)]
 pub fn write_cpu_context() {
     unsafe {
         let cpu_local = &CPU_CONTEXT as *const _ as u64;
@@ -72,7 +79,7 @@ pub fn install() {
 unsafe extern "C" fn syscall_entry() {
     naked_asm!(
         "swapgs",
-        // save user rsp to gs:[8], and load kernel rsp from gs:[0]
+        // save user rsp to gs:[0], and load kernel rsp from gs:[8]
         "mov gs:[0], rsp",
         "mov rsp, gs:[8]",
         // top half of iret frame (ss, rsp, rflags, cs, rip)
@@ -130,16 +137,18 @@ unsafe extern "C" fn syscall_entry() {
 // syscall implementations
 #[unsafe(no_mangle)]
 extern "C" fn syscall_handler(frame: *mut SyscallFrame) {
-    let frame = unsafe { &mut *frame };
-    let result = syscall_handler_unwrapped(
-        frame.rax as u64,
-        frame.rdi,
-        frame.rsi,
-        frame.rdx,
-        frame.r10,
-        frame.r8,
-    );
-    frame.rax = result as isize;
+    interrupts::without_interrupts(|| {
+        let frame = unsafe { &mut *frame };
+        let result = syscall_handler_unwrapped(
+            frame.rax as u64,
+            frame.rdi,
+            frame.rsi,
+            frame.rdx,
+            frame.r10,
+            frame.r8,
+        );
+        frame.rax = result as isize;
+    })
 }
 
 fn syscall_handler_unwrapped(

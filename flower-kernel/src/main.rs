@@ -100,6 +100,13 @@ unsafe extern "C" fn kmain() -> ! {
     system::proc::spawn_elf("hello", HELLO_ELF)
         .expect("failed to spawn elf process");
 
+    system::proc::spawn("hello-stress", || {
+        for i in 0..100 {
+            system::proc::spawn_elf(&format!("hello-{}", i), HELLO_ELF)
+                .expect("failed to spawn elf process");
+        }
+    });
+
     warn!("nothing to do, halting!");
     arch::halt();
 }

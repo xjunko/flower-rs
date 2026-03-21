@@ -2,11 +2,13 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
+use x86_64::VirtAddr;
 use x86_64::registers::control::Cr3;
 
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::vfs::FdTable;
+use crate::{arch, system};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -42,6 +44,19 @@ pub struct Process {
     pub user_stack: u64,
 
     _stack: Vec<u8>,
+}
+
+impl Process {
+    pub fn valid_stack(&self) -> bool {
+        self.kernel_stack_top != 0 && self.stack_ptr != 0
+    }
+
+    pub fn switch_stack(&self) {
+        system::syscalls::set_kernel_stack(self.kernel_stack_top);
+        system::syscalls::set_user_stack(self.user_stack);
+        system::syscalls::write_cpu_context();
+        arch::gdt::set_kernel_stack(VirtAddr::new(self.kernel_stack_top));
+    }
 }
 
 #[allow(clippy::fn_to_numeric_cast)]

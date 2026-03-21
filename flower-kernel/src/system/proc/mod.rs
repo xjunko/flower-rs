@@ -8,7 +8,7 @@ use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::{self, gdt};
+use crate::arch::{self};
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
@@ -124,7 +124,7 @@ impl Scheduler {
     }
 
     /// switches to the process with the given pid, returning the old stack pointer and the new stack pointer.
-    fn switch_to(&mut self, next: usize) -> (*mut u64, u64, u64, u64) {
+    fn switch_to(&mut self, next: usize) -> (*mut u64, u64, u64) {
         let current = self.current;
 
         self.current = next;
@@ -140,9 +140,13 @@ impl Scheduler {
         let new_cr3 = self.processes[next].cr3;
         let cr3_to_load = if old_cr3 != new_cr3 { new_cr3 } else { 0 };
 
-        let kernel_stack = self.processes[next].kernel_stack_top;
+        // NOTE: i would prefer to do it in the same
+        // if stmt as the context switch, but oh well.
+        if self.processes[next].valid_stack() {
+            self.processes[next].switch_stack();
+        }
 
-        (old_sp, new_sp, cr3_to_load, kernel_stack)
+        (old_sp, new_sp, cr3_to_load)
     }
 }
 
@@ -160,13 +164,7 @@ pub fn schedule() {
             }
         };
 
-        if let Some((old_sp, new_sp, new_cr3, kernel_stack)) = ctx_change {
-            if kernel_stack != 0 {
-                gdt::set_kernel_stack(VirtAddr::new(kernel_stack));
-                system::syscalls::set_kernel_stack(kernel_stack);
-                system::syscalls::write_cpu_context();
-            }
-
+        if let Some((old_sp, new_sp, new_cr3)) = ctx_change {
             unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3) }
         }
     });
