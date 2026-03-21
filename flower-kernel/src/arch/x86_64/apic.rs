@@ -45,6 +45,9 @@ pub const LAPIC_TIMER_DIV: u64 = 0x3E0;
 const IOAPIC_VIRT: u64 = 0xFFFF_FFFF_FEC0_0000;
 const IOAPIC_REG_SELECT: u64 = 0x00;
 const IOAPIC_REG_DATA: u64 = 0x10;
+const IOAPIC_REDIR_TABLE: u32 = 0x10;
+
+const LAPIC_ID: u64 = 0x020;
 
 pub unsafe fn lapic_read(offset: u64) -> u32 {
     let ptr = (LAPIC_VIRT + offset) as *const u32;
@@ -68,6 +71,17 @@ pub unsafe fn ioapic_write(reg: u32, value: u32) {
     let data = (IOAPIC_VIRT + IOAPIC_REG_DATA) as *mut u32;
     unsafe { core::ptr::write_volatile(select, reg) };
     unsafe { core::ptr::write_volatile(data, value) };
+}
+
+unsafe fn ioapic_set_redirection(irq: u8, vector: u8, dest_apic_id: u8) {
+    let redir = IOAPIC_REDIR_TABLE + (u32::from(irq) * 2);
+    let low = u32::from(vector);
+    let high = u32::from(dest_apic_id) << 24;
+
+    unsafe {
+        ioapic_write(redir + 1, high);
+        ioapic_write(redir, low);
+    }
 }
 
 const PIT_FREQ: u32 = 1193182;
@@ -189,6 +203,9 @@ pub fn install() {
                 (1 << 17) | InterruptIndex::Timer as u32,
             );
             lapic_write(LAPIC_TIMER_INIT, *ticks_1ms);
+
+            let lapic_id = (lapic_read(LAPIC_ID) >> 24) as u8;
+            ioapic_set_redirection(1, InterruptIndex::Keyboard as u8, lapic_id);
         }
     }
 }

@@ -8,6 +8,7 @@ use crate::arch::gdt::DOUBLE_FAULT_IST_INDEX;
 use crate::arch::interrupts::{
     InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
 };
+use crate::drivers::ps2::keyboard;
 use crate::{error, println, system, warn};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
@@ -23,6 +24,10 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
             .set_handler_fn(double_fault_handler)
             .set_stack_index(DOUBLE_FAULT_IST_INDEX);
     }
+
+    // ps2/keyboard
+    idt[InterruptIndex::Keyboard.as_u8()]
+        .set_handler_fn(keyboard::keyboard_interrupt_handler);
 
     // spurious
     idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
