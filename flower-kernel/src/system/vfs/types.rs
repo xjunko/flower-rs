@@ -22,6 +22,7 @@ pub enum VFSSeek {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSError {
+    Unsupported,
     NotFound,
     AlreadyExists,
     InvalidSeek,

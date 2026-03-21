@@ -4,12 +4,14 @@ use alloc::vec::Vec;
 
 use spin::{Lazy, Mutex};
 
+mod devfs;
 mod fds;
 mod tarfs;
 mod types;
 
 pub use self::fds::*;
 pub use self::types::*;
+use crate::system::vfs::devfs::DevFS;
 use crate::system::vfs::tarfs::TarFS;
 
 pub struct Mount {
@@ -107,6 +109,12 @@ pub fn install() {
         .lock()
         .mount("/init", Box::new(tarfs))
         .expect("failed to mount tarfs");
+
+    let devfs = DevFS::new();
+    ROOT_VFS
+        .lock()
+        .mount("/dev", Box::new(devfs))
+        .expect("failed to mount devfs");
 }
 
 // public methods
