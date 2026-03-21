@@ -26,8 +26,8 @@ pub struct SyscallFrame {
 
 #[derive(Debug)]
 pub enum SyscallError {
-    NotFound = -1,
-    Other = -256,
+    NotFound = 2,
+    Other = 255,
 }
 
 pub type SyscallHandler = fn(&mut SyscallFrame) -> Result<u64, SyscallError>;

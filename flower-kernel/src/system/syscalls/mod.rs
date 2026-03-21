@@ -151,7 +151,7 @@ fn syscall_handler_unwrapped(num: u64, frame: &mut SyscallFrame) -> u64 {
             Ok(result) => result,
             Err(e) => {
                 error!("syscall {} failed with error: {:?}", num, e);
-                e as u64
+                -(e as i64) as u64
             },
         }
     } else {

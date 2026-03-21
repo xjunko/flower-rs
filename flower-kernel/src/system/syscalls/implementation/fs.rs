@@ -23,7 +23,11 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             },
         });
 
-    Ok(result.unwrap_or(0) as u64)
+    if let Ok(result) = result {
+        Ok(result as u64)
+    } else {
+        Err(SyscallError::NotFound)
+    }
 }
 
 pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -45,7 +49,11 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         },
     });
 
-    Ok(result.unwrap_or(0) as u64)
+    if let Ok(result) = result {
+        Ok(result as u64)
+    } else {
+        Err(SyscallError::NotFound)
+    }
 }
 
 pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -70,4 +78,30 @@ pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
     let result = system::proc::with_fd_table(|table| table.close(fd));
     if result.is_ok() { Ok(0) } else { Err(SyscallError::NotFound) }
+}
+
+pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let offset = frame.rsi as i64;
+    let whence = frame.rdx as u32;
+
+    let result =
+        system::proc::with_fd_table(|table| match table.get_mut(fd)? {
+            FdKind::File(file) => file.seek(match whence {
+                0 => system::vfs::VFSSeek::Start(offset as usize),
+                1 => system::vfs::VFSSeek::Current(offset as usize),
+                2 => system::vfs::VFSSeek::End(offset as usize),
+                _ => return Err(VFSError::InvalidSeek),
+            }),
+            _ => {
+                error!("seek syscall: fd {} is not seekable", fd);
+                Err(VFSError::PermissionDenied)
+            },
+        });
+
+    if let Ok(result) = result {
+        Ok(result as u64)
+    } else {
+        Err(SyscallError::NotFound)
+    }
 }
