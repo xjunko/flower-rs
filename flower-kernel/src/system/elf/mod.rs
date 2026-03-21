@@ -44,6 +44,7 @@ pub struct ELF64Phdr {
 
 pub struct ELF64 {
     pub entry: u64,
+    pub size: usize,
 }
 
 const PT_LOAD: u32 = 1;
@@ -138,7 +139,7 @@ pub fn load(elf_data: &[u8]) -> Result<ELF64, &'static str> {
         }
     }
 
-    Ok(ELF64 { entry: header.entry })
+    Ok(ELF64 { entry: header.entry, size: elf_data.len() })
 }
 
 pub fn load_into(
@@ -229,5 +230,5 @@ pub fn load_into(
         }
     }
 
-    Ok(ELF64 { entry: header.entry })
+    Ok(ELF64 { entry: header.entry, size: elf_data.len() })
 }
