@@ -100,12 +100,16 @@ unsafe extern "C" fn kmain() -> ! {
     system::proc::spawn_elf("hello", HELLO_ELF)
         .expect("failed to spawn elf process");
 
-    system::proc::spawn("hello-stress", || {
-        for i in 0..100 {
-            system::proc::spawn_elf(&format!("hello-{}", i), HELLO_ELF)
-                .expect("failed to spawn elf process");
-        }
-    });
+    // // elf from vfs
+    // if let Ok(file) = system::vfs::open("/init/shell", 0) {
+    //     let metadata = file.metadata().expect("invalid metadata");
+    //     let mut buffer = alloc::vec![0u8; metadata.size as usize];
+    //     file.read(&mut buffer).expect("failed to read file");
+    //     system::proc::spawn_elf("shell", &buffer)
+    //         .expect("failed to spawn shell process");
+    // } else {
+    //     println!("failed to open file /init/shell");
+    // }
 
     warn!("nothing to do, halting!");
     arch::halt();
