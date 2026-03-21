@@ -9,7 +9,7 @@ use crate::system::{self};
 use crate::{error, info};
 
 const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
-const HEAP_SIZE: usize = 16 * 1024 * 1024;
+const HEAP_SIZE: usize = 32 * 1024 * 1024;
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
