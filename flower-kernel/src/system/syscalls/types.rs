@@ -1,4 +1,5 @@
 #[repr(C)]
+#[derive(Debug)]
 pub struct SyscallFrame {
     pub r15: u64,
     pub r14: u64,
@@ -29,5 +30,4 @@ pub enum SyscallError {
     Other = -256,
 }
 
-pub type SyscallHandler =
-    fn(u64, u64, u64, u64, u64) -> Result<u64, SyscallError>;
+pub type SyscallHandler = fn(&mut SyscallFrame) -> Result<u64, SyscallError>;

@@ -1,18 +1,14 @@
-use crate::system::syscalls::types::SyscallError;
+use core::ffi::{CStr, c_char};
+
+use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::vfs::{FdKind, VFSError};
 use crate::system::{self};
 use crate::{error, print};
 
-pub fn read(
-    arg1: u64,
-    arg2: u64,
-    arg3: u64,
-    _arg4: u64,
-    _arg5: u64,
-) -> Result<u64, SyscallError> {
-    let fd = arg1 as usize;
-    let buf = arg2 as *mut u8;
-    let len = arg3 as usize;
+pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let buf = frame.rsi as *mut u8;
+    let len = frame.rdx as usize;
 
     let result =
         system::proc::with_fd_table(|table| match table.get_mut(fd)? {
@@ -30,16 +26,10 @@ pub fn read(
     Ok(result.unwrap_or(0) as u64)
 }
 
-pub fn write(
-    arg1: u64,
-    arg2: u64,
-    arg3: u64,
-    _arg4: u64,
-    _arg5: u64,
-) -> Result<u64, SyscallError> {
-    let fd = arg1 as usize;
-    let buf = arg2 as *const u8;
-    let len = arg3 as usize;
+pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let buf = frame.rsi as *const u8;
+    let len = frame.rdx as usize;
 
     let result = system::proc::with_fd_table(|table| match table.get(fd)? {
         FdKind::Stdout | FdKind::Stderr => {
@@ -58,21 +48,11 @@ pub fn write(
     Ok(result.unwrap_or(0) as u64)
 }
 
-pub fn open(
-    arg1: u64,
-    arg2: u64,
-    arg3: u64,
-    _arg4: u64,
-    _arg5: u64,
-) -> Result<u64, SyscallError> {
-    let path_buf = arg1 as *const u8;
-    let path_len = arg2 as usize;
-    let flags = arg3 as u32;
-
-    let path = unsafe {
-        let slice = core::slice::from_raw_parts(path_buf, path_len);
-        core::str::from_utf8_unchecked(slice)
-    };
+pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let path =
+        unsafe { CStr::from_ptr(frame.rdi as *const c_char).to_str().unwrap() };
+    let flags = frame.rsi as u32;
+    let _mode = frame.rdx as usize;
 
     // TODO: handle directory
     match system::vfs::open(path, flags) {
@@ -86,14 +66,8 @@ pub fn open(
     }
 }
 
-pub fn close(
-    arg1: u64,
-    _arg2: u64,
-    _arg3: u64,
-    _arg4: u64,
-    _arg5: u64,
-) -> Result<u64, SyscallError> {
-    let fd = arg1 as usize;
+pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
     let result = system::proc::with_fd_table(|table| table.close(fd));
     if result.is_ok() { Ok(0) } else { Err(SyscallError::NotFound) }
 }

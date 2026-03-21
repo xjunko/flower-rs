@@ -1,5 +1,6 @@
 use flower_mono::syscalls::{
-    SYS_CLOSE, SYS_EXIT, SYS_MSLEEP, SYS_OPEN, SYS_READ, SYS_WRITE,
+    SYS_CLOSE, SYS_EXIT, SYS_MMAP, SYS_MSLEEP, SYS_OPEN, SYS_READ, SYS_WRITE,
+    SYS_WRITE_FS_BASE,
 };
 
 mod fs;
@@ -18,6 +19,10 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
     handlers[SYS_CLOSE as usize] = Some(fs::close as SyscallHandler);
 
     handlers[SYS_MSLEEP as usize] = Some(process::msleep as SyscallHandler);
+
+    handlers[SYS_WRITE_FS_BASE as usize] =
+        Some(process::write_fsbase as SyscallHandler);
+    handlers[SYS_MMAP as usize] = Some(process::mmap as SyscallHandler);
 
     handlers
 };

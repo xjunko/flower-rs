@@ -10,9 +10,9 @@ use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 
 use crate::arch::gdt;
+use crate::error;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
-use crate::system::syscalls::types::{SyscallError, SyscallFrame};
-use crate::{debug, error};
+use crate::system::syscalls::types::SyscallFrame;
 
 #[repr(C, align(16))]
 struct CPUContext {
@@ -139,33 +139,15 @@ unsafe extern "C" fn syscall_entry() {
 extern "C" fn syscall_handler(frame: *mut SyscallFrame) {
     interrupts::without_interrupts(|| {
         let frame = unsafe { &mut *frame };
-        let result = syscall_handler_unwrapped(
-            frame.rax as u64,
-            frame.rdi,
-            frame.rsi,
-            frame.rdx,
-            frame.r10,
-            frame.r8,
-        );
+
+        let result = syscall_handler_unwrapped(frame.rax as u64, frame);
         frame.rax = result as isize;
     })
 }
 
-fn syscall_handler_unwrapped(
-    num: u64,
-    arg1: u64,
-    arg2: u64,
-    arg3: u64,
-    arg4: u64,
-    arg5: u64,
-) -> u64 {
-    debug!(
-        "syscall: num = {}, arg1 = {}, arg2 = {}, arg3 = {}, arg4 = {}, arg5 = {}",
-        num, arg1, arg2, arg3, arg4, arg5
-    );
-
+fn syscall_handler_unwrapped(num: u64, frame: &mut SyscallFrame) -> u64 {
     if let Some(handler) = SYSCALL_HANDLERS.get(num as usize).and_then(|h| *h) {
-        match handler(arg1, arg2, arg3, arg4, arg5) {
+        match handler(frame) {
             Ok(result) => result,
             Err(e) => {
                 error!("syscall {} failed with error: {:?}", num, e);
@@ -173,7 +155,6 @@ fn syscall_handler_unwrapped(
             },
         }
     } else {
-        error!("invalid syscall number: {}", num);
-        SyscallError::NotFound as u64
+        panic!("invalid syscall number: {}", num);
     }
 }
