@@ -5,7 +5,7 @@ override TEMP := /tmp/$(IMAGE_NAME)-build
 # running
 .PHONY: run
 run: $(IMAGE_NAME).iso
-	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 64M -vga virtio \
+	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 128M -vga virtio \
 		               -serial stdio -no-reboot -no-shutdown \
 					   -audio driver=sdl,model=ac97,id=0 \
 					   -cdrom $(IMAGE_NAME).iso -d int
@@ -58,13 +58,13 @@ $(IMAGE_NAME).iso: $(LIMINE_ROOT)/limine $(INITRAMFS_FILE) kernel
 	cp -v $(LIMINE_ROOT)/BOOTX64.EFI $(TEMP)/iso_root/EFI/BOOT
 	cp -v $(LIMINE_ROOT)/BOOTIA32.EFI $(TEMP)/iso_root/EFI/BOOT
 
-	# final 
+	# final
 	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
 		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		-o $(IMAGE_NAME).iso $(TEMP)/iso_root
-	
+
 .PHONY: clean
 clean:
 	cargo clean
