@@ -1,6 +1,6 @@
 ## flower-rs
 a monolithic x86_64 kernel written in rust, a continuation of [riria](https://github.com/xjunko/riria).
-<img width="1410" height="905" alt="image" src="https://github.com/user-attachments/assets/09c01cd9-ad8f-47f2-898a-8c5724e9d3a8" />
+<img width="1410" height="905" alt="image" src="https://github.com/user-attachments/assets/1f4e13c2-63e4-400c-a497-3d69b6a01d42" />
 
 ## what this is
 a thought experiment, just wanted to see if its possible to make a kernel in rust and also to learn rust.
