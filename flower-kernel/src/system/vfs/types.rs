@@ -2,6 +2,37 @@ use alloc::boxed::Box;
 use alloc::string::String;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VFSPermission {
+    Read = 0b100,
+    Write = 0b010,
+    Execute = 0b001,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VFSPermissionShift {
+    Owner = 6,
+    Group = 3,
+    Other = 0,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VFSPermissions {
+    bits: u16,
+}
+
+impl VFSPermissions {
+    pub fn new() -> Self { Self { bits: 0 } }
+
+    pub fn from_unix(perm: usize) -> Self {
+        Self { bits: (perm & 0o777) as u16 }
+    }
+
+    pub fn has(&self, perm: VFSPermission, shift: VFSPermissionShift) -> bool {
+        (self.bits & ((perm as u16) << (shift as u16))) != 0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSFileType {
     File,
     Directory,
@@ -14,10 +45,12 @@ pub enum VFSFileType {
 #[derive(Debug, Clone)]
 pub struct VFSMetadata {
     pub name: String,
-    pub mode: usize,
     pub typ: VFSFileType,
-    pub last_modified: usize,
     pub size: usize,
+    pub last_modified: usize,
+    pub owner_id: usize,
+    pub group_id: usize,
+    pub permissions: VFSPermissions,
 }
 
 #[derive(Debug, Clone, Copy)]

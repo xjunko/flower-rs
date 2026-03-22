@@ -5,8 +5,8 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::system::vfs::{
-    VFSError, VFSFile, VFSFileType, VFSImplementation, VFSMetadata, VFSResult,
-    VFSSeek,
+    VFSError, VFSFile, VFSFileType, VFSImplementation, VFSMetadata,
+    VFSPermissions, VFSResult, VFSSeek,
 };
 
 pub struct DevFile {
@@ -49,10 +49,12 @@ impl VFSFile for DevFile {
                 .last()
                 .unwrap_or(self.path.as_str())
                 .to_string(),
-            mode: 0,
             typ: VFSFileType::Device,
-            last_modified: 0,
             size: 0,
+            last_modified: 0,
+            owner_id: 0,
+            group_id: 0,
+            permissions: VFSPermissions::new(),
         })
     }
 }

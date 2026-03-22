@@ -1,3 +1,6 @@
+mod consts;
+mod file;
+
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
@@ -5,116 +8,9 @@ use alloc::vec::Vec;
 
 use crate::boot::limine::MODULE_REQUESTS;
 use crate::error;
+use crate::system::vfs::tarfs::consts::*;
+use crate::system::vfs::tarfs::file::{TarFSFileType, TarFile};
 use crate::system::vfs::types::*;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TarFSFileType {
-    File = 0,
-    HardLink = 1,
-    Symlink = 2,
-    CharacterDevice = 3,
-    BlockDevice = 4,
-    Directory = 5,
-    Fifo = 6,
-    Unknown = 7,
-}
-
-impl From<u8> for TarFSFileType {
-    fn from(value: u8) -> Self {
-        match value {
-            b'0' => TarFSFileType::File,
-            b'1' => TarFSFileType::HardLink,
-            b'2' => TarFSFileType::Symlink,
-            b'3' => TarFSFileType::CharacterDevice,
-            b'4' => TarFSFileType::BlockDevice,
-            b'5' => TarFSFileType::Directory,
-            b'6' => TarFSFileType::Fifo,
-            _ => TarFSFileType::Unknown,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct TarFile {
-    _data_position: usize,
-    _position: usize,
-    _data: Arc<Vec<u8>>,
-
-    name: String,
-    path: String,
-    mode: usize,
-    owner_id: usize,
-    group_id: usize,
-    size: usize,
-    last_modified: usize,
-    checksum: usize,
-    file_type: TarFSFileType,
-    owner_name: String,
-    group_name: String,
-    device_major: usize,
-    device_minor: usize,
-    prefix: String,
-}
-
-impl VFSFile for TarFile {
-    fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
-        let position = self._position;
-
-        if position >= self.size {
-            return Ok(0);
-        }
-
-        let bytes_to_read = core::cmp::min(buf.len(), self.size - position);
-        let source =
-            unsafe { self._data.as_ptr().add(self._data_position + position) };
-
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                source,
-                buf.as_mut_ptr(),
-                bytes_to_read,
-            );
-        }
-
-        Ok(bytes_to_read)
-    }
-
-    fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> { unimplemented!() }
-
-    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
-        let mut new_pos = match pos {
-            VFSSeek::Start(n) => n,
-            VFSSeek::Current(n) => self._position.saturating_add(n),
-            VFSSeek::End(n) => self.size.saturating_add(n),
-        };
-
-        new_pos = core::cmp::min(new_pos, self.size);
-
-        self._position = new_pos;
-        Ok(self._position)
-    }
-
-    fn metadata(&self) -> VFSResult<VFSMetadata> {
-        let typ = match self.file_type {
-            TarFSFileType::File => VFSFileType::File,
-            TarFSFileType::Directory => VFSFileType::Directory,
-            TarFSFileType::CharacterDevice | TarFSFileType::BlockDevice => {
-                VFSFileType::Device
-            },
-            TarFSFileType::Symlink => VFSFileType::Symlink,
-            TarFSFileType::Fifo => VFSFileType::Pipe,
-            _ => VFSFileType::Unknown,
-        };
-
-        Ok(VFSMetadata {
-            name: self.name.clone(),
-            mode: self.mode,
-            typ,
-            last_modified: self.last_modified,
-            size: self.size,
-        })
-    }
-}
 
 pub struct TarFS {
     data: Arc<Vec<u8>>,
@@ -181,7 +77,7 @@ impl TarFS {
                 let file_size = oct_to_bin(&header[124..124 + 12]);
                 let file_last_modified = oct_to_bin(&header[136..136 + 12]);
                 let file_checksum = oct_to_bin(&header[148..148 + 8]);
-                let file_type = header[156];
+                let file_type = TarFSFileType::from(header[156]);
                 let file_owner_name =
                     String::from_utf8_lossy(&header[265..265 + 32])
                         .trim_matches(char::from(0))
@@ -196,6 +92,23 @@ impl TarFS {
                     String::from_utf8_lossy(&header[345..345 + 155])
                         .trim_matches(char::from(0))
                         .to_string();
+
+                let sum: usize = header
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &b)| {
+                        if (148..156).contains(&i) { 0x20 } else { b as usize }
+                    })
+                    .sum();
+
+                if sum != file_checksum {
+                    error!(
+                        "tarfs: checksum mismatch for file {}, skipping...",
+                        file_name
+                    );
+                    offset += 512;
+                    continue;
+                }
 
                 let path = "/".to_string() + &file_name;
 
@@ -220,13 +133,13 @@ impl TarFS {
                             .unwrap_or(file_name.as_str())
                             .to_string(),
                         path,
-                        mode: file_mode,
+                        mode: ustar_to_unix(file_mode, file_type),
                         owner_id: file_owner_id,
                         group_id: file_group_id,
                         size: file_size,
                         last_modified: file_last_modified,
                         checksum: file_checksum,
-                        file_type: TarFSFileType::from(file_type),
+                        file_type,
                         owner_name: file_owner_name,
                         group_name: file_group_name,
                         device_major: file_device_major,
@@ -277,17 +190,26 @@ impl Default for TarFS {
 }
 
 fn oct_to_bin(bytes: &[u8]) -> usize {
-    let mut n: usize = 0;
-    for &b in bytes {
-        if b == 0 || b == b' ' {
-            break;
-        }
+    let s =
+        core::str::from_utf8(bytes).unwrap_or("").trim_end_matches(['\0', ' ']);
 
-        if !(b'0'..=b'7').contains(&b) {
-            break;
-        }
-
-        n = n.saturating_mul(8).saturating_add((b - b'0') as usize);
+    if s.is_empty() {
+        return 0;
     }
-    n
+    usize::from_str_radix(s, 8).unwrap_or(0)
+}
+
+fn ustar_to_unix(mode: usize, typ: TarFSFileType) -> usize {
+    let ftype = match typ {
+        TarFSFileType::File => S_IFREG,
+        TarFSFileType::Directory => S_IFDIR,
+        TarFSFileType::CharacterDevice => S_IFCHR,
+        TarFSFileType::BlockDevice => S_IFBLK,
+        TarFSFileType::Fifo => S_IFIFO,
+        TarFSFileType::Symlink => S_IFLNK,
+        _ => 0,
+    };
+
+    let perms = mode & 0o777;
+    ftype | perms
 }
