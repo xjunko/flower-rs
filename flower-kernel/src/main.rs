@@ -11,60 +11,7 @@ mod boot;
 mod drivers;
 mod system;
 
-use alloc::format;
-
-static HELLO_ELF: &[u8] =
-    include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
-
-fn k_stress() {
-    system::proc::spawn("one-level", || {
-        debug!("hello world from {}", system::proc::name());
-    });
-
-    system::proc::spawn("two-level", || {
-        for i in 0..5 {
-            debug!("hello world from {}: {}", system::proc::name(), i);
-        }
-
-        system::proc::spawn("two-level-inside", || {
-            for i in 0..5 {
-                debug!("hello world from {}: {}", system::proc::name(), i);
-            }
-        })
-    });
-
-    system::proc::spawn("three-level", || {
-        for i in 0..5 {
-            debug!("hello world from {}: {}", system::proc::name(), i);
-        }
-
-        system::proc::spawn("three-level-inner", || {
-            debug!("hello world from {}", system::proc::name());
-            system::proc::spawn("three-level-inner-inside", || {
-                for i in 0..5 {
-                    debug!("hello world from {}: {}", system::proc::name(), i);
-                }
-            })
-        })
-    });
-
-    // stress test the scheduling
-    const NUM_PROCESSES: usize = 100;
-    for i in 0..NUM_PROCESSES {
-        system::proc::spawn(&format!("stress-{}", i), || {
-            for j in 0..5 {
-                debug!("hello world from {}: {}", system::proc::name(), j);
-            }
-        });
-    }
-}
-
-fn k_timer() {
-    loop {
-        info!("timer tick from {}", system::proc::name());
-        system::proc::sleep(1000);
-    }
-}
+mod user;
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
@@ -89,31 +36,10 @@ unsafe extern "C" fn kmain() -> ! {
     arch::interrupts::enable();
 
     // past this point, the kernel can now do dynamic allocation
-    drivers::tty::terminal::install();
     system::vfs::install();
-
+    drivers::tty::terminal::install();
     system::mem::self_test();
-
-    // kernel-process test
-    system::proc::spawn("stress", k_stress);
-    system::proc::spawn("timer", k_timer);
-
-    // user-mode process test
-    system::proc::spawn_elf("hello", HELLO_ELF)
-        .expect("failed to spawn elf process");
-
-    // user-mode shell test
-    // if let Ok(file) = system::vfs::open("/init/shell", 0) {
-    //     let metadata = file.metadata().expect("invalid metadata");
-    //     let mut buffer = alloc::vec![0u8; metadata.size ];
-    //     file.read(&mut buffer).expect("failed to read file");
-    //     system::proc::spawn_elf("shell", &buffer)
-    //         .expect("failed to spawn shell process");
-    // } else {
-    //     println!("failed to open file /init/shell");
-    // }
-
-    warn!("nothing to do, halting!");
+    system::proc::spawn("userland-entry", user::entry);
     arch::halt();
 }
 

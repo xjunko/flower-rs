@@ -5,7 +5,7 @@ override TEMP := /tmp/$(IMAGE_NAME)-build
 # running
 .PHONY: run
 run: $(IMAGE_NAME).iso
-	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 128M -vga virtio \
+	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 256M -vga virtio \
 		               -serial stdio -no-reboot -no-shutdown \
 					   -audio driver=sdl,model=ac97,id=0 \
 					   -cdrom $(IMAGE_NAME).iso -d int

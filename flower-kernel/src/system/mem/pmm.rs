@@ -190,3 +190,7 @@ pub fn free_pages() -> Option<usize> {
 pub fn usable_pages() -> Option<usize> {
     PMM.lock().as_ref().map(|pmm| pmm.usable_pages)
 }
+
+pub fn total_pages() -> Option<usize> {
+    PMM.lock().as_ref().map(|pmm| pmm.total_pages)
+}

@@ -7,7 +7,7 @@ use crate::system::mem::PAGE_SIZE;
 use crate::system::{self};
 
 const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
-const HEAP_SIZE: usize = 64 * 1024 * 1024;
+const HEAP_SIZE: usize = 128 * 1024 * 1024;
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
