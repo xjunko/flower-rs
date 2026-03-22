@@ -82,6 +82,8 @@ unsafe extern "C" fn kmain() -> ! {
     arch::acpi::install();
     arch::apic::install();
 
+    drivers::pci::install();
+
     system::syscalls::install();
     system::proc::install();
     arch::interrupts::enable();

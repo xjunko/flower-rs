@@ -81,6 +81,7 @@ dependencies = [
  "flower-mono",
  "limine",
  "linked_list_allocator",
+ "pci_types",
  "raw-cpuid",
  "spin",
  "x86_64",
