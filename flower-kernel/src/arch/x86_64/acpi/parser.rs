@@ -1,14 +1,10 @@
-use alloc::vec::Vec;
 use core::ptr::NonNull;
 
-use acpi::sdt::madt::{Madt, MadtEntry};
-use acpi::{AcpiTables, PhysicalMapping};
-use spin::Once;
+use acpi::PhysicalMapping;
 use x86_64::PhysAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::boot::limine::RSDP_REQUEST;
-use crate::system::mem::vmm;
+use crate::system;
 
 #[derive(Clone, Debug)]
 pub struct AcpiReader;
@@ -19,11 +15,12 @@ impl acpi::Handler for AcpiReader {
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
-        let virt_addr =
-            vmm::phys_to_virt(PhysAddr::new(physical_address as u64));
+        let virt_addr = system::mem::vmm::phys_to_virt(PhysAddr::new(
+            physical_address as u64,
+        ));
 
-        if !vmm::page_is_mapped(virt_addr)
-            && let Err(e) = vmm::page_map(
+        if !system::mem::vmm::page_is_mapped(virt_addr)
+            && let Err(e) = system::mem::vmm::page_map(
                 virt_addr,
                 PhysAddr::new(physical_address as u64),
                 PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
@@ -132,68 +129,4 @@ impl acpi::Handler for AcpiReader {
     }
 
     fn release(&self, _mutex: acpi::Handle) { todo!() }
-}
-
-#[derive(Debug)]
-pub struct LapicInfo {
-    pub proc_id: u8,
-    pub apic_id: u8,
-    pub flags: u32,
-}
-
-#[derive(Debug)]
-pub struct IoApicInfo {
-    pub id: u8,
-    pub address: u32,
-}
-
-#[derive(Debug, Default)]
-pub struct KernelAcpiTables {
-    pub lapics: Vec<LapicInfo>,
-    pub ioapics: Vec<IoApicInfo>,
-}
-
-pub static ACPI_TABLES: Once<KernelAcpiTables> = Once::new();
-
-pub fn install() {
-    if ACPI_TABLES.get().is_some() {
-        panic!("acpi tables already installed");
-    }
-
-    let mut tables = KernelAcpiTables::default();
-
-    unsafe {
-        let rsdp =
-            RSDP_REQUEST.get_response().expect("failed to get rsdp").address();
-
-        let acpi_tables = AcpiTables::from_rsdp(AcpiReader, rsdp)
-            .expect("failed to parse acpi tables");
-
-        for madt in acpi_tables.find_tables::<Madt>() {
-            for entry in madt.get().entries() {
-                match entry {
-                    MadtEntry::LocalApic(lapic) => {
-                        tables.lapics.push(LapicInfo {
-                            proc_id: lapic.processor_id,
-                            apic_id: lapic.apic_id,
-                            flags: lapic.flags,
-                        });
-                    },
-                    MadtEntry::IoApic(ioapic) => {
-                        tables.ioapics.push(IoApicInfo {
-                            id: ioapic.io_apic_id,
-                            address: ioapic.io_apic_address,
-                        })
-                    },
-                    _ => {},
-                }
-            }
-        }
-    }
-
-    ACPI_TABLES.call_once(|| tables);
-}
-
-pub fn get() -> &'static KernelAcpiTables {
-    ACPI_TABLES.get().expect("acpi tables not installed")
 }
