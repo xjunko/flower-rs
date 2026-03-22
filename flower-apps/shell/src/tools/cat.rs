@@ -1,9 +1,14 @@
-use flower_libc::std;
+use flower_libc::{println, std};
 
-pub fn read(args: &[u8]) -> i32 {
-    let file_fd = std::open(args, 0, 0);
+pub fn read(args: &str) -> i32 {
+    if args.is_empty() {
+        println!("usage: cat <filename>");
+        return -1;
+    }
+
+    let file_fd = std::open(args.as_bytes(), 0, 0);
     if file_fd < 0 {
-        std::write(1, b"failed to open file\n");
+        println!("failed to open file");
         return -1;
     }
 
