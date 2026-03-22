@@ -1,6 +1,7 @@
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::system::vfs::{
     VFSFile, VFSFileType, VFSMetadata, VFSPermissions, VFSResult, VFSSeek,
@@ -33,10 +34,9 @@ impl From<u8> for TarFSFileType {
     }
 }
 
-#[derive(Clone)]
 pub struct TarFile {
     pub _data_position: usize,
-    pub _position: usize,
+    pub _position: AtomicUsize,
     pub _data: Arc<Vec<u8>>,
 
     pub name: String,
@@ -55,15 +55,56 @@ pub struct TarFile {
     pub prefix: String,
 }
 
+impl Clone for TarFile {
+    fn clone(&self) -> Self {
+        Self {
+            _data_position: self._data_position,
+            _position: AtomicUsize::new(self._position.load(Ordering::Relaxed)),
+            _data: Arc::clone(&self._data),
+            name: self.name.clone(),
+            path: self.path.clone(),
+            mode: self.mode,
+            owner_id: self.owner_id,
+            group_id: self.group_id,
+            size: self.size,
+            last_modified: self.last_modified,
+            checksum: self.checksum,
+            file_type: self.file_type,
+            owner_name: self.owner_name.clone(),
+            group_name: self.group_name.clone(),
+            device_major: self.device_major,
+            device_minor: self.device_minor,
+            prefix: self.prefix.clone(),
+        }
+    }
+}
+
 impl VFSFile for TarFile {
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
-        let position = self._position;
+        let (position, bytes_to_read) = loop {
+            let position = self._position.load(Ordering::Acquire);
 
-        if position >= self.size {
-            return Ok(0);
-        }
+            if position >= self.size {
+                return Ok(0);
+            }
 
-        let bytes_to_read = core::cmp::min(buf.len(), self.size - position);
+            let bytes_to_read = core::cmp::min(buf.len(), self.size - position);
+            let new_position = position + bytes_to_read;
+
+            if self
+                ._position
+                .compare_exchange(
+                    position,
+                    new_position,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                )
+                .is_ok()
+            {
+                break (position, bytes_to_read);
+            }
+        };
+
         let source =
             unsafe { self._data.as_ptr().add(self._data_position + position) };
 
@@ -83,14 +124,16 @@ impl VFSFile for TarFile {
     fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
         let mut new_pos = match pos {
             VFSSeek::Start(n) => n,
-            VFSSeek::Current(n) => self._position.saturating_add(n),
+            VFSSeek::Current(n) => {
+                self._position.load(Ordering::Acquire).saturating_add(n)
+            },
             VFSSeek::End(n) => self.size.saturating_add(n),
         };
 
         new_pos = core::cmp::min(new_pos, self.size);
 
-        self._position = new_pos;
-        Ok(self._position)
+        self._position.store(new_pos, Ordering::Release);
+        Ok(new_pos)
     }
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {

@@ -5,6 +5,7 @@ use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::sync::atomic::AtomicUsize;
 
 use crate::boot::limine::MODULE_REQUESTS;
 use crate::error;
@@ -125,7 +126,7 @@ impl TarFS {
 
                     files.push(TarFile {
                         _data_position: data_position,
-                        _position: 0,
+                        _position: AtomicUsize::new(0),
                         _data: Arc::clone(&data),
                         name: file_name
                             .split("/")
