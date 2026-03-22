@@ -95,8 +95,8 @@ unsafe extern "C" fn kmain() -> ! {
     system::mem::self_test();
 
     // kernel-process test
-    system::proc::spawn("timer", k_timer);
     system::proc::spawn("stress", k_stress);
+    system::proc::spawn("timer", k_timer);
 
     // user-mode process test
     system::proc::spawn_elf("hello", HELLO_ELF)

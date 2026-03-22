@@ -91,13 +91,6 @@ extern "x86-interrupt" fn page_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
 ) {
-    if !error_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION)
-        && let Ok(addr) = Cr2::read()
-        && system::mem::heap::handle_page_fault(addr)
-    {
-        return;
-    }
-
     error!("page fault triggered, in process: {}", system::proc::name());
     match Cr2::read() {
         Ok(addr) => println!("CR2:    {:#x}", addr.as_u64()),
