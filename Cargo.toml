@@ -1,14 +1,13 @@
 [workspace]
-members = ["flower-kernel", "flower-libc", "flower-apps/*", "flower-mono"]
 resolver = "3"
+members = ["flower-apps/*", "flower-kernel", "flower-libc", "flower-mono"]
 
 [workspace.package]
 version = "0.0.1"
 edition = "2024"
-authors = ["xjunko <phony@kafu.ovh>"]
-
-[profile.release]
-panic = "abort"
 
 [profile.dev]
+panic = "abort"
+
+[profile.release]
 panic = "abort"

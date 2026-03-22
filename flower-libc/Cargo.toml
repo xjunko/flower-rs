@@ -4,12 +4,10 @@ cargo-features = ["panic-immediate-abort"]
 name = "flower-libc"
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
 
 [lib]
-test = false
 bench = false
-
+test = false
 
 [dependencies]
 flower-mono = { path = "../flower-mono" }

@@ -2,7 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt, alloc_error_handler)]
 #![allow(dead_code)] // everything is WIP, i dont care
-#![allow(clippy::manual_div_ceil)] // i dont trust the .div_ceil implementation 
+#![allow(clippy::manual_div_ceil)] // i dont trust the .div_ceil implementation
 
 extern crate alloc;
 
@@ -93,23 +93,23 @@ unsafe extern "C" fn kmain() -> ! {
     system::mem::self_test();
 
     // kernel-process test
-    system::proc::spawn("init", k_init);
-    system::proc::spawn("timer", k_timer);
+    // system::proc::spawn("init", k_init);
+    // system::proc::spawn("timer", k_timer);
 
-    // usermode process test
+    // user-mode process test
     system::proc::spawn_elf("hello", HELLO_ELF)
         .expect("failed to spawn elf process");
 
-    // // elf from vfs
-    // if let Ok(file) = system::vfs::open("/init/shell", 0) {
-    //     let metadata = file.metadata().expect("invalid metadata");
-    //     let mut buffer = alloc::vec![0u8; metadata.size as usize];
-    //     file.read(&mut buffer).expect("failed to read file");
-    //     system::proc::spawn_elf("shell", &buffer)
-    //         .expect("failed to spawn shell process");
-    // } else {
-    //     println!("failed to open file /init/shell");
-    // }
+    // user-mode shell test
+    if let Ok(file) = system::vfs::open("/init/shell", 0) {
+        let metadata = file.metadata().expect("invalid metadata");
+        let mut buffer = alloc::vec![0u8; metadata.size ];
+        file.read(&mut buffer).expect("failed to read file");
+        system::proc::spawn_elf("shell", &buffer)
+            .expect("failed to spawn shell process");
+    } else {
+        println!("failed to open file /init/shell");
+    }
 
     warn!("nothing to do, halting!");
     arch::halt();

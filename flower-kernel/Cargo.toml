@@ -1,18 +1,17 @@
-[[bin]]
-name = "flower-kernel"
-test = false
-bench = false
-
 [package]
 name = "flower-kernel"
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
+
+[[bin]]
+bench = false
+name = "flower-kernel"
+test = false
 
 [dependencies]
-flower-mono = { path = "../flower-mono" }
 acpi = "6.1.0"
 flanterm = "0.0.2"
+flower-mono = { path = "../flower-mono" }
 limine = "0.5.0"
 linked_list_allocator = "0.10.5"
 raw-cpuid = "11.6.0"
