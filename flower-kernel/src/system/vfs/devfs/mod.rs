@@ -1,7 +1,7 @@
 mod keyboard;
 
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::system::vfs::{
@@ -42,7 +42,18 @@ impl VFSFile for DevFile {
     fn seek(&mut self, _pos: VFSSeek) -> VFSResult<usize> { Ok(1) }
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {
-        Ok(VFSMetadata { file_type: VFSFileType::Device, size: 0 })
+        Ok(VFSMetadata {
+            name: self
+                .path
+                .split("/")
+                .last()
+                .unwrap_or(self.path.as_str())
+                .to_string(),
+            mode: 0,
+            typ: VFSFileType::Device,
+            last_modified: 0,
+            size: 0,
+        })
     }
 }
 

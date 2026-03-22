@@ -1,15 +1,22 @@
 use alloc::boxed::Box;
+use alloc::string::String;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSFileType {
     File,
     Directory,
     Device,
+    Symlink,
+    Pipe,
+    Unknown,
 }
 
 #[derive(Debug, Clone)]
 pub struct VFSMetadata {
-    pub file_type: VFSFileType,
+    pub name: String,
+    pub mode: usize,
+    pub typ: VFSFileType,
+    pub last_modified: usize,
     pub size: usize,
 }
 
