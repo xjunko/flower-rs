@@ -16,7 +16,7 @@ use alloc::format;
 static HELLO_ELF: &[u8] =
     include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
 
-fn k_init() {
+fn k_stress() {
     system::proc::spawn("one-level", || {
         debug!("hello world from {}", system::proc::name());
     });
@@ -93,8 +93,8 @@ unsafe extern "C" fn kmain() -> ! {
     system::mem::self_test();
 
     // kernel-process test
-    // system::proc::spawn("init", k_init);
-    // system::proc::spawn("timer", k_timer);
+    system::proc::spawn("timer", k_timer);
+    system::proc::spawn("stress", k_stress);
 
     // user-mode process test
     system::proc::spawn_elf("hello", HELLO_ELF)
