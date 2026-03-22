@@ -1,4 +1,4 @@
-use flower_libc::{println, std};
+use flower_libc::{print, println, std};
 
 // fairly small buffer, let's just hope it's big enough.
 const PCM_BUFFER: usize = 4096;
@@ -44,8 +44,8 @@ pub fn play(args: &str) -> i32 {
             }
 
             total_written += written;
-            println!(
-                "played {} bytes ({} total)",
+            print!(
+                "\rplayed {} bytes ({} total)",
                 written,
                 pcm_pos + total_written,
             );
