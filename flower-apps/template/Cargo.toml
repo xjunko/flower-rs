@@ -1,11 +1,11 @@
 [package]
-name = "apps-template"
+name = "template"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
 bench = false
-name = "apps-template"
+name = "template"
 test = false
 
 [dependencies]

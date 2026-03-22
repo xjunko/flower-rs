@@ -1,8 +1,8 @@
 static HELLO_ELF: &[u8] =
-    include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
+    include_bytes!("../../target/x86_64-unknown-none/release/hello");
 
 static SHELL_ELF: &[u8] =
-    include_bytes!("../../target/x86_64-unknown-none/release/userspace-shell");
+    include_bytes!("../../target/x86_64-unknown-none/release/shell");
 
 use crate::{println, system};
 

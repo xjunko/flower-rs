@@ -1,11 +1,11 @@
 [package]
-name = "userspace-shell"
+name = "shell"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
 bench = false
-name = "userspace-shell"
+name = "shell"
 test = false
 
 [dependencies]
