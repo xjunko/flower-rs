@@ -4,7 +4,34 @@ use spin::Mutex;
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 
-use crate::drivers::tty::flanterm;
+use crate::drivers::tty::terminal;
+
+struct CrlfWriter<'a, W: Write> {
+    inner: &'a mut W,
+}
+
+impl<W: Write> Write for CrlfWriter<'_, W> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let mut start = 0;
+
+        for (index, byte) in s.bytes().enumerate() {
+            if byte == b'\n' {
+                if start < index {
+                    self.inner.write_str(&s[start..index])?;
+                }
+                self.inner.write_str("\r\n")?;
+                start = index + 1;
+            }
+        }
+
+        if start < s.len() {
+            self.inner.write_str(&s[start..])?;
+        }
+
+        Ok(())
+    }
+}
+
 pub struct SerialPort {
     data: Port<u8>,
     interrupt: Port<u8>,
@@ -83,8 +110,10 @@ pub fn _print(args: fmt::Arguments) {
         let mut serial = SERIAL.lock();
         let _ = serial.write_fmt(args);
 
-        if let Some(mut flanterm_context) = flanterm::get() {
-            let _ = flanterm_context.write_fmt(args);
+        let mut guard = terminal::get();
+        if let Some(term) = guard.as_mut() {
+            let mut writer = CrlfWriter { inner: term };
+            let _ = writer.write_fmt(args);
         }
     });
 }

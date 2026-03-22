@@ -89,7 +89,7 @@ unsafe extern "C" fn kmain() -> ! {
     arch::interrupts::enable();
 
     // past this point, the kernel can now do dynamic allocation
-    drivers::tty::flanterm::install();
+    drivers::tty::terminal::install();
     system::vfs::install();
 
     system::mem::self_test();

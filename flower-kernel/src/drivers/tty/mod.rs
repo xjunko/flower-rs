@@ -1,2 +1,2 @@
-pub mod flanterm;
 pub mod serial;
+pub mod terminal;
