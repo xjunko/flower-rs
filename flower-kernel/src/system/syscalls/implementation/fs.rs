@@ -5,6 +5,24 @@ use crate::system::vfs::{FdKind, VFSError};
 use crate::system::{self};
 use crate::{error, print};
 
+pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let path =
+        unsafe { CStr::from_ptr(frame.rdi as *const c_char).to_str().unwrap() };
+    let flags = frame.rsi as u32;
+    let _mode = frame.rdx as usize;
+
+    // TODO: handle directory
+    match system::vfs::open(path, flags) {
+        Ok(file) => {
+            let result = system::proc::with_fd_table(|table| {
+                table.alloc(FdKind::File(file))
+            });
+            Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
+        },
+        Err(_) => Err(SyscallError::NotFound),
+    }
+}
+
 pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
     let buf = frame.rsi as *mut u8;
@@ -32,7 +50,7 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
 pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
-    let buf = frame.rsi as *const u8;
+    let buf = frame.rsi as *mut u8;
     let len = frame.rdx as usize;
 
     let result = system::proc::with_fd_table(|table| match table.get(fd)? {
@@ -42,6 +60,11 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 print!("{}", byte as char);
             }
             Ok(len)
+        },
+        FdKind::File(file) => {
+            let slice = unsafe { core::slice::from_raw_parts_mut(buf, len) };
+            let written = file.write(slice)?;
+            Ok(written)
         },
         _ => {
             error!("write syscall: fd {} is not writable", fd);
@@ -53,24 +76,6 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         Ok(result as u64)
     } else {
         Err(SyscallError::NotFound)
-    }
-}
-
-pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    let path =
-        unsafe { CStr::from_ptr(frame.rdi as *const c_char).to_str().unwrap() };
-    let flags = frame.rsi as u32;
-    let _mode = frame.rdx as usize;
-
-    // TODO: handle directory
-    match system::vfs::open(path, flags) {
-        Ok(file) => {
-            let result = system::proc::with_fd_table(|table| {
-                table.alloc(FdKind::File(file))
-            });
-            Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
-        },
-        Err(_) => Err(SyscallError::NotFound),
     }
 }
 
