@@ -1,4 +1,5 @@
 #![no_std]
+pub mod auxv;
 pub mod std;
 pub mod syscalls;
 pub mod utils;
