@@ -1,3 +1,4 @@
+mod audio;
 mod keyboard;
 
 use alloc::boxed::Box;
@@ -67,6 +68,7 @@ impl DevFS {
     pub fn new() -> Self {
         let mut dev = Self { files: Vec::new() };
         keyboard::install(&mut dev);
+        audio::install(&mut dev);
         dev
     }
 
