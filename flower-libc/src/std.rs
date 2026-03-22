@@ -8,12 +8,12 @@ use flower_mono::syscalls::{
 use crate::syscalls::{syscall1, syscall3};
 use crate::utils::CStr;
 
-pub fn read(fd: u64, buf: &mut [u8]) -> usize {
-    syscall3(SYS_READ, fd, buf.as_mut_ptr() as u64, buf.len() as u64) as usize
+pub fn read(fd: u64, buf: &mut [u8]) -> i64 {
+    syscall3(SYS_READ, fd, buf.as_mut_ptr() as u64, buf.len() as u64) as i64
 }
 
-pub fn write(fd: u64, buf: &[u8]) -> usize {
-    syscall3(SYS_WRITE, fd, buf.as_ptr() as u64, buf.len() as u64) as usize
+pub fn write(fd: u64, buf: &[u8]) -> i64 {
+    syscall3(SYS_WRITE, fd, buf.as_ptr() as u64, buf.len() as u64) as i64
 }
 
 pub fn open(path: &[u8], flags: u64, mode: u64) -> i64 {
