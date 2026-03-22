@@ -1,5 +1,8 @@
-// static HELLO_ELF: &[u8] =
-//     include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
+static HELLO_ELF: &[u8] =
+    include_bytes!("../../target/x86_64-unknown-none/release/userspace-hello");
+
+static SHELL_ELF: &[u8] =
+    include_bytes!("../../target/x86_64-unknown-none/release/userspace-shell");
 
 use crate::{println, system};
 
@@ -25,10 +28,14 @@ pub fn entry() {
     logo();
 
     // user-mode process test
-    // system::proc::spawn_elf("hello", HELLO_ELF)
-    //     .expect("failed to spawn elf process");
+    system::proc::spawn_elf("hello", HELLO_ELF)
+        .expect("failed to spawn elf process");
 
-    // user-mode shell test
+    // user-mode rust shell test
+    system::proc::spawn_elf("shell", SHELL_ELF)
+        .expect("failed to spawn shell process");
+
+    // user-mode vfs c shell test
     // if let Ok(file) = system::vfs::open("/init/shell", 0) {
     //     let metadata = file.metadata().expect("invalid metadata");
     //     let mut buffer = alloc::vec![0u8; metadata.size ];

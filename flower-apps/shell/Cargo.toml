@@ -1,0 +1,12 @@
+[package]
+name = "userspace-shell"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+bench = false
+name = "userspace-shell"
+test = false
+
+[dependencies]
+flower-libc = { path = "../../flower-libc" }

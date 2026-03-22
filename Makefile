@@ -10,17 +10,13 @@ run: $(IMAGE_NAME).iso
 					   -audio driver=sdl,model=ac97,id=0 \
 					   -cdrom $(IMAGE_NAME).iso -d int
 
-# apps build
-.PHONY: apps-hello
-apps-hello:
-	make -C flower-apps/hello
-
 # kernel build
 .PHONY: $(IMAGE_NAME).iso
 all: $(IMAGE_NAME).iso
 
 .PHONY: kernel
-kernel: apps-hello
+kernel:
+	make -C flower-apps
 	make -C flower-kernel
 
 # limine
