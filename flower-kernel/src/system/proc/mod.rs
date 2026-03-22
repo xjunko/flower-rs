@@ -1,3 +1,4 @@
+mod auxv;
 pub mod process;
 mod trampoline;
 
@@ -232,11 +233,21 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
         user_stack_top >= stack_low
             && user_stack_top < USER_STACK_TOP_PAGE + PAGE_SIZE
     );
+
+    // NOTE: we build the auxv ontop of the user stack
+    let user_stack = auxv::build_initial_user_stack(
+        name,
+        &address_space,
+        stack_low,
+        user_stack_top,
+        &loaded,
+    )?;
+
     let proc = Process::new_user(
         name,
         address_space,
         loaded.entry,
-        user_stack_top,
+        user_stack,
         user_heap,
     );
     let proc_id = proc.id;
