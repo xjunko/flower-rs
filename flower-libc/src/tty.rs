@@ -1,4 +1,4 @@
-use crate::std;
+use crate::{print, std};
 
 pub fn getch() -> u8 {
     let kb = std::open(b"/dev/keyboard\0", 0, 0);
@@ -23,20 +23,20 @@ pub fn read_line(buf: &mut [u8]) -> usize {
 
         match c {
             b'\n' => {
-                std::write(1, b"\n");
+                print!("\n");
                 return pos;
             },
             b'\x08' => {
                 if pos > 0 {
                     pos -= 1;
-                    std::write(1, b"\x08 \x08");
+                    print!("\x08 \x08");
                 }
             },
             32..126 => {
                 if pos < buf.len() {
                     buf[pos] = c;
                     pos += 1;
-                    std::write(1, &[c]);
+                    print!("{}", c as char);
                 }
             },
             _ => break,
