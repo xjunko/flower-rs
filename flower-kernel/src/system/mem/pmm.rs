@@ -182,3 +182,11 @@ pub fn free(addr: u64) {
 pub fn max_phys_address() -> Option<u64> {
     PMM.lock().as_ref().map(|pmm| (pmm.total_pages * PAGE_SIZE) as u64)
 }
+
+pub fn free_pages() -> Option<usize> {
+    PMM.lock().as_ref().map(|pmm| pmm.free_pages)
+}
+
+pub fn usable_pages() -> Option<usize> {
+    PMM.lock().as_ref().map(|pmm| pmm.usable_pages)
+}
