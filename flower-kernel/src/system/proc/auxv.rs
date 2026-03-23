@@ -45,16 +45,25 @@ fn push_user_bytes(
 
 /// builds the initial user stack with the given program name and ELF information.
 pub fn build_initial_user_stack(
-    name: &str,
+    argv: &[&str],
     address_space: &AddressSpace,
     stack_low: u64,
     mut stack_top: u64,
     loaded: &elf::ELF64,
 ) -> Result<u64, &'static str> {
-    let mut argv0 = Vec::from(name.as_bytes());
-    argv0.push(0);
-    let argv0_ptr =
-        push_user_bytes(address_space, stack_low, &mut stack_top, &argv0)?;
+    let mut argv_ptrs = Vec::with_capacity(argv.len());
+    for arg in argv.iter().rev() {
+        let mut arg_bytes = Vec::from(arg.as_bytes());
+        arg_bytes.push(0);
+        let arg_ptr = push_user_bytes(
+            address_space,
+            stack_low,
+            &mut stack_top,
+            &arg_bytes,
+        )?;
+        argv_ptrs.push(arg_ptr);
+    }
+    argv_ptrs.reverse();
 
     stack_top &= !0xF;
     if stack_top < stack_low {
@@ -83,8 +92,15 @@ pub fn build_initial_user_stack(
 
     push_user_u64(address_space, stack_low, &mut stack_top, 0)?;
     push_user_u64(address_space, stack_low, &mut stack_top, 0)?;
-    push_user_u64(address_space, stack_low, &mut stack_top, argv0_ptr)?;
-    push_user_u64(address_space, stack_low, &mut stack_top, 1)?;
+    for arg_ptr in argv_ptrs.iter().rev() {
+        push_user_u64(address_space, stack_low, &mut stack_top, *arg_ptr)?;
+    }
+    push_user_u64(
+        address_space,
+        stack_low,
+        &mut stack_top,
+        argv_ptrs.len() as u64,
+    )?;
 
     Ok(stack_top)
 }
