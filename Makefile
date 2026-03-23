@@ -14,9 +14,12 @@ run: $(IMAGE_NAME).iso
 .PHONY: $(IMAGE_NAME).iso
 all: $(IMAGE_NAME).iso
 
-.PHONY: kernel
-kernel:
+.PHONY: apps
+apps:
 	make -C flower-apps
+
+.PHONY: kernel
+kernel: 
 	make -C flower-kernel
 
 # limine
