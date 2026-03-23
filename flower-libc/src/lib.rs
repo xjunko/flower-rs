@@ -1,10 +1,15 @@
 #![no_std]
 
 use core::fmt::Write;
+extern crate alloc;
+
 pub mod auxv;
+pub mod mem;
 pub mod std;
 pub mod syscalls;
 pub mod tty;
+
+use crate::mem::FlowerLibcAllocator;
 
 pub struct FlowerLibcStdout;
 impl Write for FlowerLibcStdout {
@@ -31,5 +36,8 @@ macro_rules! println {
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! { std::panic(info) }
+
+#[global_allocator]
+static ALLOCATOR: FlowerLibcAllocator = FlowerLibcAllocator;
 
 pub fn _init() { unsafe { auxv::init_current() }; }

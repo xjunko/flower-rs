@@ -2,11 +2,11 @@ use core::fmt::Write;
 use core::panic::PanicInfo;
 
 use flower_mono::syscalls::{
-    SYS_CLOSE, SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_MSLEEP, SYS_OPEN, SYS_READ,
-    SYS_WRITE,
+    SYS_CLOSE, SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_MMAP, SYS_MSLEEP, SYS_OPEN,
+    SYS_READ, SYS_WRITE,
 };
 
-use crate::syscalls::{syscall0, syscall1, syscall3};
+use crate::syscalls::{syscall0, syscall1, syscall3, syscall6};
 
 const MAX_PATH_BYTES: usize = 512;
 
@@ -64,6 +64,16 @@ pub fn exit(s: u64) -> ! {
 }
 
 pub fn sleep(millis: u64) { syscall1(SYS_MSLEEP, millis); }
+
+pub fn mmap(size: usize) -> *mut u8 {
+    if size == 0 {
+        return core::ptr::null_mut();
+    }
+
+    let ret = syscall6(SYS_MMAP, 0, size as u64, 0, 0, u64::MAX, 0);
+
+    if ret == u64::MAX { core::ptr::null_mut() } else { ret as *mut u8 }
+}
 
 struct Stderr;
 
