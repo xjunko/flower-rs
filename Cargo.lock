@@ -91,20 +91,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flower-apps-echo"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
-]
-
-[[package]]
-name = "flower-apps-echo"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
-]
-
-[[package]]
 name = "flower-apps-hello"
 version = "0.0.1"
 dependencies = [
