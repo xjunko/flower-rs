@@ -1,0 +1,12 @@
+[package]
+name = "flower-apps-echo"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+bench = false
+name = "flower-apps-echo"
+test = false
+
+[dependencies]
+flower-libc = { path = "../../flower-libc" }

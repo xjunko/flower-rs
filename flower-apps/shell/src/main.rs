@@ -61,7 +61,7 @@ fn exec(input: String) {
         "help" => help(&args),
         "exec" => tools::exec::run(&args),
         _ => {
-            let mut path = format!("/init/{}", cmd);
+            let mut path = format!("/init/bin/{}", cmd);
             let file_fd = std::open(path.as_bytes(), 0, 0);
 
             if file_fd > 0 {
