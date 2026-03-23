@@ -26,8 +26,9 @@ pub extern "C" fn _start() -> ! {
 
 fn help(_: &str) -> i32 {
     println!("available commands:");
-    println!("  cat <filename> - print the contents of a file");
-    println!("  pcm <filename> - play a PCM audio file");
+    println!("  cat <filename>  - print the contents of a file");
+    println!("  pcm <filename>  - play a PCM audio file");
+    println!("  exec <filename> - fork and exec <filename> in child");
     0
 }
 
@@ -47,6 +48,7 @@ fn exec(buf: &[u8]) {
             "help" => help(args),
             "cat" => tools::cat::read(args),
             "pcm" => tools::pcm::play(args),
+            "exec" => tools::exec::run(args),
             _ => {
                 println!("unknown command: {}", cmd);
                 -1
