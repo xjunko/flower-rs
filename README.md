@@ -1,4 +1,6 @@
 <img src="https://static.wikia.nocookie.net/vocaloid/images/a/a5/V4flower.png/revision/latest?cb=20250314003504"  height="500" align="right" style="float: right; margin: 0 10px 0 0;" >
+<p align="right" style="float: right; margin: 0 10px 0 0;">Art by <a href="https://www.pixiv.net/en/users/2550807">miwashiiba</a></p>
+
 
 ## flower-rs
 a monolithic x86_64 kernel written in rust, a continuation of [riria](https://github.com/xjunko/riria).
