@@ -121,3 +121,27 @@ pub fn install() {
 pub fn open(path: &str, flags: u32) -> VFSResult<Box<dyn VFSFile>> {
     ROOT_VFS.lock().open(path, flags)
 }
+
+/// reads the entire contents of the file then returns it as a vector of bytes.
+/// only for internal use
+pub fn __read(path: &str) -> Result<Vec<u8>, &'static str> {
+    let file = open(path, 0).map_err(|_| "failed to read file")?;
+    let metadata = file.metadata().map_err(|_| "failed to stat file")?;
+
+    let mut file_data = Vec::with_capacity(metadata.size.max(1));
+    let mut tmp = alloc::vec![0u8; 4096];
+
+    loop {
+        let read = file.read(&mut tmp).map_err(|_| "failed to read file")?;
+        if read == 0 {
+            break;
+        }
+        file_data.extend_from_slice(&tmp[..read]);
+    }
+
+    if file_data.is_empty() {
+        return Err("empty file");
+    }
+
+    Ok(file_data)
+}
