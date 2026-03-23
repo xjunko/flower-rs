@@ -420,6 +420,78 @@ impl AddressSpace {
     }
 }
 
+// userspace stuff
+impl AddressSpace {
+    fn copy_user_pages_recursive(
+        &self,
+        dst: &AddressSpace,
+        table_phys: PhysAddr,
+        level: u8,
+        base: u64,
+    ) -> Result<(), &'static str> {
+        let table = unsafe { &*phys_to_virt(table_phys).as_ptr::<PageTable>() };
+        let entry_limit = if level == 4 { 256 } else { 512 };
+
+        for index in 0..entry_limit {
+            let entry = &table[index];
+            let flags = entry.flags();
+
+            if !flags.contains(PageTableFlags::PRESENT) {
+                continue;
+            }
+
+            let level_shift = 12 + 9 * ((level as u64).saturating_sub(1));
+            let entry_base = base + ((index as u64) << level_shift);
+
+            if level == 1 {
+                let src_phys =
+                    entry.frame().map_err(|_| "invalid leaf page frame")?;
+
+                let mut map_flags = PageTableFlags::PRESENT;
+                map_flags |= flags
+                    & (PageTableFlags::WRITABLE
+                        | PageTableFlags::USER_ACCESSIBLE
+                        | PageTableFlags::WRITE_THROUGH
+                        | PageTableFlags::NO_CACHE
+                        | PageTableFlags::NO_EXECUTE);
+
+                let dst_phys =
+                    dst.map_page_alloc(VirtAddr::new(entry_base), map_flags)?;
+
+                unsafe {
+                    core::ptr::copy_nonoverlapping(
+                        phys_to_virt(src_phys.start_address()).as_ptr::<u8>(),
+                        phys_to_virt(dst_phys).as_mut_ptr::<u8>(),
+                        4096,
+                    );
+                }
+            } else {
+                if flags.contains(PageTableFlags::HUGE_PAGE) {
+                    return Err("huge pages are not supported for fork");
+                }
+
+                let next_table =
+                    entry.frame().map_err(|_| "invalid page table frame")?;
+                self.copy_user_pages_recursive(
+                    dst,
+                    next_table.start_address(),
+                    level - 1,
+                    entry_base,
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// creates a new address space with the same mappings as the current one for the user portion
+    pub fn clone_user(&self) -> Result<Self, &'static str> {
+        let dst = AddressSpace::new()?;
+        self.copy_user_pages_recursive(&dst, self.pml4_phys, 4, 0)?;
+        Ok(dst)
+    }
+}
+
 impl Drop for AddressSpace {
     fn drop(&mut self) {
         let pml4_phys = self.pml4_phys;
