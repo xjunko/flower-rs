@@ -6,6 +6,7 @@ use x86_64::VirtAddr;
 use x86_64::registers::model_specific::FsBase;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::system::mem::PAGE_SIZE;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::{self};
 
@@ -130,6 +131,42 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             }
             proc.user_heap_position = heap_ptr;
             return Ok(heap_start);
+        }
+    }
+
+    Ok(SyscallError::NotFound as u64)
+}
+
+pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let addr = frame.rdi;
+    let base = addr & !(PAGE_SIZE as u64 - 1);
+    let size = frame.rsi;
+    let pages = (size + PAGE_SIZE as u64 - 1) / PAGE_SIZE as u64;
+
+    log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
+
+    if let Some(mut proc) =
+        system::proc::current().ok_or(SyscallError::Other)?.try_lock()
+    {
+        if addr < proc.user_heap_position {
+            panic!("munmap of non-heap memory is not supported");
+        }
+
+        if addr + size > proc.user_heap_position {
+            panic!(
+                "munmap of memory beyond current heap position is not supported"
+            );
+        }
+
+        for i in 0..pages {
+            let page_addr = base + i * PAGE_SIZE as u64;
+            proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
+                log::error!(
+                    "munmap failed: could not unmap page at user heap position {:#x}",
+                    page_addr
+                );
+                SyscallError::NotFound
+            })?;
         }
     }
 
