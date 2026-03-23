@@ -16,6 +16,7 @@ const MAX_SCAN_WORDS: usize = 512;
 const MAX_ARGC: usize = 128;
 const MAX_ENVC: usize = 256;
 const MAX_AUXV_PAIRS: usize = 128;
+const MIN_VALID_USER_PTR: usize = 0x1000;
 
 struct ParsedStackLayout {
     auxv_base: *const usize,
@@ -40,6 +41,19 @@ unsafe fn parse_auxv_base_from_stack(
     let argc = unsafe { *stack_base };
     if argc > MAX_ARGC {
         return None;
+    }
+
+    let argv_base = unsafe { stack_base.add(1) };
+    for idx in 0..argc {
+        let argv_slot = unsafe { argv_base.add(idx) };
+        if !can_read_word(argv_slot) {
+            return None;
+        }
+
+        let arg_ptr = unsafe { *argv_slot };
+        if arg_ptr < MIN_VALID_USER_PTR {
+            return None;
+        }
     }
 
     let mut ptr = unsafe { stack_base.add(1 + argc) };
@@ -108,7 +122,7 @@ unsafe fn parse_auxv_base_from_stack(
     Some(ParsedStackLayout {
         auxv_base: unsafe { stack_base.add(1 + argc + 1 + env_count + 1) },
         argc,
-        argv_base: unsafe { stack_base.add(1) },
+        argv_base,
     })
 }
 
@@ -191,6 +205,10 @@ pub fn argv(index: usize) -> Option<&'static str> {
 
     let ptr = unsafe { *argv_base.add(index) } as *const i8;
     if ptr.is_null() {
+        return None;
+    }
+
+    if (ptr as usize) < MIN_VALID_USER_PTR {
         return None;
     }
 
