@@ -1,6 +1,3 @@
-static SHELL_ELF: &[u8] =
-    include_bytes!("../../target/x86_64-unknown-none/release/shell");
-
 use crate::{println, system};
 
 fn logo() {
@@ -24,18 +21,13 @@ Memory:   {}/{}MB
 pub fn entry() {
     logo();
 
-    // user-mode rust shell test
-    system::proc::spawn_elf("shell", SHELL_ELF)
-        .expect("failed to spawn shell process");
-
-    // user-mode vfs c shell test
-    // if let Ok(file) = system::vfs::open("/init/shell", 0) {
-    //     let metadata = file.metadata().expect("invalid metadata");
-    //     let mut buffer = alloc::vec![0u8; metadata.size ];
-    //     file.read(&mut buffer).expect("failed to read file");
-    //     system::proc::spawn_elf("shell", &buffer)
-    //         .expect("failed to spawn shell process");
-    // } else {
-    //     println!("failed to open file /init/shell");
-    // }
+    if let Ok(file) = system::vfs::open("/init/shell", 0) {
+        let metadata = file.metadata().expect("invalid metadata");
+        let mut buffer = alloc::vec![0u8; metadata.size ];
+        file.read(&mut buffer).expect("failed to read file");
+        system::proc::spawn_elf("shell", &buffer)
+            .expect("failed to spawn shell process");
+    } else {
+        println!("failed to open file /init/shell");
+    }
 }

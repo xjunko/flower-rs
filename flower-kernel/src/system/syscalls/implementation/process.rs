@@ -57,8 +57,10 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         argv.push(path.to_string());
     }
 
-    system::proc::execve(path, &argv, frame)
-        .map_err(|_| SyscallError::Other)?;
+    if let Err(reason) = system::proc::execve(path, &argv, frame) {
+        log::error!("execve failed for path '{}': {:?}", path, reason);
+        return Err(SyscallError::NotFound);
+    }
     Ok(0)
 }
 
