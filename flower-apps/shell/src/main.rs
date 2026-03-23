@@ -1,6 +1,12 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+
 use flower_libc::{print, println, std, tty};
 
 mod tools;
@@ -20,7 +26,11 @@ pub extern "C" fn _start() -> ! {
             continue;
         }
         buf[len..BUFFER_SIZE].fill(0);
-        exec(&buf);
+
+        let buf_nulled =
+            buf.iter().copied().take_while(|&b| b != 0).collect::<Vec<u8>>();
+        let input = String::from_utf8(buf_nulled).unwrap_or_default();
+        exec(input);
     }
 }
 
@@ -30,59 +40,38 @@ fn help(_: &str) -> i32 {
     0
 }
 
-fn exec(buf: &[u8]) {
-    let (cmd, args) = str::from_utf8(buf)
-        .map(|s| {
-            let s = s.trim();
-            match s.split_once(' ') {
-                Some((c, a)) => (c, a.trim_start()),
-                None => (s, ""),
-            }
-        })
-        .unwrap_or(("", ""));
+fn exec(input: String) {
+    let cmd;
+    let args;
 
-    let ret_code = match cmd
-        .trim_matches(|c: char| c.is_whitespace() || c == '\0')
-    {
-        "help" => help(args),
-        "exec" => tools::exec::run(args),
+    let items: Vec<&str> = input.split(" ").collect();
+    if items.is_empty() {
+        return;
+    }
+
+    if items.len() > 1 {
+        cmd = items[0].trim().to_string();
+        args = items[1..].join(" ");
+    } else {
+        cmd = input.trim().to_string();
+        args = "".to_string();
+    }
+
+    let ret_code = match cmd.as_str() {
+        "help" => help(&args),
+        "exec" => tools::exec::run(&args),
         _ => {
-            // basically append cmd to /init/ and check if the file exists
-            let mut path = [0u8; BUFFER_SIZE * 2 + 7];
-            path[..6].copy_from_slice(b"/init/");
-            let cmd =
-                cmd.trim_matches(|c: char| c.is_whitespace() || c == '\0');
-            let args =
-                args.trim_matches(|c: char| c.is_whitespace() || c == '\0');
-
-            let cmd_bytes = cmd.as_bytes();
-            let cmd_len = core::cmp::min(cmd_bytes.len(), BUFFER_SIZE);
-            let mut path_len = 6 + cmd_len;
-            path[6..path_len].copy_from_slice(&cmd_bytes[..cmd_len]);
-
-            let file_fd = std::open(&path[..path_len], 0, 0);
+            let mut path = format!("/init/{}", cmd);
+            let file_fd = std::open(path.as_bytes(), 0, 0);
 
             if file_fd > 0 {
-                // append args after the path if exists
-                if !args.is_empty() {
-                    path[path_len] = b' ';
-                    path_len += 1;
-
-                    let args_bytes = args.as_bytes();
-                    let args_len =
-                        core::cmp::min(args_bytes.len(), path.len() - path_len);
-                    path[path_len..path_len + args_len]
-                        .copy_from_slice(&args_bytes[..args_len]);
-                    path_len += args_len;
-                }
-
-                let exec_args = str::from_utf8(&path[..path_len]).unwrap_or("");
-
                 std::close(file_fd as u64);
-                tools::exec::run(exec_args)
+                path.push(' ');
+                path.push_str(&args);
+                tools::exec::run(&path)
             } else {
                 println!("unknown command: {}", cmd);
-                -1
+                0
             }
         },
     };

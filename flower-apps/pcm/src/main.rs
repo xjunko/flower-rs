@@ -1,6 +1,10 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
+use alloc::vec;
+
 use flower_libc::{print, println, std};
 
 const PCM_BUFFER: usize = 4096;
@@ -48,7 +52,8 @@ pub fn play(args: &str) -> i32 {
         return -1;
     }
 
-    let mut buffer = [0u8; PCM_BUFFER];
+    let mut buffer = vec![0; PCM_BUFFER];
+
     let mut pcm_pos = 0;
 
     loop {
