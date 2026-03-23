@@ -194,13 +194,15 @@ unsafe fn page_table_free(table_phys: PhysAddr, level: u8) {
             continue;
         }
 
-        if level > 1
-            && !flags.contains(PageTableFlags::HUGE_PAGE)
-            && let Ok(frame) = entry.frame()
-        {
-            let child_phys = frame.start_address();
-            unsafe { page_table_free(child_phys, level - 1) };
-            system::mem::pmm::free(child_phys.as_u64());
+        if let Ok(frame) = entry.frame() {
+            if level > 1 && !flags.contains(PageTableFlags::HUGE_PAGE) {
+                let child_phys = frame.start_address();
+                unsafe { page_table_free(child_phys, level - 1) };
+                system::mem::pmm::free(child_phys.as_u64());
+            } else if level == 1 {
+                let leaf_phys = frame.start_address();
+                system::mem::pmm::free(leaf_phys.as_u64());
+            }
         }
 
         entry.set_unused();
