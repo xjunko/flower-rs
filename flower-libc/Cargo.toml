@@ -11,3 +11,4 @@ test = false
 
 [dependencies]
 flower-mono = { path = "../flower-mono" }
+good_memory_allocator = "0.1.7"
