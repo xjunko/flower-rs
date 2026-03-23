@@ -10,7 +10,7 @@ fn logo() {
     println!(
         "flower@vocachuds
 ------------
-Kernel:   {}-{}
+Kernel:   {} [v{}]
 Memory:   {}/{}MB
 ",
         env!("CARGO_PKG_NAME"),
