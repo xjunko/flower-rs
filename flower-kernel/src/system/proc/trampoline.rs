@@ -60,3 +60,12 @@ pub unsafe extern "C" fn user_trampoline_entry() -> ! {
         wrapper=sym user_process_entry
     );
 }
+
+#[unsafe(naked)]
+pub unsafe extern "C" fn fork_return_trampoline() -> ! {
+    naked_asm!(
+        "pop r15", "pop r14", "pop r13", "pop r12", "pop r11", "pop r10",
+        "pop r9", "pop r8", "pop rdi", "pop rsi", "pop rbp", "pop rbx",
+        "pop rdx", "pop rcx", "pop rax", "swapgs", "iretq",
+    );
+}

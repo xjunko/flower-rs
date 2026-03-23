@@ -3,6 +3,7 @@ mod types;
 
 use core::arch::naked_asm;
 
+pub use types::SyscallFrame;
 use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::registers::control::{Efer, EferFlags};
@@ -11,7 +12,6 @@ use x86_64::registers::rflags::RFlags;
 
 use crate::arch::gdt;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
-use crate::system::syscalls::types::SyscallFrame;
 
 #[repr(C, align(16))]
 struct CPUContext {

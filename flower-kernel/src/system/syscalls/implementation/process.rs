@@ -1,3 +1,5 @@
+use core::ffi::{CStr, c_char};
+
 use x86_64::VirtAddr;
 use x86_64::registers::model_specific::FsBase;
 use x86_64::structures::paging::PageTableFlags;
@@ -13,6 +15,26 @@ pub fn exit(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let ms = frame.rdi;
     system::proc::sleep(ms);
+    Ok(0)
+}
+
+pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    system::proc::fork(frame).map_err(|_| SyscallError::Other)
+}
+
+pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let path_ptr = frame.rdi as *const c_char;
+    if path_ptr.is_null() {
+        return Err(SyscallError::NotFound);
+    }
+    log::info!("execve called with path pointer: {:#x}", path_ptr as u64);
+
+    let path = unsafe { CStr::from_ptr(path_ptr) }
+        .to_str()
+        .map_err(|_| SyscallError::NotFound)?;
+    log::info!("execve called with path: {}", path);
+
+    system::proc::execve(path, frame).map_err(|_| SyscallError::Other)?;
     Ok(0)
 }
 

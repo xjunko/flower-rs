@@ -1,5 +1,5 @@
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SyscallFrame {
     pub r15: u64,
     pub r14: u64,
