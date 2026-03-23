@@ -1,3 +1,5 @@
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
 use x86_64::VirtAddr;
@@ -23,18 +25,40 @@ pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 }
 
 pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    const MAX_ARGV: usize = 32;
+
     let path_ptr = frame.rdi as *const c_char;
     if path_ptr.is_null() {
         return Err(SyscallError::NotFound);
     }
-    log::info!("execve called with path pointer: {:#x}", path_ptr as u64);
 
     let path = unsafe { CStr::from_ptr(path_ptr) }
         .to_str()
         .map_err(|_| SyscallError::NotFound)?;
-    log::info!("execve called with path: {}", path);
 
-    system::proc::execve(path, frame).map_err(|_| SyscallError::Other)?;
+    let argv_ptr = frame.rsi as *const *const c_char;
+    let mut argv = Vec::<String>::new();
+
+    if !argv_ptr.is_null() {
+        for idx in 0..MAX_ARGV {
+            let arg_ptr = unsafe { *argv_ptr.add(idx) };
+            if arg_ptr.is_null() {
+                break;
+            }
+
+            let arg = unsafe { CStr::from_ptr(arg_ptr) }
+                .to_str()
+                .map_err(|_| SyscallError::NotFound)?;
+            argv.push(arg.to_string());
+        }
+    }
+
+    if argv.is_empty() {
+        argv.push(path.to_string());
+    }
+
+    system::proc::execve(path, &argv, frame)
+        .map_err(|_| SyscallError::Other)?;
     Ok(0)
 }
 

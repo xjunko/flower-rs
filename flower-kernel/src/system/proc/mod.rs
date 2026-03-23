@@ -65,8 +65,9 @@ pub fn spawn(name: &str, entry: fn()) {
 
 /// spawns an elf process with the given name and elf bytes.
 pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
+    let argv = [name];
     let (address_space, user_entry, user_stack, user_heap) =
-        build_user_image(name, elf_data)?;
+        build_user_image(elf_data, &argv)?;
 
     let proc = Process::new_user(
         name,

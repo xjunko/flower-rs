@@ -1,4 +1,5 @@
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use x86_64::PhysAddr;
 use x86_64::registers::control::Cr3;
@@ -15,12 +16,19 @@ fn process_name_from_path(path: &str) -> String {
 /// replaces the current process image with a new one from the given path.
 pub fn execve(
     path: &str,
+    argv: &[String],
     frame: &mut SyscallFrame,
 ) -> Result<(), &'static str> {
     let elf_data = vfs::__read(path)?;
     let name = process_name_from_path(path);
+
+    let argv_storage: Vec<String> =
+        if argv.is_empty() { alloc::vec![name.clone()] } else { argv.to_vec() };
+    let argv_refs: Vec<&str> =
+        argv_storage.iter().map(|arg| arg.as_str()).collect();
+
     let (address_space, user_entry, user_stack, user_heap) =
-        system::proc::build_user_image(&name, &elf_data)?;
+        system::proc::build_user_image(&elf_data, &argv_refs)?;
 
     let new_cr3 = address_space.cr3();
     let (current_frame, current_flags) = Cr3::read();

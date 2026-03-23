@@ -9,8 +9,8 @@ use crate::system::proc::{
 };
 
 pub fn build_user_image(
-    name: &str,
     elf_data: &[u8],
+    argv: &[&str],
 ) -> Result<(AddressSpace, u64, u64, u64), &'static str> {
     let address_space = AddressSpace::new()?;
     let loaded = elf::load_into(elf_data, &address_space)?;
@@ -43,7 +43,7 @@ pub fn build_user_image(
     );
 
     let user_stack = auxv::build_initial_user_stack(
-        name,
+        argv,
         &address_space,
         stack_low,
         user_stack_top,
