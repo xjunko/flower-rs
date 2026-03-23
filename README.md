@@ -54,6 +54,7 @@ make clean run
 ### userspace
 - elf
   - it runs, no dynamic linking.
+  - supports fork and execve
 
 ## things that don't work
 ### kernel
@@ -68,9 +69,8 @@ make clean run
   
 ### userspace
 - process
-  - forking, execve, signals, etc.
+  - signals, etc.
 - dynamic linking
-
 
 and thousands other stuff that i don't remember or know yet.
 
