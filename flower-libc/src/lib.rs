@@ -5,7 +5,6 @@ pub mod auxv;
 pub mod std;
 pub mod syscalls;
 pub mod tty;
-pub mod utils;
 
 pub struct FlowerLibcStdout;
 impl Write for FlowerLibcStdout {

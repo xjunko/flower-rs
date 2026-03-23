@@ -7,7 +7,23 @@ use flower_mono::syscalls::{
 };
 
 use crate::syscalls::{syscall0, syscall1, syscall3};
-use crate::utils::CStr;
+
+const MAX_PATH_BYTES: usize = 512;
+
+fn with_c_path<T>(path: &[u8], f: impl FnOnce(*const u8) -> T) -> Option<T> {
+    if path.last() == Some(&0) {
+        return Some(f(path.as_ptr()));
+    }
+
+    if path.len() + 1 > MAX_PATH_BYTES {
+        return None;
+    }
+
+    let mut path_buf = [0u8; MAX_PATH_BYTES];
+    path_buf[..path.len()].copy_from_slice(path);
+    path_buf[path.len()] = 0;
+    Some(f(path_buf.as_ptr()))
+}
 
 pub fn read(fd: u64, buf: &mut [u8]) -> i64 {
     syscall3(SYS_READ, fd, buf.as_mut_ptr() as u64, buf.len() as u64) as i64
@@ -18,9 +34,12 @@ pub fn write(fd: u64, buf: &[u8]) -> i64 {
 }
 
 pub fn open(path: &[u8], flags: u64, mode: u64) -> i64 {
-    let c_path = CStr::from_bytes_with_nul(path)
-        .expect("path did not contain null byte");
-    let result = syscall3(SYS_OPEN, c_path.as_ptr() as u64, flags, mode);
+    let result = match with_c_path(path, |ptr| {
+        syscall3(SYS_OPEN, ptr as u64, flags, mode)
+    }) {
+        Some(result) => result,
+        None => return -1,
+    };
     if result == u64::MAX { -1 } else { result as i64 }
 }
 
@@ -32,9 +51,11 @@ pub fn close(fd: u64) -> i64 {
 pub fn fork() -> i64 { syscall0(SYS_FORK) as i64 }
 
 pub fn execve(path: &[u8], argv: u64, envp: u64) -> i64 {
-    let c_path = CStr::from_bytes_with_nul(path)
-        .expect("path did not contain null byte");
-    syscall3(SYS_EXECVE, c_path.as_ptr() as u64, argv, envp) as i64
+    match with_c_path(path, |ptr| syscall3(SYS_EXECVE, ptr as u64, argv, envp))
+    {
+        Some(result) => result as i64,
+        None => -1,
+    }
 }
 
 pub fn exit(s: u64) -> ! {

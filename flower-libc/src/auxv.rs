@@ -1,3 +1,4 @@
+use core::ffi::CStr;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 pub const AT_NULL: usize = 0;
@@ -8,16 +9,24 @@ pub const AT_PAGESZ: usize = 6;
 pub const AT_ENTRY: usize = 9;
 
 static AUXV_BASE: AtomicUsize = AtomicUsize::new(0);
+static ARGC: AtomicUsize = AtomicUsize::new(0);
+static ARGV_BASE: AtomicUsize = AtomicUsize::new(0);
 
 const MAX_SCAN_WORDS: usize = 512;
 const MAX_ARGC: usize = 128;
 const MAX_ENVC: usize = 256;
 const MAX_AUXV_PAIRS: usize = 128;
 
+struct ParsedStackLayout {
+    auxv_base: *const usize,
+    argc: usize,
+    argv_base: *const usize,
+}
+
 unsafe fn parse_auxv_base_from_stack(
     stack_base: *const usize,
     scan_limit: usize,
-) -> Option<*const usize> {
+) -> Option<ParsedStackLayout> {
     let can_read_word = |ptr: *const usize| {
         let addr = ptr as usize;
         addr.checked_add(core::mem::size_of::<usize>())
@@ -96,31 +105,41 @@ unsafe fn parse_auxv_base_from_stack(
         return None;
     }
 
-    Some(unsafe { stack_base.add(1 + argc + 1 + env_count + 1) })
+    Some(ParsedStackLayout {
+        auxv_base: unsafe { stack_base.add(1 + argc + 1 + env_count + 1) },
+        argc,
+        argv_base: unsafe { stack_base.add(1) },
+    })
 }
 
 unsafe fn init_from_rsp(rsp: usize) {
     let rsp_ptr = rsp as *const usize;
     let scan_limit = (rsp + 0x1000) & !0xFFF;
 
-    if let Some(auxv_base) =
+    if let Some(layout) =
         unsafe { parse_auxv_base_from_stack(rsp_ptr, scan_limit) }
     {
-        AUXV_BASE.store(auxv_base as usize, Ordering::Relaxed);
+        AUXV_BASE.store(layout.auxv_base as usize, Ordering::Relaxed);
+        ARGC.store(layout.argc, Ordering::Relaxed);
+        ARGV_BASE.store(layout.argv_base as usize, Ordering::Relaxed);
         return;
     }
 
     for offset in 1..=MAX_SCAN_WORDS {
         let candidate = unsafe { rsp_ptr.add(offset) };
-        if let Some(auxv_base) =
+        if let Some(layout) =
             unsafe { parse_auxv_base_from_stack(candidate, scan_limit) }
         {
-            AUXV_BASE.store(auxv_base as usize, Ordering::Relaxed);
+            AUXV_BASE.store(layout.auxv_base as usize, Ordering::Relaxed);
+            ARGC.store(layout.argc, Ordering::Relaxed);
+            ARGV_BASE.store(layout.argv_base as usize, Ordering::Relaxed);
             return;
         }
     }
 
     AUXV_BASE.store(0, Ordering::Relaxed);
+    ARGC.store(0, Ordering::Relaxed);
+    ARGV_BASE.store(0, Ordering::Relaxed);
 }
 
 /// # Safety
@@ -156,4 +175,24 @@ pub fn getauxval(key: usize) -> Option<usize> {
 
         ptr = unsafe { ptr.add(2) };
     }
+}
+
+pub fn argc() -> usize { ARGC.load(Ordering::Relaxed) }
+
+pub fn argv(index: usize) -> Option<&'static str> {
+    if index >= argc() {
+        return None;
+    }
+
+    let argv_base = ARGV_BASE.load(Ordering::Relaxed) as *const usize;
+    if argv_base.is_null() {
+        return None;
+    }
+
+    let ptr = unsafe { *argv_base.add(index) } as *const i8;
+    if ptr.is_null() {
+        return None;
+    }
+
+    unsafe { CStr::from_ptr(ptr).to_str().ok() }
 }
