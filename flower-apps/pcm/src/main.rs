@@ -1,7 +1,34 @@
+#![no_std]
+#![no_main]
+
 use flower_libc::{print, println, std};
 
-// fairly small buffer, let's just hope it's big enough.
 const PCM_BUFFER: usize = 4096;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn _start() -> ! {
+    flower_libc::_init();
+
+    let argc = flower_libc::auxv::argc();
+    if argc < 2 {
+        println!("usage: pcm <filename>");
+        std::exit(1);
+    }
+
+    let file_path = match flower_libc::auxv::argv(1) {
+        Some(path) => path,
+        None => {
+            println!("failed to get filename argument");
+            std::exit(1);
+        },
+    };
+
+    println!("playing PCM file: {}", file_path);
+    let ret_code = play(file_path);
+    println!("pcm exited with code: {}", ret_code);
+
+    std::exit(ret_code as u64);
+}
 
 pub fn play(args: &str) -> i32 {
     if args.is_empty() {

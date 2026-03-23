@@ -5,7 +5,7 @@ use flower_libc::{print, println, tty};
 
 mod tools;
 
-const BUFFER_SIZE: usize = 256;
+const BUFFER_SIZE: usize = 64;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -26,9 +26,7 @@ pub extern "C" fn _start() -> ! {
 
 fn help(_: &str) -> i32 {
     println!("available commands:");
-    println!("  cat <filename>  - print the contents of a file");
-    println!("  pcm <filename>  - play a PCM audio file");
-    println!("  exec <filename> - fork and exec <filename> in child");
+    println!("  exec <filename> [args...] - fork and exec in child");
     0
 }
 
@@ -46,8 +44,6 @@ fn exec(buf: &[u8]) {
     let ret_code =
         match cmd.trim_matches(|c: char| c.is_whitespace() || c == '\0') {
             "help" => help(args),
-            "cat" => tools::cat::read(args),
-            "pcm" => tools::pcm::play(args),
             "exec" => tools::exec::run(args),
             _ => {
                 println!("unknown command: {}", cmd);

@@ -71,6 +71,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "flower-apps-cat"
+version = "0.0.1"
+dependencies = [
+ "flower-libc",
+]
+
+[[package]]
+name = "flower-apps-hello"
+version = "0.0.1"
+dependencies = [
+ "flower-libc",
+]
+
+[[package]]
+name = "flower-apps-pcm"
+version = "0.0.1"
+dependencies = [
+ "flower-libc",
+]
+
+[[package]]
+name = "flower-apps-shell"
+version = "0.0.1"
+dependencies = [
+ "flower-libc",
+]
+
+[[package]]
 name = "flower-kernel"
 version = "0.0.1"
 dependencies = [
@@ -113,13 +141,6 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash",
-]
-
-[[package]]
-name = "hello"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
 ]
 
 [[package]]
@@ -214,13 +235,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pcm"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
-]
-
-[[package]]
 name = "raw-cpuid"
 version = "11.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -240,13 +254,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "shell"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
-]
 
 [[package]]
 name = "spin"
@@ -273,13 +280,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d96d2d1d716fb500937168cc09353ffdc7a012be8475ac7308e1bdf0e3923300"
 dependencies = [
  "lock_api",
-]
-
-[[package]]
-name = "template"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["flower-apps/*", "flower-kernel", "flower-libc", "flower-mono"]
+exclude = ["flower-apps/target", "flower-apps/template"]
 
 [workspace.package]
 version = "0.0.1"

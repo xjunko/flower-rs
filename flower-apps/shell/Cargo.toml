@@ -1,11 +1,11 @@
 [package]
-name = "shell"
+name = "flower-apps-shell"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
 bench = false
-name = "shell"
+name = "flower-apps-shell"
 test = false
 
 [dependencies]

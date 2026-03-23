@@ -1,11 +1,11 @@
 [package]
-name = "flower-apps-hello"
+name = "flower-apps-cat"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
 bench = false
-name = "flower-apps-hello"
+name = "flower-apps-cat"
 test = false
 
 [dependencies]
