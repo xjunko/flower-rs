@@ -19,7 +19,7 @@ pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             });
             Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
         },
-        Err(_) => Err(SyscallError::NotFound),
+        Err(_) => Err(SyscallError::NoSuchFile),
     }
 }
 
@@ -44,7 +44,7 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(SyscallError::NotFound)
+        Err(SyscallError::BadFileDescriptor)
     }
 }
 
@@ -75,14 +75,14 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(SyscallError::NotFound)
+        Err(SyscallError::BadFileDescriptor)
     }
 }
 
 pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
     let result = system::proc::with_fd_table(|table| table.close(fd));
-    if result.is_ok() { Ok(0) } else { Err(SyscallError::NotFound) }
+    if result.is_ok() { Ok(0) } else { Err(SyscallError::BadFileDescriptor) }
 }
 
 pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -107,6 +107,6 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(SyscallError::NotFound)
+        Err(SyscallError::BadFileDescriptor)
     }
 }

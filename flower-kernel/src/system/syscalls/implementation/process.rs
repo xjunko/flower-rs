@@ -30,12 +30,12 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     let path_ptr = frame.rdi as *const c_char;
     if path_ptr.is_null() {
-        return Err(SyscallError::NotFound);
+        return Err(SyscallError::InvalidArgument);
     }
 
     let path = unsafe { CStr::from_ptr(path_ptr) }
         .to_str()
-        .map_err(|_| SyscallError::NotFound)?;
+        .map_err(|_| SyscallError::InvalidArgument)?;
 
     let argv_ptr = frame.rsi as *const *const c_char;
     let mut argv = Vec::<String>::new();
@@ -49,7 +49,7 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
             let arg = unsafe { CStr::from_ptr(arg_ptr) }
                 .to_str()
-                .map_err(|_| SyscallError::NotFound)?;
+                .map_err(|_| SyscallError::InvalidArgument)?;
             argv.push(arg.to_string());
         }
     }
@@ -60,7 +60,7 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     if let Err(reason) = system::proc::execve(path, &argv, frame) {
         log::error!("execve failed for path '{}': {:?}", path, reason);
-        return Err(SyscallError::NotFound);
+        return Err(SyscallError::NoSuchFile);
     }
     Ok(0)
 }
@@ -75,7 +75,7 @@ pub fn write_fsbase(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         FsBase::write(VirtAddr::new(fsbase));
         Ok(0)
     } else {
-        Ok(SyscallError::NotFound as u64)
+        Err(SyscallError::InvalidArgument)
     }
 }
 
@@ -101,20 +101,26 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         size
     );
 
-    if let Some(mut proc) =
-        system::proc::current().ok_or(SyscallError::Other)?.try_lock()
+    if size == 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    if fd != -1 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
     {
+        let current = system::proc::current().ok_or(SyscallError::Other)?;
+        let mut proc = current.lock();
+
         let heap_start = proc.user_heap_position;
         let heap_pages = (size + system::mem::PAGE_SIZE as u64 - 1)
             / system::mem::PAGE_SIZE as u64;
 
         let mut heap_ptr = heap_start;
 
-        if fd != -1 {
-            panic!("mmap with fd is not supported");
-        } else {
-            for _ in 0..heap_pages {
-                proc.address_space.as_mut().unwrap().map_page_alloc(
+        for _ in 0..heap_pages {
+            proc.address_space.as_mut().unwrap().map_page_alloc(
                 VirtAddr::new(heap_ptr),
                 PageTableFlags::PRESENT
                     | PageTableFlags::USER_ACCESSIBLE
@@ -125,50 +131,51 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     "mmap failed: could not map page at user heap position {:#x}",
                     proc.user_heap_position
                 );
-                SyscallError::NotFound
+                SyscallError::InvalidArgument
             })?;
-                heap_ptr += system::mem::PAGE_SIZE as u64;
-            }
-            proc.user_heap_position = heap_ptr;
-            return Ok(heap_start);
+            heap_ptr += system::mem::PAGE_SIZE as u64;
         }
-    }
 
-    Ok(SyscallError::NotFound as u64)
+        proc.user_heap_position = heap_ptr;
+        Ok(heap_start)
+    }
 }
 
 pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let addr = frame.rdi;
     let base = addr & !(PAGE_SIZE as u64 - 1);
     let size = frame.rsi;
+
+    if size == 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let end = addr.checked_add(size).ok_or(SyscallError::InvalidArgument)?;
+
     let pages = (size + PAGE_SIZE as u64 - 1) / PAGE_SIZE as u64;
 
     log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
 
-    if let Some(mut proc) =
-        system::proc::current().ok_or(SyscallError::Other)?.try_lock()
     {
-        if addr < proc.user_heap_position {
-            panic!("munmap of non-heap memory is not supported");
-        }
+        let current = system::proc::current().ok_or(SyscallError::Other)?;
+        let mut proc = current.lock();
 
-        if addr + size > proc.user_heap_position {
-            panic!(
-                "munmap of memory beyond current heap position is not supported"
-            );
+        if addr < proc.user_heap || end > proc.user_heap_position {
+            return Err(SyscallError::InvalidArgument);
         }
 
         for i in 0..pages {
             let page_addr = base + i * PAGE_SIZE as u64;
-            proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
+            let phys = proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
                 log::error!(
                     "munmap failed: could not unmap page at user heap position {:#x}",
                     page_addr
                 );
-                SyscallError::NotFound
+                SyscallError::InvalidArgument
             })?;
+            system::mem::pmm::free(phys.as_u64());
         }
-    }
 
-    Ok(SyscallError::NotFound as u64)
+        Ok(0)
+    }
 }

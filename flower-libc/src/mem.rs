@@ -5,7 +5,7 @@ use good_memory_allocator::SpinLockedAllocator;
 use crate::std;
 
 // ought to be enough...
-const DEFAULT_HEAP_SIZE: usize = 1 * 1024 * 1024;
+const DEFAULT_HEAP_SIZE: usize = 2 * 1024 * 1024;
 
 static INSTALLED: AtomicBool = AtomicBool::new(false);
 static HEAP_START: AtomicUsize = AtomicUsize::new(0);

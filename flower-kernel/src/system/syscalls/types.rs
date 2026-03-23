@@ -26,7 +26,24 @@ pub struct SyscallFrame {
 
 #[derive(Debug)]
 pub enum SyscallError {
-    NotFound = 2,
+    NotPermitted,
+    NoSuchFile,
+    NoProcess,
+    InterruptedSyscall,
+    IOError,
+    NoDeviceOrAddress,
+    NoExecutable,
+    BadFileDescriptor,
+    NoChildProcess,
+    ResourceTryAgain,
+    NoMemory,
+    NoPermission,
+    BadAddress,
+    BlockDeviceRequired,
+    ResourceBusy,
+    InvalidArgument,
+    NoSpace,
+    TooLong,
     Other = 255,
 }
 
