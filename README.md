@@ -55,6 +55,8 @@ make clean run
 - elf
   - it runs, no dynamic linking.
   - supports fork and execve
+- programs:
+  - `cat`, `echo`, `hello`, `pcm`, `shell`
 
 ## things that don't work
 ### kernel

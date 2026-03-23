@@ -9,12 +9,8 @@ Memory:   {}/{}MB
 ",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
-        system::mem::pmm::free_pages().unwrap_or(0) * system::mem::PAGE_SIZE
-            / 1024
-            / 1024,
-        system::mem::pmm::usable_pages().unwrap_or(0) * system::mem::PAGE_SIZE
-            / 1024
-            / 1024
+        system::mem::heap::used_memory() / 1024 / 1024,
+        system::mem::heap::total_memory() / 1024 / 1024
     )
 }
 

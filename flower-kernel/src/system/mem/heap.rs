@@ -5,8 +5,8 @@ use x86_64::structures::paging::PageTableFlags;
 use crate::system::mem::PAGE_SIZE;
 use crate::system::{self};
 
-const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
-const HEAP_SIZE: usize = 128 * 1024 * 1024;
+pub const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
+pub const HEAP_SIZE: usize = 128 * 1024 * 1024;
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
@@ -31,3 +31,8 @@ pub fn install() -> Result<(), &'static str> {
     );
     Ok(())
 }
+
+/// Returns the total free memory in bytes.
+pub fn total_memory() -> usize { ALLOCATOR.lock().size() }
+
+pub fn used_memory() -> usize { ALLOCATOR.lock().used() }
