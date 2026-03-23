@@ -20,7 +20,7 @@ pub extern "C" fn _start() -> ! {
             continue;
         }
         buf[len..BUFFER_SIZE].fill(0);
-        exec(&buf[..len]);
+        exec(&buf);
     }
 }
 
@@ -33,22 +33,25 @@ fn help(_: &str) -> i32 {
 
 fn exec(buf: &[u8]) {
     let (cmd, args) = str::from_utf8(buf)
-        .map(|s| s.trim())
-        .map(|s| match s.split_once(' ') {
-            Some((c, a)) => (c, a.trim_start()),
-            None => (s, ""),
+        .map(|s| {
+            let s = s.trim();
+            match s.split_once(' ') {
+                Some((c, a)) => (c, a.trim_start()),
+                None => (s, ""),
+            }
         })
         .unwrap_or(("", ""));
 
-    let ret_code = match cmd {
-        "help" => help(args),
-        "cat" => tools::cat::read(args),
-        "pcm" => tools::pcm::play(args),
-        _ => {
-            println!("unknown command: {}", cmd);
-            -1
-        },
-    };
+    let ret_code =
+        match cmd.trim_matches(|c: char| c.is_whitespace() || c == '\0') {
+            "help" => help(args),
+            "cat" => tools::cat::read(args),
+            "pcm" => tools::pcm::play(args),
+            _ => {
+                println!("unknown command: {}", cmd);
+                -1
+            },
+        };
 
     println!("command exited with code: {}", ret_code);
 }
