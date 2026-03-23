@@ -1,6 +1,10 @@
+<img src="https://static.wikia.nocookie.net/vocaloid/images/a/a5/V4flower.png/revision/latest?cb=20250314003504"  height="500" align="right" style="float: right; margin: 0 10px 0 0;" >
+
 ## flower-rs
 a monolithic x86_64 kernel written in rust, a continuation of [riria](https://github.com/xjunko/riria).
-<img width="1410" height="905" alt="image" src="https://github.com/user-attachments/assets/fbb6d10e-9565-44e4-9915-ef773d270907" />
+
+
+<img width="600" height="auto" alt="image" src="https://github.com/user-attachments/assets/fbb6d10e-9565-44e4-9915-ef773d270907"  />
 
 ## what this is
 a thought experiment, just wanted to see if its possible to make a kernel in rust and also to learn rust.
