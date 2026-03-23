@@ -65,3 +65,18 @@ impl FdTable {
         Ok(())
     }
 }
+
+impl Clone for FdTable {
+    fn clone(&self) -> Self {
+        let mut table = Self::new();
+        for fd in 3..MAX_FDS {
+            match self.fds.get(fd).and_then(|slot| slot.as_ref()) {
+                Some(FdKind::Stdin) => table.fds[fd] = Some(FdKind::Stdin),
+                Some(FdKind::Stdout) => table.fds[fd] = Some(FdKind::Stdout),
+                Some(FdKind::Stderr) => table.fds[fd] = Some(FdKind::Stderr),
+                Some(FdKind::File(_)) | None => {},
+            }
+        }
+        table
+    }
+}
