@@ -1,12 +1,10 @@
-use crate::debug;
-
 mod heap;
 
 pub fn start() {
-    debug!("starting memory tests...");
+    log::debug!("starting memory tests...");
 
     // heap
-    debug!("testing heap...");
+    log::debug!("testing heap...");
     {
         heap::test_heap_basic();
         heap::test_heap_vec();

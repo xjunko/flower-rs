@@ -9,7 +9,6 @@ use x86_64::{PhysAddr, VirtAddr};
 use crate::arch::acpi;
 use crate::arch::interrupts::InterruptIndex;
 use crate::system::mem::vmm;
-use crate::{debug, error, info};
 
 // legacy pic
 const PIC1: u16 = 0x20;
@@ -119,7 +118,10 @@ fn calibrate_timer() {
 
         *TICKS_PER_MS.lock() = elapsed / CALIBRATE_MS;
 
-        info!("calibrated lapic timer: {} ticks/ms", *TICKS_PER_MS.lock());
+        log::debug!(
+            "calibrated lapic timer: {} ticks/ms",
+            *TICKS_PER_MS.lock()
+        );
     }
 }
 
@@ -132,7 +134,7 @@ pub fn install() {
     if let Some(finfo) = cpuid.get_feature_info() {
         // check for x2apic
         if finfo.has_x2apic() {
-            error!(
+            log::error!(
                 "x2apic is supported, but kernel doesn't know what to do with it yet, going with APIC"
             );
         }
@@ -143,19 +145,19 @@ pub fn install() {
 
         // get apic base
         let (apic_base, apic_flags) = ApicBase::read();
-        debug!("apic addr: {:#x}", apic_base.start_address().as_u64());
+        log::debug!("apic addr: {:#x}", apic_base.start_address().as_u64());
 
         if !apic_flags.contains(ApicBaseFlags::LAPIC_ENABLE) {
-            debug!("lapic not enabled, enabling...");
+            log::debug!("lapic not enabled, enabling...");
             unsafe {
                 ApicBase::write(
                     apic_base,
                     apic_flags | ApicBaseFlags::LAPIC_ENABLE,
                 );
             }
-            debug!("enabled!");
+            log::debug!("enabled!");
         } else {
-            debug!("lapic already enabled.");
+            log::debug!("lapic already enabled.");
         }
 
         // map it
@@ -175,7 +177,7 @@ pub fn install() {
             panic!("no ioapic found in acpi tables");
         }
         let ioapic_addr = acpi_tables.ioapics[0].address;
-        debug!("ioapic addr: {:#x}", ioapic_addr);
+        log::debug!("ioapic addr: {:#x}", ioapic_addr);
         vmm::page_map(
             VirtAddr::new(IOAPIC_VIRT),
             PhysAddr::new(ioapic_addr as u64),

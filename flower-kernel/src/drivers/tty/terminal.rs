@@ -51,7 +51,8 @@ pub fn install() {
             pitch: framebuffer.pitch() as usize,
         };
 
-        let terminal = Terminal::new(term, Box::new(BitmapFont));
+        let mut terminal = Terminal::new(term, Box::new(BitmapFont));
+        terminal.set_color_scheme(7);
         *CONTEXT.lock() = Some(terminal);
     }
 }

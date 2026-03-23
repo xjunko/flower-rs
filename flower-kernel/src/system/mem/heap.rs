@@ -2,7 +2,6 @@ use linked_list_allocator::LockedHeap;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::info;
 use crate::system::mem::PAGE_SIZE;
 use crate::system::{self};
 
@@ -24,8 +23,9 @@ pub fn install() -> Result<(), &'static str> {
     unsafe {
         ALLOCATOR.lock().init(HEAP_START as *mut u8, HEAP_SIZE);
     }
-    info!(
-        "heap installed at {:#x}: mapped {} MiB.",
+
+    log::info!(
+        "Heap installed at {:#x}: mapped {} MiB.",
         HEAP_START,
         HEAP_SIZE / (1024 * 1024),
     );

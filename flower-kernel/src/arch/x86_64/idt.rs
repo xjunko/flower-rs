@@ -9,10 +9,11 @@ use crate::arch::interrupts::{
     InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
 };
 use crate::drivers::ps2::keyboard;
-use crate::{error, println, system, warn};
+use crate::{println, system};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
+
     idt.general_protection_fault.set_handler_fn(gpf_handler);
     idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
     idt.device_not_available.set_handler_fn(device_not_available_handler);
@@ -37,7 +38,10 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt
 });
 
-pub fn install() { IDT.load(); }
+pub fn install() {
+    IDT.load();
+    log::info!("IDT loaded.");
+}
 
 pub fn print_stack_frame(frame: InterruptStackFrame) {
     println!("RIP:    {:#x}", frame.instruction_pointer.as_u64());
@@ -51,7 +55,7 @@ extern "x86-interrupt" fn gpf_handler(
     stack_frame: InterruptStackFrame,
     error_code: u64,
 ) {
-    error!("general Protection Fault triggered!");
+    log::error!("general Protection Fault triggered!");
     println!("error code: {:#x}", error_code);
     print_stack_frame(stack_frame);
     panic!("");
@@ -60,7 +64,7 @@ extern "x86-interrupt" fn gpf_handler(
 extern "x86-interrupt" fn invalid_opcode_handler(
     stack_frame: InterruptStackFrame,
 ) {
-    error!("invalid opcode (#UD) triggered!");
+    log::error!("invalid opcode (#UD) triggered!");
     print_stack_frame(stack_frame);
     panic!("");
 }
@@ -68,7 +72,7 @@ extern "x86-interrupt" fn invalid_opcode_handler(
 extern "x86-interrupt" fn device_not_available_handler(
     stack_frame: InterruptStackFrame,
 ) {
-    error!("device not available (#NM) triggered!");
+    log::error!("device not available (#NM) triggered!");
     print_stack_frame(stack_frame);
     panic!("");
 }
@@ -77,13 +81,13 @@ extern "x86-interrupt" fn double_fault_handler(
     stack_frame: InterruptStackFrame,
     _error_code: u64,
 ) -> ! {
-    error!("double fault triggered!");
+    log::error!("double fault triggered!");
     print_stack_frame(stack_frame);
     panic!("");
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
-    warn!("breakpoint triggered!");
+    log::warn!("breakpoint triggered!");
     print_stack_frame(stack_frame);
 }
 
@@ -91,7 +95,7 @@ extern "x86-interrupt" fn page_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: PageFaultErrorCode,
 ) {
-    error!("page fault triggered, in process: {}", system::proc::name());
+    log::error!("page fault triggered, in process: {}", system::proc::name());
     match Cr2::read() {
         Ok(addr) => println!("CR2:    {:#x}", addr.as_u64()),
         Err(addr) => println!("CR2 (invalid): {:?}", addr),

@@ -17,6 +17,7 @@ mod user;
 unsafe extern "C" fn kmain() -> ! {
     assert!(boot::limine::BASE_REVISION.is_supported());
     drivers::tty::serial::install();
+    drivers::tty::logging::install();
 
     arch::install_cpu_features();
     arch::gdt::install();
@@ -45,6 +46,6 @@ unsafe extern "C" fn kmain() -> ! {
 
 #[panic_handler]
 fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
-    error!("panic: {}", _info);
+    log::error!("panic: {}", _info);
     arch::halt()
 }

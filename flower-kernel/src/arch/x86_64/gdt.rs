@@ -16,6 +16,7 @@ pub struct GDTSegments {
 }
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
+pub const PAGE_FAULT_IST_INDEX: u16 = 1;
 
 static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
     let mut tss = TaskStateSegment::new();
@@ -23,18 +24,27 @@ static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
         const STACK_SIZE: usize = 4096 * 5;
         static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
-
         let stack_start = VirtAddr::from_ptr(&raw const STACK);
         stack_start + (STACK_SIZE as u64)
     };
 
-    tss.privilege_stack_table[0] = {
+    tss.interrupt_stack_table[PAGE_FAULT_IST_INDEX as usize] = {
         const STACK_SIZE: usize = 4096 * 5;
         static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
         let stack_start = VirtAddr::from_ptr(&raw const STACK);
         stack_start + (STACK_SIZE as u64)
     };
+
+    // NOTE: we dont need this anymore because
+    //       every user process has it's own stack now.
+    // tss.privilege_stack_table[0] = {
+    //     const STACK_SIZE: usize = 4096 * 5;
+    //     static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
+
+    //     let stack_start = VirtAddr::from_ptr(&raw const STACK);
+    //     stack_start + (STACK_SIZE as u64)
+    // };
 
     tss
 });
@@ -61,7 +71,10 @@ pub fn install() {
         DS::set_reg(GDT.1.kernel_data);
         ES::set_reg(GDT.1.kernel_data);
         SS::set_reg(GDT.1.kernel_data);
+        log::info!("GDT loaded.");
+
         load_tss(GDT.1.tss);
+        log::info!("TSS loaded.")
     }
 }
 
@@ -70,7 +83,6 @@ pub fn segments() -> &'static GDTSegments { &GDT.1 }
 /// sets the kernel stack pointer in the TSS to the given value.
 pub fn set_kernel_stack(stack_top: VirtAddr) {
     unsafe {
-        // NOTE: is this the right way of doing it?
         (*TSS.as_mut_ptr()).privilege_stack_table[0] = stack_top;
     }
 }

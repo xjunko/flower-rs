@@ -7,7 +7,7 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{boot, debug, error, info, system};
+use crate::{boot, system};
 
 static HHDM: Mutex<Option<u64>> = Mutex::new(None);
 static PML4: Mutex<Option<PhysAddr>> = Mutex::new(None);
@@ -27,8 +27,8 @@ pub fn install() {
     let (pml4_frame, _) = Cr3::read();
     *PML4.lock() = Some(pml4_frame.start_address());
 
-    info!("VMM installed.");
-    info!("PML4 physical address: {:#x}", pml4_frame.start_address());
+    log::info!("VMM installed.");
+    log::info!("PML4 physical address: {:#x}.", pml4_frame.start_address());
 }
 
 fn hhdm() -> u64 { HHDM.lock().expect("no hhdm") }
@@ -50,7 +50,7 @@ pub fn virt_to_phys(virt: VirtAddr) -> Option<PhysAddr> {
         return Some(PhysAddr::new(virt.as_u64() - hhdm));
     }
 
-    debug!(
+    log::debug!(
         "virt_to_phys: address {:#x} is below hhdm {:#x}, translation needed",
         virt.as_u64(),
         hhdm
@@ -113,7 +113,7 @@ pub fn page_map_alloc(
     }
 
     if let Err(e) = page_map(virt, phys, flags) {
-        error!("Failed to map page: {}", e);
+        log::error!("Failed to map page: {}", e);
         system::mem::pmm::free(phys.as_u64());
         return Err(e);
     }
@@ -123,7 +123,7 @@ pub fn page_map_alloc(
 
 /// unmaps the page at the given virtual address and returns the physical address that was mapped there
 pub fn page_unmap(virt: VirtAddr) -> Result<PhysAddr, &'static str> {
-    debug!("unmapping page at virt {:#x}", virt.as_u64(),);
+    log::debug!("unmapping page at virt {:#x}", virt.as_u64(),);
     let page: Page<Size4KiB> = Page::containing_address(virt);
 
     unsafe {
@@ -176,7 +176,7 @@ pub fn page_update_flags(
 
 /// recursively frees the page tables starting from the given physical address and level, then frees the page table itself
 unsafe fn page_table_free(table_phys: PhysAddr, level: u8) {
-    debug!(
+    log::trace!(
         "freeing page table at {:#x} (level {})",
         table_phys.as_u64(),
         level
@@ -259,7 +259,7 @@ impl AddressSpace {
                     flush.ignore();
                 },
                 Err(e) => {
-                    debug!(
+                    log::debug!(
                         "map_to failed for virt={:#x} phys={:#x}: {:?}",
                         virt.as_u64(),
                         phys.as_u64(),
@@ -288,7 +288,7 @@ impl AddressSpace {
         }
 
         if let Err(e) = self.map_page(virt, phys, flags) {
-            error!("failed to map page in address space: {}", e);
+            log::error!("failed to map page in address space: {}", e);
             system::mem::pmm::free(phys.as_u64());
             return Err(e);
         }
@@ -426,7 +426,7 @@ impl Drop for AddressSpace {
         let (current_pml4, _) = Cr3::read();
 
         if current_pml4.start_address() == pml4_phys {
-            error!(
+            log::error!(
                 "refusing to free active address space PML4 at {:#x}",
                 pml4_phys.as_u64()
             );
@@ -434,7 +434,7 @@ impl Drop for AddressSpace {
         }
 
         if PML4.lock().as_ref().copied() == Some(pml4_phys) {
-            error!(
+            log::error!(
                 "refusing to free kernel address space PML4 at {:#x}",
                 pml4_phys.as_u64()
             );
@@ -445,7 +445,7 @@ impl Drop for AddressSpace {
             page_table_free(pml4_phys, 4);
         }
         system::mem::pmm::free(pml4_phys.as_u64());
-        debug!(
+        log::trace!(
             "dropped address space and freed PML4 at {:#x}",
             pml4_phys.as_u64()
         );

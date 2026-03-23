@@ -8,7 +8,6 @@ use alloc::vec::Vec;
 use core::sync::atomic::AtomicUsize;
 
 use crate::boot::limine::MODULE_REQUESTS;
-use crate::error;
 use crate::system::vfs::tarfs::consts::*;
 use crate::system::vfs::tarfs::file::{TarFSFileType, TarFile};
 use crate::system::vfs::types::*;
@@ -37,7 +36,7 @@ impl TarFS {
         .ok_or("failed to find initramfs");
 
         if let Err(e) = file {
-            error!("tarfs: {}", e);
+            log::error!("tarfs: {}", e);
             panic!("failed to initialize tarfs");
         }
 
@@ -103,7 +102,7 @@ impl TarFS {
                     .sum();
 
                 if sum != file_checksum {
-                    error!(
+                    log::error!(
                         "tarfs: checksum mismatch for file {}, skipping...",
                         file_name
                     );
@@ -117,7 +116,7 @@ impl TarFS {
                 if file_size > 0 {
                     let data_position = offset + 512;
                     if data_position + file_size > data.len() {
-                        error!(
+                        log::error!(
                             "tarfs: file {} exceeds archive bounds, stopping...",
                             path
                         );
@@ -153,7 +152,9 @@ impl TarFS {
                 offset = match offset.checked_add(next) {
                     Some(value) => value,
                     None => {
-                        error!("tarfs: archive offset overflow, stopping...");
+                        log::error!(
+                            "tarfs: archive offset overflow, stopping..."
+                        );
                         break;
                     },
                 };

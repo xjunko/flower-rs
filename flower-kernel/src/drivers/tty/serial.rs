@@ -1,36 +1,7 @@
-use core::fmt::{self, Write};
+use core::fmt::Write;
 
 use spin::Mutex;
-use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
-
-use crate::drivers::tty::terminal;
-
-struct CrlfWriter<'a, W: Write> {
-    inner: &'a mut W,
-}
-
-impl<W: Write> Write for CrlfWriter<'_, W> {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        let mut start = 0;
-
-        for (index, byte) in s.bytes().enumerate() {
-            if byte == b'\n' {
-                if start < index {
-                    self.inner.write_str(&s[start..index])?;
-                }
-                self.inner.write_str("\r\n")?;
-                start = index + 1;
-            }
-        }
-
-        if start < s.len() {
-            self.inner.write_str(&s[start..])?;
-        }
-
-        Ok(())
-    }
-}
 
 pub struct SerialPort {
     data: Port<u8>,
@@ -42,6 +13,12 @@ pub struct SerialPort {
 }
 
 impl SerialPort {
+    // honestly this seems a little bit hacky
+    // because if the status line is stuck it's most likely
+    // that something terribly has gone wrong, but whatever
+    // limit the wait anyway....
+    const MAX_WAIT: usize = 100_000;
+
     pub const fn new(base: u16) -> Self {
         Self {
             data: Port::new(base),
@@ -65,12 +42,8 @@ impl SerialPort {
         }
     }
 
-    // honestly this seems a little bit hacky
-    // because if the status line is stuck it's most likely
-    // that something terribly has gone wrong, but whatever
-    // limit the wait anyway....
     fn wait_ready(&mut self) -> bool {
-        for _ in 0..100_000 {
+        for _ in 0..Self::MAX_WAIT {
             unsafe {
                 if (self.status.read() & 0x20) != 0 {
                     return true;
@@ -102,78 +75,4 @@ const _DEFAULT_COM_PORT: u16 = 0x3F8;
 pub static SERIAL: Mutex<SerialPort> =
     Mutex::new(SerialPort::new(_DEFAULT_COM_PORT));
 
-// public APIs
 pub fn install() { SERIAL.lock().init() }
-
-pub fn _print(args: fmt::Arguments) {
-    interrupts::without_interrupts(|| {
-        let mut serial = SERIAL.lock();
-        let _ = serial.write_fmt(args);
-
-        let mut guard = terminal::get();
-        if let Some(term) = guard.as_mut() {
-            let mut writer = CrlfWriter { inner: term };
-            let _ = writer.write_fmt(args);
-        }
-    });
-}
-
-#[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => {{
-        $crate::drivers::tty::serial::_print(format_args!($($arg)*));
-    }};
-}
-
-#[macro_export]
-macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-#[macro_export]
-macro_rules! info {
-    ($($arg:tt)*) => {
-        $crate::print!(
-            "\x1b[32m[I]\x1b[0m [{}:{}] {}\n",
-            file!(), line!(), format_args!($($arg)*)
-        );
-    };
-}
-
-#[cfg(debug_assertions)]
-#[macro_export]
-macro_rules! debug {
-    ($($arg:tt)*) => {
-        $crate::print!(
-            "\x1b[32m[D]\x1b[0m [{}:{}] {}\n",
-            file!(), line!(), format_args!($($arg)*)
-        )
-    };
-}
-
-#[cfg(not(debug_assertions))]
-#[macro_export]
-macro_rules! debug {
-    ($($arg:tt)*) => {};
-}
-
-#[macro_export]
-macro_rules! warn {
-    ($($arg:tt)*) => {
-        $crate::print!(
-            "\x1b[33m[W]\x1b[0m [{}:{}] {}\n",
-            file!(), line!(), format_args!($($arg)*)
-        )
-    };
-}
-
-#[macro_export]
-macro_rules! error {
-    ($($arg:tt)*) => {
-        $crate::print!(
-            "\x1b[31m[E]\x1b[0m [{}:{}] {}\n",
-            file!(), line!(), format_args!($($arg)*)
-        )
-    };
-}

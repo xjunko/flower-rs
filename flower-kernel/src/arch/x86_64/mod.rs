@@ -9,8 +9,6 @@ use core::arch::asm;
 use raw_cpuid::CpuId;
 use x86_64::registers::control::{Cr0, Cr0Flags, Cr4, Cr4Flags};
 
-use crate::info;
-
 pub fn install_cpu_features() {
     let cpuid = CpuId::new();
     if let Some(finfo) = cpuid.get_feature_info() {
@@ -31,7 +29,7 @@ pub fn install_cpu_features() {
                 flags.insert(Cr4Flags::OSFXSR | Cr4Flags::OSXMMEXCPT_ENABLE);
             });
         }
-        info!("SSE enabled");
+        log::debug!("SSE enabled");
     }
 }
 

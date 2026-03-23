@@ -15,10 +15,10 @@ use x86_64::registers::model_specific::FsBase;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::{self};
+use crate::system;
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
-use crate::{debug, system};
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -60,7 +60,10 @@ impl Scheduler {
             if i != self.current
                 && self.processes[i].lock().state == ProcessState::Dead
             {
-                debug!("reaping process {}", self.processes[i].lock().name);
+                log::trace!(
+                    "reaping process {}",
+                    self.processes[i].lock().name
+                );
                 self.processes.remove(i);
                 if i < self.current {
                     self.current -= 1;
@@ -78,6 +81,12 @@ impl Scheduler {
                 && let Some(wake_at) = proc.wake_at
                 && ticks >= wake_at
             {
+                log::trace!(
+                    "awakening process {} (woke at {}, current ticks {})",
+                    proc.name,
+                    wake_at,
+                    ticks
+                );
                 proc.state = ProcessState::Ready;
                 proc.wake_at = None;
             }
@@ -191,10 +200,10 @@ pub fn schedule() {
 /// spawns a new process with the given entry point and name.
 pub fn spawn(name: &str, entry: fn()) {
     let new_process = Process::new(name, entry);
-    debug!("created process {}", new_process.name);
+    log::debug!("created process {}", new_process.name);
     interrupts::without_interrupts(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
-            debug!("adding process {} to scheduler", new_process.name);
+            log::debug!("adding process {} to scheduler", new_process.name);
             sched.add(new_process);
         }
     });
@@ -251,9 +260,10 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
         user_heap,
     );
     let proc_id = proc.id;
-    debug!(
+    log::trace!(
         "created process {} with entry point {:#x}",
-        proc.name, loaded.entry
+        proc.name,
+        loaded.entry
     );
 
     if let Some(sched) = SCHEDULER.lock().as_mut() {

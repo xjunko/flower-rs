@@ -10,7 +10,6 @@ use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 
 use crate::arch::gdt;
-use crate::error;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
 use crate::system::syscalls::types::SyscallFrame;
 
@@ -150,7 +149,7 @@ fn syscall_handler_unwrapped(num: u64, frame: &mut SyscallFrame) -> u64 {
         match handler(frame) {
             Ok(result) => result,
             Err(e) => {
-                error!("syscall {} failed with error: {:?}", num, e);
+                log::error!("syscall {} failed with error: {:?}", num, e);
                 -(e as i64) as u64
             },
         }

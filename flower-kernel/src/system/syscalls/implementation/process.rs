@@ -2,7 +2,6 @@ use x86_64::VirtAddr;
 use x86_64::registers::model_specific::FsBase;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::debug;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::{self};
 
@@ -22,7 +21,7 @@ pub fn write_fsbase(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let fsbase = VirtAddr::new(arg1)
         && system::mem::vmm::page_is_mapped(fsbase)
     {
-        debug!("writing fsbase with value {:#x}", arg1);
+        log::debug!("writing fsbase with value {:#x}", arg1);
         let fsbase = arg1;
         FsBase::write(VirtAddr::new(fsbase));
         Ok(0)
@@ -45,9 +44,12 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let size = frame.rsi;
     let flags = frame.r10;
 
-    debug!(
+    log::debug!(
         "mmap: fd={}, offset={}, flags={}, size={}",
-        fd, offset, flags, size
+        fd,
+        offset,
+        flags,
+        size
     );
 
     if let Some(mut proc) =
@@ -70,7 +72,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     | PageTableFlags::WRITABLE
                     | PageTableFlags::NO_EXECUTE,
             ).map_err(|_| {
-                debug!(
+                log::debug!(
                     "mmap failed: could not map page at user heap position {:#x}",
                     proc.user_heap_position
                 );

@@ -1,9 +1,9 @@
 use core::ffi::{CStr, c_char};
 
+use crate::print;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::vfs::{FdKind, VFSError};
 use crate::system::{self};
-use crate::{error, print};
 
 pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let path =
@@ -36,7 +36,7 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 file.read(slice)
             },
             _ => {
-                error!("read syscall: fd {} is not readable", fd);
+                log::error!("read syscall: fd {} is not readable", fd);
                 Err(VFSError::PermissionDenied)
             },
         });
@@ -67,7 +67,7 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             Ok(written)
         },
         _ => {
-            error!("write syscall: fd {} is not writable", fd);
+            log::error!("write syscall: fd {} is not writable", fd);
             Err(VFSError::PermissionDenied)
         },
     });
@@ -99,7 +99,7 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 _ => return Err(VFSError::InvalidSeek),
             }),
             _ => {
-                error!("seek syscall: fd {} is not seekable", fd);
+                log::error!("seek syscall: fd {} is not seekable", fd);
                 Err(VFSError::PermissionDenied)
             },
         });

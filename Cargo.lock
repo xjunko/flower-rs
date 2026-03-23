@@ -78,7 +78,9 @@ dependencies = [
  "flower-mono",
  "limine",
  "linked_list_allocator",
+ "log",
  "os-terminal",
+ "owo-colors",
  "pci_types",
  "raw-cpuid",
  "spin",
@@ -188,6 +190,12 @@ dependencies = [
  "unicode-width",
  "vte",
 ]
+
+[[package]]
+name = "owo-colors"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
 name = "pc-keyboard"

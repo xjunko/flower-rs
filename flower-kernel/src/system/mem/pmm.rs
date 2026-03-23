@@ -2,8 +2,8 @@ use limine::memory_map::EntryType;
 use spin::Mutex;
 use x86_64::VirtAddr;
 
+use crate::boot;
 use crate::system::mem::PAGE_SIZE;
-use crate::{boot, error, info};
 
 static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);
 
@@ -68,6 +68,8 @@ impl BitmapAllocator {
 fn page_to_mb(page: usize) -> usize { (page * PAGE_SIZE) / (1024 * 1024) }
 
 pub fn install() {
+    log::debug!("Installing PMM");
+
     let (hhdm, mmap) = {
         (
             VirtAddr::new(
@@ -82,6 +84,7 @@ pub fn install() {
                 .entries(),
         )
     };
+    log::debug!("HHDM: {:#x}", hhdm.as_u64());
 
     let mut highest_addr: u64 = 0;
 
@@ -91,6 +94,7 @@ pub fn install() {
             highest_addr = end;
         }
     }
+    log::debug!("Highest physical address: {:#x}", highest_addr);
 
     let total_pages = (highest_addr as usize + PAGE_SIZE - 1) / PAGE_SIZE;
     let bitmap_size = (total_pages + 7) / 8;
@@ -107,6 +111,11 @@ pub fn install() {
 
     let bitmap_addr = bitmap_addr.expect("no space for pmm bitmap");
     let bitmap_ptr = (bitmap_addr + hhdm.as_u64()) as *mut u8;
+    log::debug!(
+        "Bitmap address: {:#x}, size: {} bytes",
+        bitmap_addr,
+        bitmap_size
+    );
 
     // set all bits to 1 (allocated)
     unsafe {
@@ -146,18 +155,12 @@ pub fn install() {
 
     allocator.usable_pages = allocator.free_pages;
 
-    info!("PMM installed.");
-    info!(
-        "PMM: total pages: {}MiB, usable pages: {}MiB, free pages: {}MiB",
+    log::info!("PMM installed.");
+    log::info!(
+        "PMM: total pages: {}MiB, usable pages: {}MiB, free pages: {}MiB.",
         page_to_mb(total_pages),
         page_to_mb(allocator.usable_pages),
         page_to_mb(allocator.free_pages)
-    );
-    info!(
-        "PMM: HHDM: {:#x}, bitmap at {:#x} ({} bytes)",
-        hhdm.as_u64(),
-        bitmap_addr,
-        bitmap_size
     );
 
     *PMM.lock() = Some(allocator);
@@ -170,7 +173,7 @@ pub fn alloc() -> Option<u64> {
 pub fn free(addr: u64) {
     // if address is not aligned, reject it
     if !addr.is_multiple_of(PAGE_SIZE as u64) {
-        error!("attempted to free unaligned address: {:#x}", addr);
+        log::error!("attempted to free unaligned address: {:#x}", addr);
         return;
     }
 
