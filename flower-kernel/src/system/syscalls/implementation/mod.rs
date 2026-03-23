@@ -6,14 +6,7 @@ use flower_mono::syscalls::{
 mod fs;
 mod process;
 
-use crate::arch::interrupts;
-use crate::system::syscalls::types::{
-    SyscallError, SyscallFrame, SyscallHandler,
-};
-
-fn riria_hack(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    Ok(interrupts::get_ticks())
-}
+use crate::system::syscalls::types::SyscallHandler;
 
 pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
     let mut handlers = [None; 256];
@@ -32,10 +25,8 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
 
     handlers[SYS_WRITE_FS_BASE as usize] =
         Some(process::write_fsbase as SyscallHandler);
-    handlers[SYS_MMAP as usize] = Some(process::mmap as SyscallHandler);
 
-    // HACK: old riria kernel syscalls
-    handlers[77_usize] = Some(riria_hack as SyscallHandler);
+    handlers[SYS_MMAP as usize] = Some(process::mmap as SyscallHandler);
 
     handlers
 };
