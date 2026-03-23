@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct CStr<'a> {
     ptr: *const u8,
     _marker: core::marker::PhantomData<&'a u8>,

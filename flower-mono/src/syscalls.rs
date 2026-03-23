@@ -6,6 +6,7 @@ pub const SYS_WRITE: u64 = 4;
 pub const SYS_OPEN: u64 = 5;
 pub const SYS_CLOSE: u64 = 6;
 pub const SYS_SEEK: u64 = 8;
+pub const SYS_EXECVE: u64 = 9;
 
 pub const SYS_WRITE_FS_BASE: u64 = 29;
 
