@@ -2,12 +2,13 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
-use x86_64::VirtAddr;
 use x86_64::registers::model_specific::FsBase;
 use x86_64::structures::paging::PageTableFlags;
+use x86_64::{PhysAddr, VirtAddr};
 
 use crate::system::mem::PAGE_SIZE;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
+use crate::system::vfs::{FdKind, VFSError};
 use crate::system::{self};
 
 pub fn exit(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -93,7 +94,6 @@ pub fn write_fsbase(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 }
 
-/// HACK: no fd implementation yet.
 pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     // start - r->rdi
     // size - r->rsi
@@ -119,20 +119,50 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
 
+    let current = system::proc::current().ok_or(SyscallError::Other)?;
+    let mut proc = current.lock();
+
+    let heap_start = proc.user_heap_position;
+    let heap_pages = (size + system::mem::PAGE_SIZE as u64 - 1)
+        / system::mem::PAGE_SIZE as u64;
+
+    let mut heap_ptr = heap_start;
+
     if fd != -1 {
-        return Err(SyscallError::InvalidArgument);
-    }
+        let result =
+            proc.with_fd_table(|table| match table.get(fd as usize)? {
+                FdKind::File(file) => file.mmap(size as usize, 0, 0),
+                _ => Err(VFSError::Unsupported),
+            });
 
-    {
-        let current = system::proc::current().ok_or(SyscallError::Other)?;
-        let mut proc = current.lock();
+        if let Ok(data) = result {
+            for i in 0..heap_pages {
+                proc.address_space.as_mut().unwrap().map_page(
+                    VirtAddr::new(heap_ptr),
+                    PhysAddr::new(unsafe {
+                        data.add(i as usize * PAGE_SIZE) as u64
+                    }),
+                    PageTableFlags::PRESENT
+                        | PageTableFlags::USER_ACCESSIBLE
+                        | PageTableFlags::WRITABLE
+                        | PageTableFlags::NO_EXECUTE,
+                ).map_err(|_| {
+                    log::debug!(
+                        "mmap failed: could not map page at user heap position {:#x}",
+                        proc.user_heap_position
+                    );
+                    SyscallError::InvalidArgument
+                })?;
 
-        let heap_start = proc.user_heap_position;
-        let heap_pages = (size + system::mem::PAGE_SIZE as u64 - 1)
-            / system::mem::PAGE_SIZE as u64;
-
-        let mut heap_ptr = heap_start;
-
+                heap_ptr += system::mem::PAGE_SIZE as u64;
+            }
+            proc.user_heap_position = heap_ptr;
+            Ok(heap_start)
+        } else {
+            log::error!("mmap failed for fd {}: {:?}", fd, result.err());
+            Err(SyscallError::BadFileDescriptor)
+        }
+    } else {
         for _ in 0..heap_pages {
             proc.address_space.as_mut().unwrap().map_page_alloc(
                 VirtAddr::new(heap_ptr),

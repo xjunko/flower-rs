@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::String;
+use core::ffi::c_int;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSPermission {
@@ -83,6 +84,10 @@ pub trait VFSFile: Send + Sync {
 
     /// seeks to the given position and returns the new position
     fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize>;
+
+    /// maps the file into memory and returns a pointer to the mapped region
+    fn mmap(&self, len: usize, prot: c_int, flags: c_int)
+    -> VFSResult<*mut u8>;
 
     /// gets the info for the file
     fn metadata(&self) -> VFSResult<VFSMetadata>;

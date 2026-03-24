@@ -71,5 +71,6 @@ pub fn install(dev: &mut DevFS) {
         "/audio".to_string(),
         Some(audio_read),
         Some(audio_write),
+        None,
     ));
 }

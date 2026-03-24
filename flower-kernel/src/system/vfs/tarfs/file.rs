@@ -136,6 +136,15 @@ impl VFSFile for TarFile {
         Ok(new_pos)
     }
 
+    fn mmap(
+        &self,
+        _len: usize,
+        _prot: core::ffi::c_int,
+        _flags: core::ffi::c_int,
+    ) -> VFSResult<*mut u8> {
+        unimplemented!()
+    }
+
     fn metadata(&self) -> VFSResult<VFSMetadata> {
         let typ = match self.file_type {
             TarFSFileType::File => VFSFileType::File,

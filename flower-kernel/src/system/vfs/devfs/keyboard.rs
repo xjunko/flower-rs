@@ -45,5 +45,6 @@ pub fn install(dev: &mut DevFS) {
         "/keyboard".to_string(),
         Some(kb_read),
         Some(kb_write),
+        None,
     ));
 }

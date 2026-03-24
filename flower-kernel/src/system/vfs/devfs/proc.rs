@@ -60,11 +60,13 @@ pub fn create_procfs() -> DevFS {
         "/meminfo".to_string(),
         Some(meminfo_read),
         Some(_empty_write),
+        None,
     ));
     mnt.bind(DevFile::new(
         "/version".to_string(),
         Some(kernel_info),
         Some(_empty_write),
+        None,
     ));
     mnt
 }

@@ -5,6 +5,7 @@ mod proc;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::ffi::c_int;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 pub use proc::create_procfs;
@@ -20,6 +21,7 @@ pub struct DevFile {
 
     fn_read: Option<fn(usize, &mut [u8]) -> usize>,
     fn_write: Option<fn(&[u8]) -> usize>,
+    fn_mmap: Option<fn(usize, c_int, c_int) -> *mut u8>,
 }
 
 impl DevFile {
@@ -27,12 +29,14 @@ impl DevFile {
         path: String,
         read: Option<fn(usize, &mut [u8]) -> usize>,
         write: Option<fn(&[u8]) -> usize>,
+        mmap: Option<fn(usize, c_int, c_int) -> *mut u8>,
     ) -> Self {
         Self {
             path,
             position: AtomicUsize::new(0),
             fn_read: read,
             fn_write: write,
+            fn_mmap: mmap,
         }
     }
 }
@@ -44,6 +48,7 @@ impl Clone for DevFile {
             position: AtomicUsize::new(0),
             fn_read: self.fn_read,
             fn_write: self.fn_write,
+            fn_mmap: self.fn_mmap,
         }
     }
 }
@@ -80,6 +85,19 @@ impl VFSFile for DevFile {
 
         self.position.store(new_pos, Ordering::Release);
         Ok(new_pos)
+    }
+
+    fn mmap(
+        &self,
+        len: usize,
+        prot: core::ffi::c_int,
+        flags: core::ffi::c_int,
+    ) -> VFSResult<*mut u8> {
+        if let Some(mmap_fn) = self.fn_mmap {
+            Ok(mmap_fn(len, prot, flags))
+        } else {
+            Err(VFSError::Unsupported)
+        }
     }
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {
