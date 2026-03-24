@@ -59,11 +59,11 @@ pub extern "C" fn _start() -> ! {
         let mut map = BTreeMap::new();
         for line in meminfo_str.lines() {
             let parts: vec::Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(value) = parts[1].parse::<u64>() {
-                    let key = parts[0].trim_end_matches(":").to_string();
-                    map.insert(key, value);
-                }
+            if parts.len() >= 2
+                && let Ok(value) = parts[1].parse::<u64>()
+            {
+                let key = parts[0].trim_end_matches(":").to_string();
+                map.insert(key, value);
             }
         }
         map

@@ -17,6 +17,8 @@ const BUFFER_SIZE: usize = 64;
 pub extern "C" fn _start() -> ! {
     flower_libc::_init();
 
+    tools::exec::run("/init/bin/fetch");
+
     let mut buf = [0u8; BUFFER_SIZE];
     loop {
         print!(">");
