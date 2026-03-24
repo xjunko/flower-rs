@@ -182,6 +182,36 @@ pub fn free(addr: u64) {
     }
 }
 
+pub fn is_usable_address(addr: u64) -> bool {
+    if !addr.is_multiple_of(PAGE_SIZE as u64) {
+        return false;
+    }
+
+    let Some(response) = boot::limine::MEMORY_MAP_REQUEST.get_response() else {
+        return false;
+    };
+
+    for entry in response.entries() {
+        if entry.entry_type != EntryType::USABLE {
+            continue;
+        }
+
+        let Some(entry_end) = entry.base.checked_add(entry.length) else {
+            continue;
+        };
+
+        let Some(page_end) = addr.checked_add(PAGE_SIZE as u64) else {
+            return false;
+        };
+
+        if addr >= entry.base && page_end <= entry_end {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub fn max_phys_address() -> Option<u64> {
     PMM.lock().as_ref().map(|pmm| (pmm.total_pages * PAGE_SIZE) as u64)
 }
