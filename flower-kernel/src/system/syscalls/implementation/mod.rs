@@ -4,7 +4,9 @@ use flower_mono::syscalls::{
     SYS_WRITE_FS_BASE,
 };
 
+mod arch;
 mod fs;
+mod mman;
 mod process;
 
 use crate::system::syscalls::types::SyscallHandler;
@@ -26,10 +28,10 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
     handlers[SYS_MSLEEP as usize] = Some(process::msleep as SyscallHandler);
 
     handlers[SYS_WRITE_FS_BASE as usize] =
-        Some(process::write_fsbase as SyscallHandler);
+        Some(arch::write_fsbase as SyscallHandler);
 
-    handlers[SYS_MMAP as usize] = Some(process::mmap as SyscallHandler);
-    handlers[SYS_MUNMAP as usize] = Some(process::munmap as SyscallHandler);
+    handlers[SYS_MMAP as usize] = Some(mman::mmap as SyscallHandler);
+    handlers[SYS_MUNMAP as usize] = Some(mman::munmap as SyscallHandler);
 
     handlers
 };
