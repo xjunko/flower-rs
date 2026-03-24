@@ -22,7 +22,10 @@ pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 }
 
 pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    system::proc::fork(frame).map_err(|_| SyscallError::Other)
+    system::proc::fork(frame).map_err(|e| {
+        log::error!("fork failed: {}", e);
+        SyscallError::Other
+    })
 }
 
 pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
