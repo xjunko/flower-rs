@@ -19,7 +19,7 @@ impl KeyboardSubscriber for DevFSKeyboard {
     }
 }
 
-fn kb_read(buf: &mut [u8]) -> usize {
+fn kb_read(_offset: usize, buf: &mut [u8]) -> usize {
     let mut queue = KB_BUFFER.lock();
     let mut read = 0;
 
@@ -41,9 +41,9 @@ pub fn install(dev: &mut DevFS) {
     let subscriber = Box::leak(Box::new(DevFSKeyboard));
     KEYBOARD.lock().subscribe(subscriber);
 
-    dev.bind(DevFile {
-        path: "/keyboard".to_string(),
-        _read: Some(kb_read),
-        _write: Some(kb_write),
-    });
+    dev.bind(DevFile::new(
+        "/keyboard".to_string(),
+        Some(kb_read),
+        Some(kb_write),
+    ));
 }
