@@ -11,7 +11,6 @@ mod types;
 
 pub use self::fds::*;
 pub use self::types::*;
-use crate::system::vfs::devfs::DevFS;
 use crate::system::vfs::tarfs::TarFS;
 
 pub struct Mount {
@@ -110,11 +109,17 @@ pub fn install() {
         .mount("/init", Box::new(tarfs))
         .expect("failed to mount tarfs");
 
-    let devfs = DevFS::new();
+    let devfs = devfs::create_devfs();
     ROOT_VFS
         .lock()
         .mount("/dev", Box::new(devfs))
         .expect("failed to mount devfs");
+
+    let procfs = devfs::create_procfs();
+    ROOT_VFS
+        .lock()
+        .mount("/proc", Box::new(procfs))
+        .expect("failed to mount procfs");
 }
 
 // public methods
