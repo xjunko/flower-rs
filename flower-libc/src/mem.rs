@@ -18,7 +18,7 @@ pub fn install() {
         return;
     }
 
-    let heap_start = std::mmap(DEFAULT_HEAP_SIZE);
+    let heap_start = std::mmap((-1i64) as u64, DEFAULT_HEAP_SIZE);
     assert!(!heap_start.is_null(), "failed to initialize userspace heap");
 
     unsafe {

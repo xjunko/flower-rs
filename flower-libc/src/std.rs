@@ -79,12 +79,12 @@ pub fn exit(s: u64) -> ! {
 
 pub fn sleep(millis: u64) { syscall1(SYS_MSLEEP, millis); }
 
-pub fn mmap(size: usize) -> *mut u8 {
+pub fn mmap(fd: u64, size: usize) -> *mut u8 {
     if size == 0 {
         return core::ptr::null_mut();
     }
 
-    let ret = syscall6(SYS_MMAP, 0, size as u64, 0, 0, u64::MAX, 0);
+    let ret = syscall6(SYS_MMAP, 0, size as u64, 0, 0, fd, 0);
     let ret = syscall_result(ret);
 
     if ret < 0 { core::ptr::null_mut() } else { ret as *mut u8 }
