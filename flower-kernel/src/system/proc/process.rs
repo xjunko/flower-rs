@@ -9,7 +9,7 @@ use x86_64::registers::control::Cr3;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
-use crate::system::vfs::FdTable;
+use crate::system::vfs::{FdTable, VFSResult};
 use crate::{arch, system};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -53,6 +53,13 @@ pub struct Process {
 
     pub _fsbase: u64,
     _stack: Vec<u8>,
+}
+
+impl Process {
+    pub fn with_fd_table<F, R>(&mut self, f: F) -> VFSResult<R>
+    where F: FnOnce(&mut FdTable) -> VFSResult<R> {
+        f(&mut self.fds)
+    }
 }
 
 impl Process {

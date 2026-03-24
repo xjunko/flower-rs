@@ -98,7 +98,7 @@ where F: FnOnce(&mut FdTable) -> VFSResult<R> {
     let mut guard = SCHEDULER.lock();
     let sched = guard.as_mut().ok_or(VFSError::IOError)?;
     let task = sched.current().ok_or(VFSError::IOError)?;
-    f(&mut task.lock().fds)
+    task.lock().with_fd_table(f)
 }
 
 /// returns the current process
