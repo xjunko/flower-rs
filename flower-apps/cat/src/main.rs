@@ -1,7 +1,12 @@
 #![no_std]
 #![no_main]
 
-use flower_libc::{println, std};
+extern crate alloc;
+
+use alloc::string::ToString;
+
+use flower_libc::file::File;
+use flower_libc::{print, println, std};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -31,21 +36,24 @@ pub fn cat(args: &str) -> i32 {
         return 1;
     }
 
-    let file_fd = std::open(args.as_bytes(), 0, 0);
-    if file_fd < 0 {
+    if let Ok(file) = File::open(args.to_string()) {
+        let mut buffer = [0u8; 1024];
+        loop {
+            let read_bytes = file.read(&mut buffer).unwrap_or(0);
+            if read_bytes == 0 {
+                break;
+            }
+            print!(
+                "{}",
+                core::str::from_utf8(&buffer[..read_bytes])
+                    .unwrap_or("<invalid utf-8>")
+            );
+        }
+        file.close().ok();
+    } else {
         println!("failed to open file");
         return 1;
     }
-
-    let mut buffer = [0u8; 1024];
-    loop {
-        let read_bytes = std::read(file_fd as u64, &mut buffer);
-        if read_bytes <= 0 {
-            break;
-        }
-        std::write(1, &buffer[..read_bytes as usize]);
-    }
-    std::close(file_fd as u64);
 
     0
 }
