@@ -22,21 +22,19 @@ pub extern "C" fn _start() -> ! {
         },
     };
 
-    let ret_code = cat(file_path);
-
-    std::exit(ret_code as u64);
+    std::exit(cat(file_path) as u64);
 }
 
 pub fn cat(args: &str) -> i32 {
     if args.is_empty() {
         println!("usage: cat <filename>");
-        return -1;
+        return 1;
     }
 
     let file_fd = std::open(args.as_bytes(), 0, 0);
     if file_fd < 0 {
         println!("failed to open file");
-        return -1;
+        return 1;
     }
 
     let mut buffer = [0u8; 1024];

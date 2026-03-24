@@ -37,19 +37,19 @@ pub extern "C" fn _start() -> ! {
 pub fn play(args: &str) -> i32 {
     if args.is_empty() {
         println!("usage: pcm <filename>");
-        return -1;
+        return 1;
     }
 
     let file_fd = std::open(args.as_bytes(), 0, 0);
     if file_fd < 0 {
         println!("failed to open file");
-        return -1;
+        return 1;
     }
 
     let driver_fd = std::open(b"/dev/audio\0", 0, 0);
     if driver_fd < 0 {
         println!("failed to open audio driver");
-        return -1;
+        return 1;
     }
 
     let mut buffer = vec![0; PCM_BUFFER];
@@ -72,7 +72,7 @@ pub fn play(args: &str) -> i32 {
                 println!("failed to write to audio driver");
                 std::close(driver_fd as u64);
                 std::close(file_fd as u64);
-                return -1;
+                return 1;
             }
 
             total_written += written;
