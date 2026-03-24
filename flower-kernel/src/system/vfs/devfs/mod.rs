@@ -1,4 +1,5 @@
 mod audio;
+mod framebuffer;
 mod keyboard;
 mod proc;
 
@@ -150,5 +151,6 @@ pub fn create_devfs() -> DevFS {
     let mut mnt = DevFS::new();
     keyboard::install(&mut mnt);
     audio::install(&mut mnt);
+    framebuffer::install(&mut mnt);
     mnt
 }
