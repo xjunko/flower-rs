@@ -3,8 +3,8 @@
 use core::fmt::Write;
 extern crate alloc;
 
+pub mod allocator;
 pub mod auxv;
-pub mod mem;
 pub mod std;
 pub mod syscalls;
 pub mod tty;
@@ -36,6 +36,6 @@ macro_rules! println {
 fn panic(info: &core::panic::PanicInfo) -> ! { std::panic(info) }
 
 pub fn _init() {
-    mem::install();
+    allocator::install();
     unsafe { auxv::init_current() };
 }

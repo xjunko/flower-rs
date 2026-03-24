@@ -6,7 +6,7 @@ use flower_mono::syscalls::{
     SYS_MUNMAP, SYS_OPEN, SYS_READ, SYS_WAITPID, SYS_WRITE,
 };
 
-use crate::mem;
+use crate::allocator;
 use crate::syscalls::{syscall0, syscall1, syscall2, syscall3, syscall6};
 
 const MAX_PATH_BYTES: usize = 512;
@@ -72,7 +72,7 @@ pub fn execve(path: &[u8], argv: u64, envp: u64) -> i64 {
 }
 
 pub fn exit(s: u64) -> ! {
-    mem::uninstall();
+    allocator::uninstall();
     syscall1(SYS_EXIT, s);
     unreachable!();
 }
