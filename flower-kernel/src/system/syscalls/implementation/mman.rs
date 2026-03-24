@@ -118,6 +118,13 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         let mut proc = current.lock();
 
         if addr < proc.user_heap || end > proc.user_heap_position {
+            log::error!(
+                "munmap failed: address range {:#x} - {:#x} is out of bounds for user heap ({:#x} - {:#x})",
+                addr,
+                end,
+                proc.user_heap,
+                proc.user_heap_position
+            );
             return Err(SyscallError::InvalidArgument);
         }
 
