@@ -10,7 +10,7 @@ Memory:   {}/{}MB
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
         system::mem::heap::used_memory() / 1024 / 1024,
-        system::mem::heap::total_memory() / 1024 / 1024
+        system::mem::heap::heap_capacity() / 1024 / 1024
     )
 }
 

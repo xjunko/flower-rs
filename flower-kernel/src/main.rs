@@ -30,6 +30,7 @@ unsafe extern "C" fn kmain() -> ! {
     arch::acpi::install();
     arch::apic::install();
 
+    drivers::ps2::install();
     drivers::pci::install();
 
     system::syscalls::install();

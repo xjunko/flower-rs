@@ -1,38 +1,129 @@
-use linked_list_allocator::LockedHeap;
+use core::alloc::GlobalAlloc;
+
+use linked_list_allocator::Heap;
+use spin::Mutex;
 use x86_64::VirtAddr;
+use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::system::mem::PAGE_SIZE;
 use crate::system::{self};
 
-pub const HEAP_START: u64 = 0xFFFF_9000_0000_0000;
-pub const HEAP_SIZE: usize = 128 * 1024 * 1024;
+pub const HEAP_START: usize = 0xFFFF_9000_0000_0000;
+pub const HEAP_SIZE: usize = 1024 * 1024;
 
+struct Allocator;
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Allocator = Allocator;
 
-pub fn install() -> Result<(), &'static str> {
-    let flags = PageTableFlags::PRESENT
-        | PageTableFlags::WRITABLE
-        | PageTableFlags::NO_EXECUTE;
-    let heap_pages = (HEAP_SIZE + PAGE_SIZE - 1) / PAGE_SIZE;
-    for i in 0..heap_pages {
-        let addr = VirtAddr::new(HEAP_START + (i * PAGE_SIZE) as u64);
-        system::mem::vmm::page_map_alloc(addr, flags)?;
-    }
-    unsafe {
-        ALLOCATOR.lock().init(HEAP_START as *mut u8, HEAP_SIZE);
+struct AllocStateInner {
+    heap: Option<Heap>,
+    heap_size: usize,
+}
+
+static ALLOC_STATE: Mutex<AllocStateInner> =
+    Mutex::new(AllocStateInner { heap: None, heap_size: 0 });
+
+fn map_chunk(
+    addr: VirtAddr,
+    size: usize,
+    flags: PageTableFlags,
+) -> Result<(), &'static str> {
+    let pages = size.div_ceil(PAGE_SIZE);
+
+    for i in 0..pages {
+        let page_addr = addr + (i * PAGE_SIZE) as u64;
+
+        system::mem::vmm::page_map_alloc(page_addr, flags)?;
     }
 
-    log::info!(
-        "Heap installed at {:#x}: mapped {} MiB.",
-        HEAP_START,
-        HEAP_SIZE / (1024 * 1024),
-    );
     Ok(())
 }
 
-/// Returns the total free memory in bytes.
-pub fn total_memory() -> usize { ALLOCATOR.lock().size() }
+unsafe impl GlobalAlloc for Allocator {
+    unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+        interrupts::without_interrupts(|| {
+            let flags = PageTableFlags::PRESENT
+                | PageTableFlags::WRITABLE
+                | PageTableFlags::NO_EXECUTE;
 
-pub fn used_memory() -> usize { ALLOCATOR.lock().used() }
+            let mut state = ALLOC_STATE.lock();
+
+            if state.heap.is_none() {
+                let base = VirtAddr::new(HEAP_START as u64);
+                if map_chunk(base, HEAP_SIZE, flags).is_err() {
+                    return core::ptr::null_mut();
+                }
+                state.heap_size = HEAP_SIZE;
+                state.heap =
+                    Some(unsafe { Heap::new(base.as_mut_ptr(), HEAP_SIZE) });
+            }
+
+            // there's a chance that this will loop forever
+            // but let's just hope that doesn't happen
+            loop {
+                if let Some(heap) = state.heap.as_mut()
+                    && let Ok(ptr) = heap.allocate_first_fit(layout)
+                {
+                    return ptr.as_ptr();
+                }
+
+                let addr = VirtAddr::new((HEAP_START + state.heap_size) as u64);
+                if map_chunk(addr, HEAP_SIZE, flags).is_err() {
+                    return core::ptr::null_mut();
+                }
+
+                if let Some(heap) = state.heap.as_mut() {
+                    unsafe {
+                        heap.extend(HEAP_SIZE);
+                    }
+                }
+                state.heap_size += HEAP_SIZE;
+            }
+        })
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
+        interrupts::without_interrupts(|| {
+            let mut state = ALLOC_STATE.lock();
+            if let Some(heap) = state.heap.as_mut() {
+                unsafe {
+                    heap.deallocate(
+                        core::ptr::NonNull::new(ptr).unwrap(),
+                        layout,
+                    );
+                }
+            }
+        });
+    }
+}
+
+pub fn install() -> Result<(), &'static str> { Ok(()) }
+
+pub fn free_memory() -> usize {
+    interrupts::without_interrupts(|| {
+        let state = ALLOC_STATE.lock();
+        state.heap.as_ref().map_or(0, |heap| heap.free())
+    })
+}
+
+pub fn heap_capacity() -> usize {
+    interrupts::without_interrupts(|| {
+        let state = ALLOC_STATE.lock();
+        state.heap_size
+    })
+}
+
+pub fn used_memory() -> usize {
+    interrupts::without_interrupts(|| {
+        let state = ALLOC_STATE.lock();
+        state.heap.as_ref().map_or(0, |heap| heap.used())
+    })
+}
+
+pub fn working() -> bool {
+    interrupts::without_interrupts(|| {
+        let state = ALLOC_STATE.lock();
+        state.heap.is_some()
+    })
+}
