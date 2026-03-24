@@ -8,7 +8,7 @@ struct DevFSAudio;
 const AC97_WRITE_CHUNK_SIZE: usize = 4092;
 const AC97_FRAME_SIZE: usize = 4;
 
-fn audio_read(_buf: &mut [u8]) -> usize { unimplemented!() }
+fn audio_read(_offset: usize, _buf: &mut [u8]) -> usize { unimplemented!() }
 
 fn audio_write(_buf: &[u8]) -> usize {
     let mut guard = drivers::pci::devices::ac97::get_driver();
@@ -67,9 +67,9 @@ fn audio_write(_buf: &[u8]) -> usize {
 }
 
 pub fn install(dev: &mut DevFS) {
-    dev.bind(DevFile {
-        path: "/audio".to_string(),
-        _read: Some(audio_read),
-        _write: Some(audio_write),
-    });
+    dev.bind(DevFile::new(
+        "/audio".to_string(),
+        Some(audio_read),
+        Some(audio_write),
+    ));
 }

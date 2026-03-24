@@ -1,9 +1,13 @@
 mod audio;
 mod keyboard;
+mod proc;
 
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+pub use proc::create_procfs;
 
 use crate::system::vfs::{
     VFSError, VFSFile, VFSFileType, VFSImplementation, VFSMetadata,
@@ -12,35 +16,71 @@ use crate::system::vfs::{
 
 pub struct DevFile {
     path: String,
+    position: AtomicUsize,
 
-    _read: Option<fn(&mut [u8]) -> usize>,
-    _write: Option<fn(&[u8]) -> usize>,
+    fn_read: Option<fn(usize, &mut [u8]) -> usize>,
+    fn_write: Option<fn(&[u8]) -> usize>,
+}
+
+impl DevFile {
+    pub fn new(
+        path: String,
+        read: Option<fn(usize, &mut [u8]) -> usize>,
+        write: Option<fn(&[u8]) -> usize>,
+    ) -> Self {
+        Self {
+            path,
+            position: AtomicUsize::new(0),
+            fn_read: read,
+            fn_write: write,
+        }
+    }
 }
 
 impl Clone for DevFile {
     fn clone(&self) -> Self {
-        Self { path: self.path.clone(), _read: self._read, _write: self._write }
+        Self {
+            path: self.path.clone(),
+            position: AtomicUsize::new(0),
+            fn_read: self.fn_read,
+            fn_write: self.fn_write,
+        }
     }
 }
 
 impl VFSFile for DevFile {
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
-        if let Some(read_fn) = self._read {
-            Ok(read_fn(buf))
+        if let Some(read_fn) = self.fn_read {
+            let position = self.position.load(Ordering::Acquire);
+            let read = read_fn(position, buf);
+            if read > 0 {
+                self.position.fetch_add(read, Ordering::AcqRel);
+            }
+            Ok(read)
         } else {
             Err(VFSError::Unsupported)
         }
     }
 
     fn write(&self, buf: &mut [u8]) -> VFSResult<usize> {
-        if let Some(write_fn) = self._write {
+        if let Some(write_fn) = self.fn_write {
             Ok(write_fn(buf))
         } else {
             Err(VFSError::Unsupported)
         }
     }
 
-    fn seek(&mut self, _pos: VFSSeek) -> VFSResult<usize> { Ok(1) }
+    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
+        let current = self.position.load(Ordering::Acquire);
+        let new_pos = match pos {
+            VFSSeek::Start(n) => n,
+            VFSSeek::Current(n) => current.saturating_add(n),
+            VFSSeek::End(n) => n,
+        };
+
+        self.position.store(new_pos, Ordering::Release);
+        Ok(new_pos)
+    }
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {
         Ok(VFSMetadata {
@@ -65,12 +105,7 @@ pub struct DevFS {
 }
 
 impl DevFS {
-    pub fn new() -> Self {
-        let mut dev = Self { files: Vec::new() };
-        keyboard::install(&mut dev);
-        audio::install(&mut dev);
-        dev
-    }
+    pub fn new() -> Self { Self { files: Vec::new() } }
 
     pub fn bind(&mut self, file: DevFile) { self.files.push(file); }
 }
@@ -91,4 +126,11 @@ impl VFSImplementation for DevFS {
             .map(|f| f.metadata())
             .ok_or(VFSError::NotFound)?
     }
+}
+
+pub fn create_devfs() -> DevFS {
+    let mut mnt = DevFS::new();
+    keyboard::install(&mut mnt);
+    audio::install(&mut mnt);
+    mnt
 }
