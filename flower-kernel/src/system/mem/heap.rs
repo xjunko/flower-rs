@@ -6,11 +6,8 @@ use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::system::mem::PAGE_SIZE;
+use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE};
 use crate::system::{self};
-
-pub const HEAP_START: usize = 0xFFFF_9000_0000_0000;
-pub const HEAP_SIZE: usize = 1024 * 1024;
 
 struct Allocator;
 #[global_allocator]
@@ -50,13 +47,14 @@ unsafe impl GlobalAlloc for Allocator {
             let mut state = ALLOC_STATE.lock();
 
             if state.heap.is_none() {
-                let base = VirtAddr::new(HEAP_START as u64);
-                if map_chunk(base, HEAP_SIZE, flags).is_err() {
+                let base = VirtAddr::new(KERNEL_HEAP_START as u64);
+                if map_chunk(base, KERNEL_HEAP_SIZE, flags).is_err() {
                     return core::ptr::null_mut();
                 }
-                state.heap_size = HEAP_SIZE;
-                state.heap =
-                    Some(unsafe { Heap::new(base.as_mut_ptr(), HEAP_SIZE) });
+                state.heap_size = KERNEL_HEAP_SIZE;
+                state.heap = Some(unsafe {
+                    Heap::new(base.as_mut_ptr(), KERNEL_HEAP_SIZE)
+                });
             }
 
             // there's a chance that this will loop forever
@@ -68,17 +66,18 @@ unsafe impl GlobalAlloc for Allocator {
                     return ptr.as_ptr();
                 }
 
-                let addr = VirtAddr::new((HEAP_START + state.heap_size) as u64);
-                if map_chunk(addr, HEAP_SIZE, flags).is_err() {
+                let addr =
+                    VirtAddr::new((KERNEL_HEAP_START + state.heap_size) as u64);
+                if map_chunk(addr, KERNEL_HEAP_SIZE, flags).is_err() {
                     return core::ptr::null_mut();
                 }
 
                 if let Some(heap) = state.heap.as_mut() {
                     unsafe {
-                        heap.extend(HEAP_SIZE);
+                        heap.extend(KERNEL_HEAP_SIZE);
                     }
                 }
-                state.heap_size += HEAP_SIZE;
+                state.heap_size += KERNEL_HEAP_SIZE;
             }
         })
     }

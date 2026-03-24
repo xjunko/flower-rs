@@ -2,9 +2,9 @@ use alloc::vec::Vec;
 
 use x86_64::VirtAddr;
 
+use crate::arch::layout::PAGE_SIZE;
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::proc::PAGE_SIZE;
 
 const AT_NULL: u64 = 0;
 const AT_PHDR: u64 = 3;
@@ -80,7 +80,7 @@ pub fn build_initial_user_stack(
     aux_words.push(AT_PHNUM);
     aux_words.push(loaded.phnum);
     aux_words.push(AT_PAGESZ);
-    aux_words.push(PAGE_SIZE);
+    aux_words.push(PAGE_SIZE as u64);
     aux_words.push(AT_ENTRY);
     aux_words.push(loaded.entry);
     aux_words.push(AT_NULL);

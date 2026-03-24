@@ -24,14 +24,8 @@ pub use self::wait::waitpid;
 use crate::system::proc::scheduler::Scheduler;
 use crate::system::proc::user::build_user_image;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
-use crate::system::{self};
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
-
-const USER_STACK_TOP_PAGE: u64 = 0x7_FFFF_F000;
-const USER_STACK_PAGES: u64 = 4;
-const USER_STACK_INITIAL_SLACK: u64 = 0x100;
-const PAGE_SIZE: u64 = system::mem::PAGE_SIZE as u64;
 
 /// schedules the process
 pub fn schedule() {

@@ -1,11 +1,10 @@
 use x86_64::structures::paging::PageTableFlags;
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::system;
-use crate::system::mem::PAGE_SIZE;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
+use crate::{arch, system};
 
 pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     // start - r->rdi
@@ -36,8 +35,8 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let mut proc = current.lock();
 
     let heap_start = proc.user_heap_position;
-    let heap_pages = (size + system::mem::PAGE_SIZE as u64 - 1)
-        / system::mem::PAGE_SIZE as u64;
+    let heap_pages = (size + arch::layout::PAGE_SIZE as u64 - 1)
+        / arch::layout::PAGE_SIZE as u64;
 
     let mut heap_ptr = heap_start;
 
@@ -53,7 +52,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 proc.address_space.as_mut().unwrap().map_page(
                     VirtAddr::new(heap_ptr),
                     PhysAddr::new(unsafe {
-                        data.add(i as usize * PAGE_SIZE) as u64
+                        data.add(i as usize * arch::layout::PAGE_SIZE) as u64
                     }),
                     PageTableFlags::PRESENT
                         | PageTableFlags::USER_ACCESSIBLE
@@ -67,7 +66,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     SyscallError::InvalidArgument
                 })?;
 
-                heap_ptr += system::mem::PAGE_SIZE as u64;
+                heap_ptr += arch::layout::PAGE_SIZE as u64;
             }
             proc.user_heap_position = heap_ptr;
             Ok(heap_start)
@@ -90,7 +89,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 );
                 SyscallError::InvalidArgument
             })?;
-            heap_ptr += system::mem::PAGE_SIZE as u64;
+            heap_ptr += arch::layout::PAGE_SIZE as u64;
         }
 
         proc.user_heap_position = heap_ptr;
@@ -100,7 +99,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
 pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let addr = frame.rdi;
-    let base = addr & !(PAGE_SIZE as u64 - 1);
+    let base = addr & !(arch::layout::PAGE_SIZE as u64 - 1);
     let size = frame.rsi;
 
     if size == 0 {
@@ -109,7 +108,8 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     let end = addr.checked_add(size).ok_or(SyscallError::InvalidArgument)?;
 
-    let pages = (size + PAGE_SIZE as u64 - 1) / PAGE_SIZE as u64;
+    let pages = (size + arch::layout::PAGE_SIZE as u64 - 1)
+        / arch::layout::PAGE_SIZE as u64;
 
     log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
 
@@ -122,7 +122,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         }
 
         for i in 0..pages {
-            let page_addr = base + i * PAGE_SIZE as u64;
+            let page_addr = base + i * arch::layout::PAGE_SIZE as u64;
             let phys = proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
                 log::error!(
                     "munmap failed: could not unmap page at user heap position {:#x}",

@@ -1,12 +1,15 @@
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch;
+use crate::arch::layout::{
+    USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
+};
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::proc::{
-    PAGE_SIZE, USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
-    auxv,
-};
+use crate::system::proc::auxv;
+
+const PAGE_SIZE: u64 = arch::layout::PAGE_SIZE as u64;
 
 pub fn build_user_image(
     elf_data: &[u8],

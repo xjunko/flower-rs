@@ -1,7 +1,7 @@
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::system::mem::PAGE_SIZE;
+use crate::arch;
 use crate::system::mem::vmm::{self, AddressSpace};
 
 const ELF_MAGIC: [u8; 4] = [0x7f, b'E', b'L', b'F'];
@@ -291,7 +291,7 @@ pub fn load_into(
                 let merged = merge_page_flags(current, flags);
                 address_space.update_page_flags(page_addr, merged)?;
             }
-            addr += PAGE_SIZE as u64;
+            addr += arch::layout::PAGE_SIZE as u64;
         }
 
         let file_start = ph.offset as usize;

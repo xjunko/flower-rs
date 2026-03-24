@@ -1,14 +1,15 @@
 use alloc::format;
 use alloc::string::ToString;
 
+use crate::arch;
 use crate::system::vfs::devfs::{DevFS, DevFile};
 use crate::system::{self};
 
 fn meminfo_read(offset: usize, buf: &mut [u8]) -> usize {
     let mem_total =
-        system::mem::pmm::usable_pages().unwrap_or(0) * system::mem::PAGE_SIZE;
+        system::mem::pmm::usable_pages().unwrap_or(0) * arch::layout::PAGE_SIZE;
     let mem_available =
-        system::mem::pmm::free_pages().unwrap_or(0) * system::mem::PAGE_SIZE;
+        system::mem::pmm::free_pages().unwrap_or(0) * arch::layout::PAGE_SIZE;
 
     let meminfo = format!(
         "
