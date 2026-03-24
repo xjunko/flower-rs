@@ -3,11 +3,11 @@ use alloc::vec::Vec;
 
 use flower_libc::{println, std};
 
-pub fn run(args: &str) -> i32 {
+fn run_inner(args: &str, print_exit_status: bool) {
     let input = args.trim();
     if input.is_empty() {
         println!("usage: exec <filename> [args...]");
-        return -1;
+        return;
     }
 
     let mut tokens = input.split_whitespace();
@@ -15,7 +15,7 @@ pub fn run(args: &str) -> i32 {
         Some(path) => path,
         None => {
             println!("usage: exec <filename> [args...]");
-            return -1;
+            return;
         },
     };
 
@@ -41,7 +41,7 @@ pub fn run(args: &str) -> i32 {
     let pid = std::fork();
     if pid < 0 {
         println!("fork failed: {}", pid);
-        return -1;
+        return;
     }
 
     if pid == 0 {
@@ -50,7 +50,17 @@ pub fn run(args: &str) -> i32 {
         std::exit(127);
     }
 
-    std::sleep(100);
+    let status = std::waitpid(pid as u64);
+    if status < 0 {
+        println!("waitpid failed");
+        return;
+    }
 
-    0
+    if print_exit_status {
+        println!("process exited with code {}", status);
+    }
 }
+
+pub fn run(args: &str) { run_inner(args, true); }
+
+pub fn run_quiet(args: &str) { run_inner(args, false); }

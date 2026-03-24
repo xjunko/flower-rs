@@ -17,7 +17,7 @@ const BUFFER_SIZE: usize = 64;
 pub extern "C" fn _start() -> ! {
     flower_libc::_init();
 
-    tools::exec::run("/init/bin/fetch");
+    tools::exec::run_quiet("/init/bin/fetch");
 
     let mut buf = [0u8; BUFFER_SIZE];
     loop {
@@ -36,10 +36,9 @@ pub extern "C" fn _start() -> ! {
     }
 }
 
-fn help(_: &str) -> i32 {
+fn help(_: &str) {
     println!("available commands:");
     println!("  exec <filename> [args...] - fork and exec in child");
-    0
 }
 
 fn exec(input: String) {
@@ -59,7 +58,7 @@ fn exec(input: String) {
         args = "".to_string();
     }
 
-    let ret_code = match cmd.as_str() {
+    match cmd.as_str() {
         "help" => help(&args),
         "exec" => tools::exec::run(&args),
         _ => {
@@ -73,10 +72,7 @@ fn exec(input: String) {
                 tools::exec::run(&path)
             } else {
                 println!("unknown command: {}", cmd);
-                0
             }
         },
     };
-
-    println!("command exited with code: {}", ret_code);
 }
