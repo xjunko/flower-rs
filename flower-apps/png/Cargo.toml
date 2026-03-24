@@ -1,0 +1,13 @@
+[package]
+name = "flower-apps-png"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+bench = false
+name = "flower-apps-png"
+test = false
+
+[dependencies]
+flower-libc = { path = "../../flower-libc" }
+png-decoder = "0.2.0"
