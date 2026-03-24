@@ -1,6 +1,7 @@
+use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
-use x86_64::{PhysAddr, VirtAddr};
 
+use crate::system::mem::vmm;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
@@ -48,12 +49,35 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             });
 
         if let Ok(data) = result {
+            log::debug!(
+                "mmap: mapping fd {} at offset {} to user heap position {:#x} with size {}",
+                fd,
+                offset,
+                proc.user_heap_position,
+                size
+            );
+
+            log::debug!(
+                "mmap: fd {} mmap returned data pointer {:#x}",
+                fd,
+                data as u64
+            );
+
             for i in 0..heap_pages {
+                let src_virt = VirtAddr::new(unsafe {
+                    data.add(i as usize * arch::layout::PAGE_SIZE) as u64
+                });
+                let src_phys = vmm::virt_to_phys(src_virt).ok_or_else(|| {
+                    log::error!(
+                        "mmap failed: could not translate source virt {:#x} to phys",
+                        src_virt.as_u64()
+                    );
+                    SyscallError::InvalidArgument
+                })?;
+
                 proc.address_space.as_mut().unwrap().map_page(
                     VirtAddr::new(heap_ptr),
-                    PhysAddr::new(unsafe {
-                        data.add(i as usize * arch::layout::PAGE_SIZE) as u64
-                    }),
+                    src_phys,
                     PageTableFlags::PRESENT
                         | PageTableFlags::USER_ACCESSIBLE
                         | PageTableFlags::WRITABLE
@@ -69,6 +93,12 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 heap_ptr += arch::layout::PAGE_SIZE as u64;
             }
             proc.user_heap_position = heap_ptr;
+            log::info!(
+                "mmap: successfully mapped fd {} to user heap position {:#x} - {:#x}",
+                fd,
+                heap_start,
+                proc.user_heap_position
+            );
             Ok(heap_start)
         } else {
             log::error!("mmap failed for fd {}: {:?}", fd, result.err());
@@ -137,7 +167,16 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 );
                 SyscallError::InvalidArgument
             })?;
-            system::mem::pmm::free(phys.as_u64());
+
+            // NOTE: this might fuck me later
+            if system::mem::pmm::is_usable_address(phys.as_u64()) {
+                system::mem::pmm::free(phys.as_u64());
+            } else {
+                log::debug!(
+                    "munmap: skipping free for non-usable physical page {:#x}",
+                    phys.as_u64()
+                );
+            }
         }
 
         Ok(0)
