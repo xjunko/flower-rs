@@ -51,7 +51,7 @@ pub fn cat(args: &str) -> i32 {
         }
         file.close().ok();
     } else {
-        println!("failed to open file");
+        println!("failed to open file: {}", args);
         return 1;
     }
 
