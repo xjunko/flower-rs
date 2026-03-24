@@ -10,8 +10,8 @@ use crate::system::mem::PAGE_SIZE;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::{self};
 
-pub fn exit(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    system::proc::exit();
+pub fn exit(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    system::proc::exit(frame.rdi);
     unreachable!();
 }
 
@@ -25,6 +25,17 @@ pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     system::proc::fork(frame).map_err(|e| {
         log::error!("fork failed: {}", e);
         SyscallError::Other
+    })
+}
+
+pub fn waitpid(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    system::proc::waitpid(frame.rdi).map_err(|e| {
+        if e == "no child process" {
+            SyscallError::NoChildProcess
+        } else {
+            log::error!("waitpid failed: {}", e);
+            SyscallError::Other
+        }
     })
 }
 

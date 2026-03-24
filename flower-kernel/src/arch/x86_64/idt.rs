@@ -104,5 +104,5 @@ extern "x86-interrupt" fn page_fault_handler(
     print_stack_frame(stack_frame);
 
     // HACK: for now we just kill the offending process.
-    system::proc::exit();
+    system::proc::exit(1);
 }

@@ -19,6 +19,7 @@ pub enum ProcessState {
     Ready,
     Running,
     Sleeping,
+    Zombie,
     Dead,
 }
 
@@ -35,6 +36,8 @@ pub struct Process {
     pub level: ProcessLevel,
     pub address_space: Option<AddressSpace>,
     pub wake_at: Option<u64>,
+    pub parent_id: Option<u64>,
+    pub exit_status: Option<u64>,
     pub fds: FdTable,
 
     pub cr3: u64,
@@ -112,6 +115,8 @@ impl Process {
             level: ProcessLevel::RING0,
             address_space: None,
             wake_at: None,
+            parent_id: None,
+            exit_status: None,
             fds: FdTable::new(),
 
             cr3: pml4_frame.start_address().as_u64(),
@@ -179,6 +184,8 @@ impl Process {
             level: ProcessLevel::RING3,
             address_space: Some(address_space),
             wake_at: None,
+            parent_id: None,
+            exit_status: None,
             fds: FdTable::new(),
             cr3,
 
@@ -266,6 +273,8 @@ impl Process {
             level: parent.level,
             address_space: Some(address_space),
             wake_at: None,
+            parent_id: Some(parent.id),
+            exit_status: None,
             fds: parent.fds.clone(),
 
             cr3,
@@ -296,6 +305,8 @@ pub fn null_process() -> Process {
         level: ProcessLevel::RING0,
         address_space: None,
         wake_at: None,
+        parent_id: None,
+        exit_status: None,
         fds: FdTable::new(),
 
         cr3: pml4_frame.start_address().as_u64(),

@@ -42,9 +42,14 @@ impl Scheduler {
         let mut i = self.processes.len();
         while i > 0 {
             i -= 1;
-            if i != self.current
-                && self.processes[i].lock().state == ProcessState::Dead
-            {
+            let reapable = {
+                let proc = self.processes[i].lock();
+                proc.state == ProcessState::Dead
+                    || (proc.state == ProcessState::Zombie
+                        && proc.parent_id.is_none())
+            };
+
+            if i != self.current && reapable {
                 log::trace!(
                     "reaping process {}",
                     self.processes[i].lock().name

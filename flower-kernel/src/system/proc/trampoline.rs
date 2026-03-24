@@ -9,7 +9,7 @@ use crate::system::proc;
 extern "C" fn kernel_process_entry(entry: fn()) -> ! {
     interrupts::enable();
     entry();
-    proc::exit();
+    proc::exit(0);
     unreachable!();
 }
 

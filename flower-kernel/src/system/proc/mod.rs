@@ -7,6 +7,7 @@ mod scheduler;
 mod sleep;
 mod trampoline;
 mod user;
+mod wait;
 
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -19,6 +20,7 @@ pub use self::execve::execve;
 pub use self::exit::exit;
 pub use self::fork::fork;
 pub use self::sleep::sleep;
+pub use self::wait::waitpid;
 use crate::system::proc::scheduler::Scheduler;
 use crate::system::proc::user::build_user_image;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};

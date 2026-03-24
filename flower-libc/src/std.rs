@@ -3,7 +3,7 @@ use core::panic::PanicInfo;
 
 use flower_mono::syscalls::{
     SYS_CLOSE, SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_MMAP, SYS_MSLEEP,
-    SYS_MUNMAP, SYS_OPEN, SYS_READ, SYS_WRITE,
+    SYS_MUNMAP, SYS_OPEN, SYS_READ, SYS_WAITPID, SYS_WRITE,
 };
 
 use crate::mem;
@@ -54,6 +54,11 @@ pub fn close(fd: u64) -> i64 {
 }
 
 pub fn fork() -> i64 { syscall0(SYS_FORK) as i64 }
+
+pub fn waitpid(pid: u64) -> i64 {
+    let result = syscall_result(syscall1(SYS_WAITPID, pid));
+    if result < 0 { -1 } else { result }
+}
 
 pub fn execve(path: &[u8], argv: u64, envp: u64) -> i64 {
     match with_c_path(path, |ptr| syscall3(SYS_EXECVE, ptr as u64, argv, envp))
