@@ -41,6 +41,20 @@ fn help(_: &str) {
     println!("  exec <filename> [args...] - fork and exec in child");
 }
 
+fn mmap(_: &str) {
+    let kb_fd = std::open(b"/dev/keyboard", 0, 0);
+    if kb_fd < 0 {
+        println!("failed to open /dev/keyboard");
+        return;
+    }
+    let kb_addr = std::mmap(kb_fd as u64, 4096);
+    if kb_addr.is_null() {
+        println!("failed to mmap /dev/keyboard");
+        return;
+    }
+    std::close(kb_addr as u64);
+}
+
 fn exec(input: String) {
     let cmd;
     let args;
@@ -60,6 +74,7 @@ fn exec(input: String) {
 
     match cmd.as_str() {
         "help" => help(&args),
+        "mmap" => mmap(&args),
         "exec" => tools::exec::run(&args),
         _ => {
             let mut path = format!("/init/bin/{}", cmd);
