@@ -92,3 +92,20 @@ pub extern "x86-interrupt" fn keyboard_interrupt_handler(
 
     apic::eoi();
 }
+
+const MAX_DRAIN: usize = 32;
+
+pub fn install() {
+    let mut pending_port: Port<u8> = Port::new(KB_PENDING);
+    let mut data_port: Port<u8> = Port::new(KB_DEVICE);
+
+    // optimally this should get all the
+    // pending scancodes cleared out.
+    for _ in 0..MAX_DRAIN {
+        if unsafe { pending_port.read() } & 0x1 == 0 {
+            break;
+        }
+        let _ = unsafe { data_port.read() };
+    }
+    log::debug!("ps2::keyboard installed!");
+}
