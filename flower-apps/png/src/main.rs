@@ -46,37 +46,35 @@ pub fn cat(filename: &str) -> i32 {
     if let Ok(file) = File::open(filename.to_string()) {
         let mut buf = vec![0u8; 1024 * 1024]; // 1mb for now...
         file.read(&mut buf).expect("failed to read full image");
-        file.close().expect("failed to close file");
 
         let (header, image_data) = png_decoder::decode(&buf).unwrap();
         println!("PNG header: {:?}", header);
         println!("Image data length: {}", image_data.len());
 
         // get the framebuffer
-        let fb_fd = std::open(b"/dev/fb0", 0, 0);
-        if fb_fd < 0 {
+        if let Ok(framebuffer) = File::open("/dev/fb0".to_string()) {
+            let fb_addr = framebuffer.mmap(FB_PITCH * FB_HEIGHT);
+            if fb_addr.is_err() {
+                println!("failed to mmap /dev/fb0");
+                return -1;
+            }
+            let fb_addr = fb_addr.unwrap() as *mut u8;
+
+            draw_rgba_to_framebuffer(
+                fb_addr,
+                FB_WIDTH,
+                FB_HEIGHT,
+                FB_PITCH,
+                header.width as usize,
+                header.height as usize,
+                &image_data,
+            );
+
+            std::munmap(fb_addr, FB_PITCH * FB_HEIGHT);
+        } else {
             println!("failed to open /dev/fb0");
             return -1;
         }
-
-        let fb_addr = std::mmap(fb_fd as u64, FB_PITCH * FB_HEIGHT);
-        if fb_addr.is_null() {
-            println!("failed to mmap /dev/fb0");
-            return -1;
-        }
-
-        draw_rgba_to_framebuffer(
-            fb_addr,
-            FB_WIDTH,
-            FB_HEIGHT,
-            FB_PITCH,
-            header.width as usize,
-            header.height as usize,
-            &image_data,
-        );
-
-        std::munmap(fb_addr, FB_PITCH * FB_HEIGHT);
-        std::close(fb_fd as u64);
     } else {
         println!("failed to open {}", filename);
         return -1;

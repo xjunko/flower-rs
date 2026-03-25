@@ -4,28 +4,22 @@
 extern crate alloc;
 
 use alloc::string::ToString;
+use alloc::vec::Vec;
 
 use flower_libc::file::File;
-use flower_libc::{print, println, std};
+use flower_libc::{env, print, println, std};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     flower_libc::_init();
 
-    let argc = flower_libc::auxv::argc();
-
-    if argc < 2 {
+    let args: Vec<&str> = env::args().collect();
+    if args.len() < 2 {
         println!("usage: cat <filename>");
         std::exit(0);
     }
 
-    let file_path = match flower_libc::auxv::argv(1) {
-        Some(path) => path,
-        None => {
-            println!("failed to get filename argument");
-            std::exit(1);
-        },
-    };
+    let file_path = args[1];
 
     std::exit(cat(file_path) as u64);
 }
@@ -49,7 +43,6 @@ pub fn cat(args: &str) -> i32 {
                     .unwrap_or("<invalid utf-8>")
             );
         }
-        file.close().ok();
     } else {
         println!("failed to open file: {}", args);
         return 1;
