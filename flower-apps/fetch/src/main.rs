@@ -69,6 +69,18 @@ pub extern "C" fn _start() -> ! {
         map
     };
 
+    let mem_total_kb = *memory_info.get("MemTotal").unwrap_or(&0);
+    let mem_used_kb = if let Some(mem_used) = memory_info.get("MemUsed") {
+        *mem_used
+    } else {
+        let mem_free_kb = if let Some(mem_free) = memory_info.get("MemFree") {
+            *mem_free
+        } else {
+            *memory_info.get("MemAvailable").unwrap_or(&0)
+        };
+        mem_total_kb.saturating_sub(mem_free_kb)
+    };
+
     println!(
         "flower@vocachuds
 ------------
@@ -76,8 +88,8 @@ Kernel: {} [v{}]
 Memory: {}/{}MB",
         kernel_name,
         kernel_version,
-        memory_info.get("MemAvailable").unwrap_or(&0) / 1024,
-        memory_info.get("MemTotal").unwrap_or(&0) / 1024
+        mem_used_kb / 1024,
+        mem_total_kb / 1024
     );
 
     std::exit(0);
