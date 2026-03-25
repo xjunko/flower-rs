@@ -1,6 +1,6 @@
 use limine::memory_map::EntryType;
 use spin::Mutex;
-use x86_64::VirtAddr;
+use x86_64::{VirtAddr, align_up};
 
 use crate::arch::layout::PAGE_SIZE;
 use crate::boot;
@@ -84,33 +84,38 @@ pub fn install() {
                 .entries(),
         )
     };
-    log::debug!("HHDM: {:#x}", hhdm.as_u64());
+    log::debug!("HHDM={:#x}", hhdm.as_u64());
 
     let mut highest_addr: u64 = 0;
 
     for entry in mmap {
-        let end = entry.base + entry.length;
-        if end > highest_addr {
-            highest_addr = end;
+        if entry.entry_type == EntryType::USABLE {
+            let end = entry.base + entry.length;
+            if end > highest_addr {
+                highest_addr = end;
+            }
         }
     }
-    log::debug!("Highest physical address: {:#x}", highest_addr);
+
+    log::debug!("Highest Memory Address: {:#x}", highest_addr);
 
     let total_pages = (highest_addr as usize + PAGE_SIZE - 1) / PAGE_SIZE;
     let bitmap_size = (total_pages + 7) / 8;
 
     let mut bitmap_addr: Option<u64> = None;
     for entry in mmap {
+        let aligned_base = align_up(entry.base, PAGE_SIZE as u64);
         if entry.entry_type == EntryType::USABLE
-            && entry.length >= bitmap_size as u64
+            && entry.length >= (aligned_base - entry.base) + bitmap_size as u64
         {
-            bitmap_addr = Some(entry.base);
+            bitmap_addr = Some(aligned_base);
             break;
         }
     }
 
     let bitmap_addr = bitmap_addr.expect("no space for pmm bitmap");
     let bitmap_ptr = (bitmap_addr + hhdm.as_u64()) as *mut u8;
+
     log::debug!(
         "Bitmap address: {:#x}, size: {} bytes",
         bitmap_addr,
