@@ -2,13 +2,14 @@ use alloc::string::String;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 
-use crate::std;
+use crate::{println, std};
 
 #[derive(Debug)]
 pub enum FileError {
     FileNotFound,
     FileReadError,
     FileWriteError,
+    FileMmapError,
     FileInvalid,
 }
 
@@ -20,6 +21,7 @@ impl Display for FileError {
             FileError::FileNotFound => write!(f, "File not found"),
             FileError::FileReadError => write!(f, "Failed to read from file"),
             FileError::FileWriteError => write!(f, "Failed to write to file"),
+            FileError::FileMmapError => write!(f, "Failed to mmap file"),
             FileError::FileInvalid => write!(f, "Invalid file descriptor"),
         }
     }
@@ -39,7 +41,8 @@ impl File {
         }
     }
 
-    pub fn close(&self) -> Result<(), FileError> {
+    // drop() will call this.
+    fn close(&mut self) -> Result<(), FileError> {
         if std::close(self.fd) < 0 {
             Err(FileError::FileInvalid)
         } else {
@@ -66,4 +69,13 @@ impl File {
             Ok(result as usize)
         }
     }
+
+    pub fn mmap(&self, length: usize) -> Result<*mut u8, FileError> {
+        let addr = std::mmap(self.fd, length);
+        if addr.is_null() { Err(FileError::FileMmapError) } else { Ok(addr) }
+    }
+}
+
+impl Drop for File {
+    fn drop(&mut self) { self.close().expect("Failed to close file in Drop"); }
 }
