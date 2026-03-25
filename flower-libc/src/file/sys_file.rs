@@ -2,7 +2,6 @@ use alloc::string::String;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 
-use crate::println;
 use crate::sys::{fs, kernel};
 
 #[derive(Debug)]
