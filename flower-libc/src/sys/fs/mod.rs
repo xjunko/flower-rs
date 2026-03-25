@@ -3,7 +3,6 @@ use flower_mono::syscalls::{
     SYS_CLOSE, SYS_OPEN, SYS_READ, SYS_STAT, SYS_WRITE,
 };
 
-use crate::file::sys_file::FileMetadata;
 use crate::sys::kernel::{syscall_result, syscall1, syscall3};
 use crate::with_c_path;
 
@@ -32,12 +31,8 @@ pub fn close(fd: u64) -> i64 {
     if result < 0 { -1 } else { 0 }
 }
 
-pub fn metadata(fd: u64) -> Option<FileMetadata> {
+pub fn metadata(fd: u64) -> Option<FileStat> {
     let metadata: FileStat = FileStat { size: 0 };
     let result = syscall3(SYS_STAT, fd, &metadata as *const FileStat as u64, 0);
-    if syscall_result(result) < 0 {
-        None
-    } else {
-        Some(FileMetadata { size: metadata.size })
-    }
+    if syscall_result(result) < 0 { None } else { Some(metadata) }
 }

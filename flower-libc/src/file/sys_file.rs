@@ -2,6 +2,8 @@ use alloc::string::String;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 
+use flower_mono::structs::FileStat;
+
 use crate::sys::{fs, kernel};
 
 #[derive(Debug)]
@@ -29,6 +31,10 @@ impl Display for FileError {
 
 pub struct FileMetadata {
     pub size: usize,
+}
+
+impl From<FileStat> for FileMetadata {
+    fn from(stat: FileStat) -> Self { Self { size: stat.size } }
 }
 
 pub struct File {
@@ -73,6 +79,14 @@ impl File {
             Err(FileError::FileWriteError)
         } else {
             Ok(result as usize)
+        }
+    }
+
+    pub fn metadata(&self) -> Result<FileMetadata, FileError> {
+        if let Some(stat) = fs::metadata(self.fd) {
+            Ok(FileMetadata::from(stat))
+        } else {
+            Err(FileError::FileInvalid)
         }
     }
 
