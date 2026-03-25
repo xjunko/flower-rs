@@ -5,6 +5,7 @@ extern crate alloc;
 
 pub mod allocator;
 pub mod auxv;
+pub mod env;
 pub mod file;
 pub mod std;
 pub mod syscalls;
