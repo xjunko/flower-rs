@@ -3,7 +3,7 @@ use core::alloc::GlobalAlloc;
 use linked_list_allocator::Heap;
 use spin::Mutex;
 
-use crate::std;
+use crate::sys::kernel;
 
 const MAP_MEMORY: u64 = u64::MAX;
 const DEFAULT_HEAP_SIZE: usize = 1024 * 1024;
@@ -25,7 +25,7 @@ unsafe impl GlobalAlloc for LibcAllocator {
         let mut state = ALLOC_STATE.lock();
 
         if state.heap.is_none() {
-            let base = std::mmap(MAP_MEMORY, DEFAULT_HEAP_SIZE);
+            let base = kernel::mmap(MAP_MEMORY, DEFAULT_HEAP_SIZE);
             assert!(!base.is_null(), "failed to initialize heap");
             state.heap_size = DEFAULT_HEAP_SIZE;
             state.heap = Some(unsafe { Heap::new(base, DEFAULT_HEAP_SIZE) });
@@ -39,7 +39,7 @@ unsafe impl GlobalAlloc for LibcAllocator {
             }
 
             if let Some(heap) = state.heap.as_mut() {
-                let new_base = std::mmap(MAP_MEMORY, DEFAULT_HEAP_SIZE);
+                let new_base = kernel::mmap(MAP_MEMORY, DEFAULT_HEAP_SIZE);
                 assert!(!new_base.is_null(), "failed to expand heap");
                 unsafe {
                     heap.extend(DEFAULT_HEAP_SIZE);
@@ -68,6 +68,6 @@ pub fn uninstall() {
     if let Some(heap) = state.heap.as_ref() {
         let heap_start = heap.bottom();
         let heap_size = state.heap_size;
-        std::munmap(heap_start, heap_size);
+        kernel::munmap(heap_start, heap_size);
     }
 }

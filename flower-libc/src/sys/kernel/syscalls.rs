@@ -1,5 +1,8 @@
 use core::arch::asm;
 
+#[inline]
+pub fn syscall_result(ret: u64) -> i64 { ret as i64 }
+
 #[inline(always)]
 pub fn syscall0(i: u64) -> u64 {
     let ret: u64;

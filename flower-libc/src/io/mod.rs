@@ -1,16 +1,17 @@
-use crate::{print, std};
+use crate::print;
+use crate::sys::fs::{self, open};
 
 pub fn getch() -> u8 {
-    let kb = std::open(b"/dev/keyboard\0", 0, 0);
+    let kb = open(b"/dev/keyboard\0", 0, 0);
     if kb < 0 {
         return 0;
     }
 
     let mut c = [0u8; 1];
     loop {
-        let _ = std::read(kb as u64, &mut c);
+        let _ = fs::read(kb as u64, &mut c);
         if c[0] != 0 {
-            std::close(kb as u64);
+            fs::close(kb as u64);
             return c[0];
         }
     }

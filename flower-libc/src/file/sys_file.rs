@@ -2,7 +2,8 @@ use alloc::string::String;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 
-use crate::{println, std};
+use crate::println;
+use crate::sys::{fs, kernel};
 
 #[derive(Debug)]
 pub enum FileError {
@@ -33,7 +34,7 @@ pub struct File {
 
 impl File {
     pub fn open(path: String) -> Result<Self, FileError> {
-        let fd = std::open(path.as_bytes(), 0, 0);
+        let fd = fs::open(path.as_bytes(), 0, 0);
         if fd < 0 {
             Err(FileError::FileNotFound)
         } else {
@@ -43,7 +44,7 @@ impl File {
 
     // drop() will call this.
     fn close(&mut self) -> Result<(), FileError> {
-        if std::close(self.fd) < 0 {
+        if fs::close(self.fd) < 0 {
             Err(FileError::FileInvalid)
         } else {
             Ok(())
@@ -53,7 +54,7 @@ impl File {
 
 impl File {
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, FileError> {
-        let result = std::read(self.fd, buf);
+        let result = fs::read(self.fd, buf);
         if result < 0 {
             Err(FileError::FileReadError)
         } else {
@@ -62,7 +63,7 @@ impl File {
     }
 
     pub fn write(&self, buf: &[u8]) -> Result<usize, FileError> {
-        let result = std::write(self.fd, buf);
+        let result = fs::write(self.fd, buf);
         if result < 0 {
             Err(FileError::FileWriteError)
         } else {
@@ -71,7 +72,7 @@ impl File {
     }
 
     pub fn mmap(&self, length: usize) -> Result<*mut u8, FileError> {
-        let addr = std::mmap(self.fd, length);
+        let addr = kernel::mmap(self.fd, length);
         if addr.is_null() { Err(FileError::FileMmapError) } else { Ok(addr) }
     }
 }
