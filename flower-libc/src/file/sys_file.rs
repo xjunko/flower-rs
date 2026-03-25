@@ -27,11 +27,17 @@ impl Display for FileError {
     }
 }
 
+pub struct FileMetadata {
+    pub size: usize,
+}
+
 pub struct File {
     fd: u64,
 }
 
 impl File {
+    pub fn fd(&self) -> u64 { self.fd }
+
     pub fn open(path: String) -> Result<Self, FileError> {
         let fd = fs::open(path.as_bytes(), 0, 0);
         if fd < 0 {
