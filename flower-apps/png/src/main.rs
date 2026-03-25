@@ -8,7 +8,8 @@ use alloc::vec;
 use core::cmp::min;
 
 use flower_libc::file::File;
-use flower_libc::{println, std};
+use flower_libc::sys::kernel;
+use flower_libc::{println, process};
 
 const FB_WIDTH: usize = 1280;
 const FB_HEIGHT: usize = 720;
@@ -22,18 +23,18 @@ pub extern "C" fn _start() -> ! {
 
     if argc < 2 {
         println!("usage: png <filename>");
-        std::exit(0);
+        process::exit(0);
     }
 
     let file_path = match flower_libc::auxv::argv(1) {
         Some(path) => path,
         None => {
             println!("failed to get filename argument");
-            std::exit(1);
+            process::exit(1);
         },
     };
 
-    std::exit(cat(file_path) as u64);
+    process::exit(cat(file_path) as u64);
 }
 
 pub fn cat(filename: &str) -> i32 {
@@ -70,7 +71,7 @@ pub fn cat(filename: &str) -> i32 {
                 &image_data,
             );
 
-            std::munmap(fb_addr, FB_PITCH * FB_HEIGHT);
+            kernel::munmap(fb_addr, FB_PITCH * FB_HEIGHT);
         } else {
             println!("failed to open /dev/fb0");
             return -1;

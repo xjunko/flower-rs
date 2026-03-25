@@ -1,7 +1,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use flower_libc::{println, std};
+use flower_libc::{println, process};
 
 fn run_inner(args: &str, print_exit_status: bool) {
     let input = args.trim();
@@ -38,19 +38,19 @@ fn run_inner(args: &str, print_exit_status: bool) {
     }
     argv.push(core::ptr::null());
 
-    let pid = std::fork();
+    let pid = process::fork();
     if pid < 0 {
         println!("fork failed: {}", pid);
         return;
     }
 
     if pid == 0 {
-        let rc = std::execve(path_c.as_bytes(), argv.as_ptr() as u64, 0);
+        let rc = process::execve(path_c.as_bytes(), argv.as_ptr() as u64, 0);
         println!("execve failed: {}", rc);
-        std::exit(127);
+        process::exit(127);
     }
 
-    let status = std::waitpid(pid as u64);
+    let status = process::waitpid(pid as u64);
     if status < 0 {
         println!("waitpid failed");
         return;

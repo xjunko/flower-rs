@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use flower_libc::{env, println, std};
+use flower_libc::{env, println, process};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -11,5 +11,5 @@ pub extern "C" fn _start() -> ! {
         println!("Hello, {}!", arg);
     }
 
-    std::exit(0);
+    process::exit(0);
 }

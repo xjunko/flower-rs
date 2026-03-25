@@ -7,7 +7,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 
 use flower_libc::file::File;
-use flower_libc::{println, std};
+use flower_libc::{println, process};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -18,7 +18,7 @@ pub extern "C" fn _start() -> ! {
             let mut buf = vec![0u8; 1024];
             if let Err(e) = file.read(&mut buf) {
                 println!("failed to read /proc/version: {}", e);
-                std::exit(1);
+                process::exit(1);
             }
 
             let info_str = String::from_utf8(buf)
@@ -34,7 +34,7 @@ pub extern "C" fn _start() -> ! {
             }
         } else {
             println!("failed to open /proc/version");
-            std::exit(1);
+            process::exit(1);
         }
     };
 
@@ -43,7 +43,7 @@ pub extern "C" fn _start() -> ! {
             let mut buf = vec![0u8; 1024];
             if let Err(e) = file.read(&mut buf) {
                 println!("failed to read /proc/meminfo: {}", e);
-                std::exit(1);
+                process::exit(1);
             }
 
             let info_str = String::from_utf8(buf)
@@ -62,7 +62,7 @@ pub extern "C" fn _start() -> ! {
             map
         } else {
             println!("failed to open /proc/meminfo");
-            std::exit(1);
+            process::exit(1);
         }
     };
 
@@ -89,5 +89,5 @@ Memory: {}/{}MB",
         mem_total_kb / 1024
     );
 
-    std::exit(0);
+    process::exit(0);
 }

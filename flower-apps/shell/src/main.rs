@@ -7,7 +7,8 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use flower_libc::{print, println, std, tty};
+use flower_libc::sys::fs;
+use flower_libc::{io, print, println, process};
 
 mod tools;
 
@@ -23,7 +24,7 @@ pub extern "C" fn _start() -> ! {
     loop {
         print!(">");
 
-        let len = tty::read_line(&mut buf);
+        let len = io::read_line(&mut buf);
         if len == 0 {
             continue;
         }
@@ -39,6 +40,8 @@ pub extern "C" fn _start() -> ! {
 fn help(_: &str) {
     println!("available commands:");
     println!("  exec <filename> [args...] - fork and exec in child");
+    println!("  exit - exit the shell");
+    println!("  help - show this message");
 }
 
 fn exec(input: String) {
@@ -61,12 +64,13 @@ fn exec(input: String) {
     match cmd.as_str() {
         "help" => help(&args),
         "exec" => tools::exec::run(&args),
+        "exit" => process::exit(0),
         _ => {
             let mut path = format!("/init/bin/{}", cmd);
-            let file_fd = std::open(path.as_bytes(), 0, 0);
+            let file_fd = fs::open(path.as_bytes(), 0, 0);
 
             if file_fd > 0 {
-                std::close(file_fd as u64);
+                fs::close(file_fd as u64);
                 path.push(' ');
                 path.push_str(&args);
                 tools::exec::run(&path)

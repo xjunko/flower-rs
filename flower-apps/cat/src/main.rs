@@ -1,13 +1,13 @@
 #![no_std]
 #![no_main]
 
-extern crate alloc;
-
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use flower_libc::file::File;
-use flower_libc::{env, print, println, std};
+use flower_libc::{env, print, println, process};
+
+extern crate alloc;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
@@ -16,12 +16,12 @@ pub extern "C" fn _start() -> ! {
     let args: Vec<&str> = env::args().collect();
     if args.len() < 2 {
         println!("usage: cat <filename>");
-        std::exit(0);
+        process::exit(0);
     }
 
     let file_path = args[1];
 
-    std::exit(cat(file_path) as u64);
+    process::exit(cat(file_path) as u64);
 }
 
 pub fn cat(args: &str) -> i32 {

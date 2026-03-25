@@ -7,7 +7,7 @@ use alloc::string::ToString;
 use alloc::vec;
 
 use flower_libc::file::File;
-use flower_libc::{env, print, println, std};
+use flower_libc::{env, print, println, process};
 
 const PCM_BUFFER: usize = 4096;
 
@@ -18,7 +18,7 @@ pub extern "C" fn _start() -> ! {
     let args: vec::Vec<&str> = env::args().collect();
     if args.len() < 2 {
         println!("usage: pcm <filename>");
-        std::exit(1);
+        process::exit(1);
     }
 
     let file_path = args[1];
@@ -27,7 +27,7 @@ pub extern "C" fn _start() -> ! {
     let ret_code = play(file_path);
     println!("pcm exited with code: {}", ret_code);
 
-    std::exit(ret_code as u64);
+    process::exit(ret_code as u64);
 }
 
 pub fn play(args: &str) -> i32 {
