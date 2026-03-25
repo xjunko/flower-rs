@@ -1,5 +1,7 @@
 use core::ffi::{CStr, c_char};
 
+use flower_mono::structs::FileStat;
+
 use crate::print;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::vfs::{FdKind, VFSError};
@@ -109,4 +111,27 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     } else {
         Err(SyscallError::BadFileDescriptor)
     }
+}
+
+pub fn stat(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let stat_buf = frame.rsi as *mut FileStat;
+
+    log::debug!("stat syscall: fd={}, stat_buf.size={:?}", fd, stat_buf);
+
+    let result = system::proc::with_fd_table(|table| match table.get(fd)? {
+        FdKind::File(file) => {
+            let stat = file.metadata()?;
+            unsafe {
+                (*stat_buf).size = stat.size;
+            }
+            Ok(0)
+        },
+        _ => {
+            log::error!("stat syscall: fd {} is not statable", fd);
+            Err(VFSError::PermissionDenied)
+        },
+    });
+
+    if result.is_ok() { Ok(0) } else { Err(SyscallError::BadFileDescriptor) }
 }
