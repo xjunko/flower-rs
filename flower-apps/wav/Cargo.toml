@@ -1,11 +1,11 @@
 [package]
-name = "flower-apps-pcm"
+name = "flower-apps-wav"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
 bench = false
-name = "flower-apps-pcm"
+name = "flower-apps-wav"
 test = false
 
 [dependencies]

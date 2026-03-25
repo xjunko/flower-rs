@@ -120,13 +120,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flower-apps-pcm"
-version = "0.0.1"
-dependencies = [
- "flower-libc",
-]
-
-[[package]]
 name = "flower-apps-png"
 version = "0.0.1"
 dependencies = [
@@ -136,6 +129,13 @@ dependencies = [
 
 [[package]]
 name = "flower-apps-shell"
+version = "0.0.1"
+dependencies = [
+ "flower-libc",
+]
+
+[[package]]
+name = "flower-apps-wav"
 version = "0.0.1"
 dependencies = [
  "flower-libc",

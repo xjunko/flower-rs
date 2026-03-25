@@ -1,6 +1,6 @@
 export CARGO_TARGET_DIR := $(CURDIR)/target
 
-APPS := shell fetch cat png echo hello pcm
+APPS := shell fetch cat png echo hello wav
 TARGET := target/x86_64-unknown-none/release
 DEST := ../flower-boot/initramfs/bin
 
