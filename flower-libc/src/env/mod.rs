@@ -21,6 +21,10 @@ impl<'a> Args<'a> {
     }
 }
 
+impl<'a> Default for Args<'a> {
+    fn default() -> Self { Self::new() }
+}
+
 impl<'a> Iterator for Args<'a> {
     type Item = &'a str;
 

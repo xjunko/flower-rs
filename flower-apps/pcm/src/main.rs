@@ -45,16 +45,16 @@ pub fn play(args: &str) -> i32 {
     let mut pcm_pos = 0;
 
     loop {
-        let bytes_read = music_file.read(&mut buffer).unwrap();
-        if bytes_read <= 0 {
+        let bytes_read = music_file.read(&mut buffer);
+        if bytes_read.is_err() {
             break;
         }
+        let bytes_read = bytes_read.unwrap();
 
         let mut total_written = 0;
         while total_written < bytes_read {
-            let written = driver_file
-                .write(&buffer[total_written as usize..bytes_read as usize])
-                .unwrap();
+            let written =
+                driver_file.write(&buffer[total_written..bytes_read]).unwrap();
 
             if written == 0 {
                 println!("failed to write to audio driver");

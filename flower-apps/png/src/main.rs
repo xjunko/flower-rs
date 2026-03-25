@@ -59,7 +59,7 @@ pub fn cat(filename: &str) -> i32 {
                 println!("failed to mmap /dev/fb0");
                 return -1;
             }
-            let fb_addr = fb_addr.unwrap() as *mut u8;
+            let fb_addr = fb_addr.unwrap();
 
             draw_rgba_to_framebuffer(
                 fb_addr,
