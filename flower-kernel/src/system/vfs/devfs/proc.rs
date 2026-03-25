@@ -8,15 +8,22 @@ use crate::system::{self};
 fn meminfo_read(offset: usize, buf: &mut [u8]) -> usize {
     let mem_total =
         system::mem::pmm::usable_pages().unwrap_or(0) * arch::layout::PAGE_SIZE;
-    let mem_available =
+    let mem_free =
         system::mem::pmm::free_pages().unwrap_or(0) * arch::layout::PAGE_SIZE;
+
+    let mem_available = mem_free;
+    let mem_used = mem_total.saturating_sub(mem_free);
 
     let meminfo = format!(
         "
 MemTotal: {} kB
+MemFree: {} kB
+MemUsed: {} kB
 MemAvailable: {} kB
 ",
         mem_total / 1024,
+        mem_free / 1024,
+        mem_used / 1024,
         mem_available / 1024,
     )
     .trim()
