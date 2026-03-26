@@ -10,6 +10,7 @@ use x86_64::registers::control::{Efer, EferFlags};
 use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 
+pub use self::types::SyscallError;
 use crate::arch::gdt;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
 
@@ -150,7 +151,10 @@ fn syscall_handler_unwrapped(num: u64, frame: &mut SyscallFrame) -> u64 {
             Ok(result) => result,
             Err(e) => {
                 log::error!("syscall {} failed with error: {:?}", num, e);
-                -(e as i64) as u64
+                if let SyscallError::Other(message) = &e {
+                    log::error!("unhandled syscall error: {}", message);
+                }
+                -(e.errno()) as u64
             },
         }
     } else {

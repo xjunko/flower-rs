@@ -5,7 +5,7 @@ use flower_mono::structs::FileStat;
 use crate::print;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::vfs::{FdKind, VFSError};
-use crate::system::{self};
+use crate::system::{self, ToSyscallError};
 
 pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let path =
@@ -21,7 +21,7 @@ pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             });
             Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
         },
-        Err(_) => Err(SyscallError::NoSuchFile),
+        Err(e) => Err(e.to_syscall_error()),
     }
 }
 
@@ -46,7 +46,7 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(SyscallError::BadFileDescriptor)
+        Err(result.err().unwrap().to_syscall_error())
     }
 }
 
@@ -77,7 +77,7 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(SyscallError::BadFileDescriptor)
+        Err(result.err().unwrap().to_syscall_error())
     }
 }
 
@@ -109,7 +109,7 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(SyscallError::BadFileDescriptor)
+        Err(result.err().unwrap().to_syscall_error())
     }
 }
 
@@ -133,5 +133,9 @@ pub fn stat(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         },
     });
 
-    if result.is_ok() { Ok(0) } else { Err(SyscallError::BadFileDescriptor) }
+    if result.is_ok() {
+        Ok(0)
+    } else {
+        Err(result.err().unwrap().to_syscall_error())
+    }
 }

@@ -1,6 +1,7 @@
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::system::ToSyscallError;
 use crate::system::mem::vmm;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
@@ -32,7 +33,8 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
 
-    let current = system::proc::current().ok_or(SyscallError::Other)?;
+    let current = system::proc::current()
+        .ok_or(SyscallError::Other("no current process found".into()))?;
     let mut proc = current.lock();
 
     let heap_start = proc.user_heap_position;
@@ -101,8 +103,8 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             );
             Ok(heap_start)
         } else {
-            log::error!("mmap failed for fd {}: {:?}", fd, result.err());
-            Err(SyscallError::BadFileDescriptor)
+            log::error!("mmap failed for fd {}", fd);
+            Err(result.err().unwrap().to_syscall_error())
         }
     } else {
         for _ in 0..heap_pages {
@@ -144,7 +146,8 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
 
     {
-        let current = system::proc::current().ok_or(SyscallError::Other)?;
+        let current = system::proc::current()
+            .ok_or(SyscallError::Other("no current process".into()))?;
         let mut proc = current.lock();
 
         if addr < proc.user_heap || end > proc.user_heap_position {

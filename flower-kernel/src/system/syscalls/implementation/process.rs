@@ -1,3 +1,4 @@
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
@@ -19,7 +20,7 @@ pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     system::proc::fork(frame).map_err(|e| {
         log::error!("fork failed: {}", e);
-        SyscallError::Other
+        SyscallError::Other(format!("fork failed: {}", e))
     })
 }
 
@@ -29,7 +30,7 @@ pub fn waitpid(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             SyscallError::NoChildProcess
         } else {
             log::error!("waitpid failed: {}", e);
-            SyscallError::Other
+            SyscallError::Other(format!("waitpid failed: {}", e))
         }
     })
 }
