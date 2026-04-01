@@ -123,7 +123,9 @@ pub fn stat(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         FdKind::File(file) => {
             let stat = file.metadata()?;
             unsafe {
-                (*stat_buf).size = stat.size;
+                (*stat_buf).st_mode = 0; // TODO: set mode
+                (*stat_buf).st_dev = 0; // TODO: set device id
+                (*stat_buf).st_size = stat.size as u64;
             }
             Ok(0)
         },
