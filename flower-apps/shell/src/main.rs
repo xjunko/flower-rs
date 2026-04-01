@@ -7,7 +7,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use flower_libc::sys::fs;
+use flower_libc::file::File;
 use flower_libc::{io, print, println, process};
 
 mod tools;
@@ -67,10 +67,9 @@ fn exec(input: String) {
         "exit" => process::exit(0),
         _ => {
             let mut path = format!("/init/bin/{}", cmd);
-            let file_fd = fs::open(path.as_bytes(), 0, 0);
-
-            if file_fd > 0 {
-                fs::close(file_fd as u64);
+            let file = File::open(path.clone());
+            if file.is_ok() {
+                drop(file);
                 path.push(' ');
                 path.push_str(&args);
                 tools::exec::run(&path)

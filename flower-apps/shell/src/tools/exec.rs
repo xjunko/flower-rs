@@ -45,7 +45,12 @@ fn run_inner(args: &str, print_exit_status: bool) {
     }
 
     if pid == 0 {
-        let rc = process::execve(path_c.as_bytes(), argv.as_ptr() as u64, 0);
+        let rc = process::execve(
+            path_c.as_ptr(),
+            path_c.len(),
+            argv.as_ptr() as u64,
+            0,
+        );
         println!("execve failed: {}", rc);
         process::exit(127);
     }
