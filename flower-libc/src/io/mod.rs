@@ -2,14 +2,15 @@ use crate::print;
 use crate::sys::fs::{self, open};
 
 pub fn getch() -> u8 {
-    let kb = open(b"/dev/keyboard\0", 0, 0);
+    let path = b"/dev/keyboard\0";
+    let kb = open(path.as_ptr(), path.len(), 0, 0);
     if kb < 0 {
         return 0;
     }
 
     let mut c = [0u8; 1];
     loop {
-        let _ = fs::read(kb as u64, &mut c);
+        let _ = fs::read(kb as u64, c.as_mut_ptr(), 1);
         if c[0] != 0 {
             fs::close(kb as u64);
             return c[0];

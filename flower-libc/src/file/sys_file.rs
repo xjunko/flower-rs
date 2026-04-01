@@ -34,7 +34,7 @@ pub struct FileMetadata {
 }
 
 impl From<FileStat> for FileMetadata {
-    fn from(stat: FileStat) -> Self { Self { size: stat.size } }
+    fn from(stat: FileStat) -> Self { Self { size: stat.st_size as usize } }
 }
 
 pub struct File {
@@ -45,7 +45,7 @@ impl File {
     pub fn fd(&self) -> u64 { self.fd }
 
     pub fn open(path: String) -> Result<Self, FileError> {
-        let fd = fs::open(path.as_bytes(), 0, 0);
+        let fd = fs::open(path.as_ptr(), path.len(), 0, 0);
         if fd < 0 {
             Err(FileError::FileNotFound)
         } else {
@@ -65,7 +65,7 @@ impl File {
 
 impl File {
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, FileError> {
-        let result = fs::read(self.fd, buf);
+        let result = fs::read(self.fd, buf.as_mut_ptr(), buf.len());
         if result < 0 {
             Err(FileError::FileReadError)
         } else {
@@ -74,7 +74,7 @@ impl File {
     }
 
     pub fn write(&self, buf: &[u8]) -> Result<usize, FileError> {
-        let result = fs::write(self.fd, buf);
+        let result = fs::write(self.fd, buf.as_ptr(), buf.len());
         if result < 0 {
             Err(FileError::FileWriteError)
         } else {
@@ -83,10 +83,12 @@ impl File {
     }
 
     pub fn metadata(&self) -> Result<FileMetadata, FileError> {
-        if let Some(stat) = fs::metadata(self.fd) {
-            Ok(FileMetadata::from(stat))
-        } else {
+        let mut stat = FileStat::default();
+
+        if unsafe { fs::metadata(self.fd, &mut stat) } < 0 {
             Err(FileError::FileInvalid)
+        } else {
+            Ok(FileMetadata::from(stat))
         }
     }
 
