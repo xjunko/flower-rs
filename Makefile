@@ -23,6 +23,11 @@ apps:
 kernel:
 	make -C flower-kernel
 
+# libc build
+.PHONY: libc
+libc:
+	make -C flower-libc
+
 # limine
 LIMINE_ROOT := $(TEMP)/limine
 $(LIMINE_ROOT)/limine:
