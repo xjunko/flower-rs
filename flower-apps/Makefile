@@ -1,6 +1,7 @@
 export CARGO_TARGET_DIR := $(CURDIR)/target
 
-APPS := shell fetch cat png echo hello wav
+APPS := shell unix
+UNIX_APPS := cat echo wav png fetch hello
 TARGET := target/x86_64-unknown-none/release
 DEST := ../flower-boot/initramfs/bin
 
@@ -15,4 +16,9 @@ all:
 
 	@for app in $(APPS); do \
 		cp $(TARGET)/flower-apps-$$app $(DEST)/$$app; \
+	done
+
+	# busybox-like
+	@for app in $(UNIX_APPS); do \
+		cp $(TARGET)/flower-apps-unix $(DEST)/$$app; \
 	done

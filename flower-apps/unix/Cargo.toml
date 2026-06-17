@@ -1,12 +1,13 @@
 [package]
-name = "flower-apps-fetch"
+name = "flower-apps-unix"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
 bench = false
-name = "flower-apps-fetch"
+name = "flower-apps-unix"
 test = false
 
 [dependencies]
 flower-libc = { path = "../../flower-libc" }
+png-decoder = "0.2.0"

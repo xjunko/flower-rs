@@ -1,18 +1,14 @@
-#![no_std]
-#![no_main]
-
-extern crate alloc;
-
+mod format;
 mod resample;
-mod wav;
 
+use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
 
 use flower_libc::file::File;
-use flower_libc::{env, println, process};
+use flower_libc::{env, println};
 
-use crate::resample::resample_linear_bits;
+use self::resample::resample_linear_bits;
 
 const DRIVER_BUFFER: usize = 4096;
 
@@ -20,14 +16,11 @@ const TARGET_SAMPLE_RATE: usize = 48000;
 const TARGET_CHANNELS: usize = 2;
 const TARGET_BITS_PER_SAMPLE: usize = 16;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    flower_libc::_init();
-
+pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
     let args: vec::Vec<&str> = env::args().collect();
     if args.len() < 2 {
         println!("usage: wav <filename>");
-        process::exit(1);
+        return Ok(1);
     }
 
     let file_path = args[1];
@@ -36,10 +29,10 @@ pub extern "C" fn _start() -> ! {
     let ret_code = play(file_path);
     println!("wav exited with code: {}", ret_code);
 
-    process::exit(ret_code as u64);
+    Ok(ret_code)
 }
 
-pub fn play(args: &str) -> i32 {
+fn play(args: &str) -> i32 {
     if args.is_empty() {
         println!("usage: wav <filename>");
         return 1;
@@ -57,7 +50,7 @@ pub fn play(args: &str) -> i32 {
     music_file.read(&mut music_buffer).expect("failed to read music file");
 
     let wav =
-        wav::parse_wav(&music_buffer).expect("failed to decode wav music");
+        format::parse_wav(&music_buffer).expect("failed to decode wav music");
 
     println!(
         "playing audio w/ {} Hz, {} channels, {} bits",

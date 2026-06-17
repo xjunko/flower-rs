@@ -1,30 +1,25 @@
-#![no_std]
-#![no_main]
-
+use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use flower_libc::file::File;
-use flower_libc::{env, print, println, process};
+use flower_libc::{env, print, println};
 
 extern crate alloc;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    flower_libc::_init();
-
+pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
     let args: Vec<&str> = env::args().collect();
     if args.len() < 2 {
         println!("usage: cat <filename>");
-        process::exit(0);
+        return Ok(0);
     }
 
     let file_path = args[1];
 
-    process::exit(cat(file_path) as u64);
+    Ok(cat(file_path))
 }
 
-pub fn cat(args: &str) -> i32 {
+fn cat(args: &str) -> i32 {
     if args.is_empty() {
         println!("usage: cat <filename>");
         return 1;

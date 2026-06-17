@@ -1,24 +1,18 @@
-#![no_std]
-#![no_main]
-
-extern crate alloc;
+use alloc::boxed::Box;
 use alloc::collections::btree_map::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec;
 
 use flower_libc::file::File;
-use flower_libc::{println, process};
+use flower_libc::println;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    flower_libc::_init();
-
+pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
     let (kernel_name, kernel_version) = {
         if let Ok(file) = File::open("/proc/version".to_string()) {
             let mut buf = vec![0u8; 1024];
             if let Err(e) = file.read(&mut buf) {
                 println!("failed to read /proc/version: {}", e);
-                process::exit(1);
+                return Ok(1);
             }
 
             let info_str = String::from_utf8(buf)
@@ -34,7 +28,7 @@ pub extern "C" fn _start() -> ! {
             }
         } else {
             println!("failed to open /proc/version");
-            process::exit(1);
+            return Ok(1);
         }
     };
 
@@ -43,7 +37,7 @@ pub extern "C" fn _start() -> ! {
             let mut buf = vec![0u8; 1024];
             if let Err(e) = file.read(&mut buf) {
                 println!("failed to read /proc/meminfo: {}", e);
-                process::exit(1);
+                return Ok(1);
             }
 
             let info_str = String::from_utf8(buf)
@@ -62,7 +56,7 @@ pub extern "C" fn _start() -> ! {
             map
         } else {
             println!("failed to open /proc/meminfo");
-            process::exit(1);
+            return Ok(1);
         }
     };
 
@@ -89,5 +83,5 @@ Memory: {}/{}MB",
         mem_total_kb / 1024
     );
 
-    process::exit(0);
+    Ok(0)
 }

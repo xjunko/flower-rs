@@ -1,43 +1,36 @@
-#![no_std]
-#![no_main]
-
-extern crate alloc;
-
+use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec;
 use core::cmp::min;
 
 use flower_libc::file::File;
+use flower_libc::println;
 use flower_libc::sys::kernel;
-use flower_libc::{println, process};
 
 const FB_WIDTH: usize = 1280;
 const FB_HEIGHT: usize = 720;
 const FB_PITCH: usize = FB_WIDTH * 4;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    flower_libc::_init();
-
+pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
     let argc = flower_libc::auxv::argc();
 
     if argc < 2 {
         println!("usage: png <filename>");
-        process::exit(0);
+        return Ok(0);
     }
 
     let file_path = match flower_libc::auxv::argv(1) {
         Some(path) => path,
         None => {
             println!("failed to get filename argument");
-            process::exit(1);
+            return Ok(1);
         },
     };
 
-    process::exit(cat(file_path) as u64);
+    Ok(cat(file_path))
 }
 
-pub fn cat(filename: &str) -> i32 {
+fn cat(filename: &str) -> i32 {
     if filename.is_empty() {
         println!("usage: png <filename>");
         return 1;
