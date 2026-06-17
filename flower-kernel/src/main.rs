@@ -13,8 +13,7 @@ mod system;
 
 mod user;
 
-#[unsafe(no_mangle)]
-unsafe extern "C" fn kmain() -> ! {
+fn kernel_init() {
     assert!(boot::limine::BASE_REVISION.is_supported());
     drivers::tty::serial::install();
     drivers::tty::logging::install();
@@ -41,6 +40,11 @@ unsafe extern "C" fn kmain() -> ! {
     system::vfs::install();
     drivers::tty::terminal::install();
     system::mem::self_test();
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn kmain() -> ! {
+    kernel_init();
     system::proc::spawn("userland-entry", user::entry);
     arch::halt();
 }
