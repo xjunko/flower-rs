@@ -1,10 +1,6 @@
 use alloc::boxed::Box;
-use alloc::format;
 use alloc::string::String;
 use core::ffi::c_int;
-
-use crate::system::ToSyscallError;
-use crate::system::syscalls::SyscallError;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSPermission {
@@ -75,18 +71,6 @@ pub enum VFSError {
     IOError,
     Unsupported,
     Unknown(String),
-}
-
-impl ToSyscallError for VFSError {
-    fn to_syscall_error(&self) -> SyscallError {
-        match self {
-            Self::NotFound => SyscallError::NoSuchFile,
-            Self::InvalidSeek => SyscallError::InvalidArgument,
-            Self::PermissionDenied => SyscallError::NoPermission,
-            Self::IOError => SyscallError::IOError,
-            _ => SyscallError::Other(format!("Unhandled VFSError: {:?}", self)),
-        }
-    }
 }
 
 pub type VFSResult<T> = Result<T, VFSError>;

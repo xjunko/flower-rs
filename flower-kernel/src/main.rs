@@ -11,8 +11,6 @@ mod boot;
 mod drivers;
 mod system;
 
-mod user;
-
 fn kernel_init() {
     assert!(boot::limine::BASE_REVISION.is_supported());
     drivers::tty::serial::install();
@@ -32,7 +30,6 @@ fn kernel_init() {
     drivers::ps2::install();
     drivers::pci::install();
 
-    system::syscalls::install();
     system::proc::install();
     arch::interrupts::enable();
 
@@ -42,10 +39,25 @@ fn kernel_init() {
     system::mem::self_test();
 }
 
+fn process_1() {
+    loop {
+        log::info!("process 1!");
+        system::proc::sleep(16);
+    }
+}
+
+fn process_2() {
+    loop {
+        log::info!("process 2!");
+        system::proc::sleep(16);
+    }
+}
+
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     kernel_init();
-    system::proc::spawn("userland-entry", user::entry);
+    system::proc::spawn("process-1", process_1);
+    system::proc::spawn("process-2", process_2);
     arch::halt();
 }
 

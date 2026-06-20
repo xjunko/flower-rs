@@ -1,13 +1,8 @@
-mod auxv;
-mod execve;
 mod exit;
-mod fork;
 mod process;
 mod scheduler;
 mod sleep;
 mod trampoline;
-mod user;
-mod wait;
 
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -16,13 +11,9 @@ pub use process::*;
 use spin::Mutex;
 use x86_64::instructions::interrupts;
 
-pub use self::execve::execve;
 pub use self::exit::exit;
-pub use self::fork::fork;
 pub use self::sleep::sleep;
-pub use self::wait::waitpid;
 use crate::system::proc::scheduler::Scheduler;
-use crate::system::proc::user::build_user_image;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
@@ -57,33 +48,6 @@ pub fn spawn(name: &str, entry: fn()) {
             sched.add(new_process);
         }
     });
-}
-
-/// spawns an elf process with the given name and elf bytes.
-pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
-    let argv = [name];
-    let (address_space, user_entry, user_stack, user_heap) =
-        build_user_image(elf_data, &argv)?;
-
-    let proc = Process::new_user(
-        name,
-        address_space,
-        user_entry,
-        user_stack,
-        user_heap,
-    );
-    let proc_id = proc.id;
-    log::trace!(
-        "created process {} with entry point {:#x}",
-        proc.name,
-        user_entry
-    );
-
-    if let Some(sched) = SCHEDULER.lock().as_mut() {
-        sched.add(proc);
-    }
-
-    Ok(proc_id)
 }
 
 /// loops over the file descriptors of the current process

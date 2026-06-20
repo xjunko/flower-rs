@@ -2,8 +2,10 @@
 <p align="right" style="float: right; margin: 0 10px 0 0;">Art by <a href="https://www.pixiv.net/en/users/2550807">miwashiiba</a></p>
 
 
-## flower-rs
+## flower-rs [barebones]
 a monolithic x86_64 kernel written in rust, a continuation of [riria](https://github.com/xjunko/riria).
+
+this is the [[barebones]](#) branch of the project.
 
 
 <img width="600" height="auto" alt="image" src="https://github.com/user-attachments/assets/fbb6d10e-9565-44e4-9915-ef773d270907"  />
@@ -37,50 +39,14 @@ if something breaks down for no reason then it's better to do:
 make clean run
 ```
 
-## things that work
-### kernel
-- gdt/idr/irq/isr
-  - GDT INIT .... OK! /j
-  - these came free with the x86_64 crates, atp this is just like building a software lol.
-- pmm/vmm/paging/heap
-  - works i guess, heap is static though.
-- vfs
-  - devfs (`/dev/`), tarfs (`/init/`)
-  - basic operations like open/read/write/close work, but that's it for now.
-- apic/lapic
-  - i have timer working, but that's about it.
-- pci
-  - super basic ac97 driver, it works and is exposed thru `/dev/audio`.
-- scheduling
-  - it works.
-- syscalls
-  - exit, open, close, read, write, mmap, write_fs_base.
-  - will add more when i start porting userland programs.
+## what's the difference from the master branch
+- this only has the kernel
+- no userspace
+- no libc
+- no syscall
 
-### userspace
-- elf
-  - it runs, no dynamic linking.
-  - supports fork and execve
-- programs:
-  - `cat`, `echo`, `hello`, `pcm`, `shell`
-
-## things that don't work
-### kernel
-- vfs
-  - ext2 would be nice to have
-  - fat would be nice to have
-  - pipe would be nice to have
-- smp
-  - only single core is supported
-- stability
-  - sometime it got stuck on boot, so not that stable.
-  
-### userspace
-- process
-  - signals, etc.
-- dynamic linking
-
-and thousands other stuff that i don't remember or know yet.
+## why
+this can be a good starting point to test my other ideas on making an kernel
 
 ## license
 ISC License, see [[LICENSE]](LICENSE) for more details.

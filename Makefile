@@ -15,18 +15,9 @@ run: $(IMAGE_NAME).iso
 .PHONY: $(IMAGE_NAME).iso
 all: $(IMAGE_NAME).iso
 
-.PHONY: apps
-apps:
-	make -C flower-apps
-
 .PHONY: kernel
 kernel:
 	make -C flower-kernel
-
-# libc build
-.PHONY: libc
-libc:
-	make -C flower-libc
 
 # limine
 LIMINE_ROOT := $(TEMP)/limine
