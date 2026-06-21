@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt, alloc_error_handler)]
+#![feature(abi_x86_interrupt)]
 #![allow(dead_code)] // everything is WIP, i dont care
 #![allow(clippy::manual_div_ceil)] // i dont trust the .div_ceil implementation
 

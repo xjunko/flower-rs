@@ -1,7 +1,6 @@
 use crate::system::proc::user::stack::build_user_image;
 use crate::system::proc::{Process, SCHEDULER};
 
-mod auxv;
 mod execve;
 mod fork;
 mod stack;
