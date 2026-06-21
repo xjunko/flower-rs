@@ -7,7 +7,7 @@ use crate::arch::layout::{
 };
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::proc::auxv;
+use crate::system::proc::userspace::auxv;
 
 const PAGE_SIZE: u64 = arch::layout::PAGE_SIZE as u64;
 

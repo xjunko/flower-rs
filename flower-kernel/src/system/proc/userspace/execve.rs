@@ -28,7 +28,7 @@ pub fn execve(
         argv_storage.iter().map(|arg| arg.as_str()).collect();
 
     let (address_space, user_entry, user_stack, user_heap) =
-        system::proc::build_user_image(&elf_data, &argv_refs)?;
+        system::proc::userspace::build_user_image(&elf_data, &argv_refs)?;
 
     let new_cr3 = address_space.cr3();
     let (current_frame, current_flags) = Cr3::read();
