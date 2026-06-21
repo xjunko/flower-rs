@@ -18,14 +18,14 @@ pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 }
 
 pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    system::proc::userspace::fork(frame).map_err(|e| {
+    system::proc::user::fork(frame).map_err(|e| {
         log::error!("fork failed: {}", e);
         SyscallError::Other(format!("fork failed: {}", e))
     })
 }
 
 pub fn waitpid(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    system::proc::userspace::waitpid(frame.rdi).map_err(|e| {
+    system::proc::user::waitpid(frame.rdi).map_err(|e| {
         if e == "no child process" {
             SyscallError::NoChildProcess
         } else {
@@ -68,7 +68,7 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         argv.push(path.to_string());
     }
 
-    if let Err(reason) = system::proc::userspace::execve(path, &argv, frame) {
+    if let Err(reason) = system::proc::user::execve(path, &argv, frame) {
         log::error!("execve failed for path '{}': {:?}", path, reason);
         return Err(SyscallError::NoSuchFile);
     }

@@ -4,7 +4,7 @@ mod scheduler;
 mod sleep;
 mod trampoline;
 
-pub mod userspace;
+pub mod user;
 
 use alloc::string::String;
 use alloc::sync::Arc;
