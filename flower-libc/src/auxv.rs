@@ -1,12 +1,7 @@
 use core::ffi::CStr;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-pub const AT_NULL: usize = 0;
-pub const AT_PHDR: usize = 3;
-pub const AT_PHENT: usize = 4;
-pub const AT_PHNUM: usize = 5;
-pub const AT_PAGESZ: usize = 6;
-pub const AT_ENTRY: usize = 9;
+use flower_mono::auxv::AuxType;
 
 static AUXV_BASE: AtomicUsize = AtomicUsize::new(0);
 static ARGC: AtomicUsize = AtomicUsize::new(0);
@@ -99,11 +94,11 @@ unsafe fn parse_auxv_base_from_stack(
         let item_key = unsafe { *ptr };
         let _item_value = unsafe { *ptr.add(1) };
 
-        if item_key == AT_NULL {
+        if item_key == AuxType::Null as usize {
             break;
         }
 
-        if item_key == AT_ENTRY {
+        if item_key == AuxType::Entry as usize {
             has_entry = true;
         }
 
@@ -179,7 +174,7 @@ pub fn getauxval(key: usize) -> Option<usize> {
         let item_key = unsafe { *ptr };
         let item_value = unsafe { *ptr.add(1) };
 
-        if item_key == AT_NULL {
+        if item_key == AuxType::Null as usize {
             return None;
         }
 
