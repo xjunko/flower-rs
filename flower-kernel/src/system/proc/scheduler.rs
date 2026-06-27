@@ -67,18 +67,20 @@ impl Scheduler {
         let ticks = arch::ticks();
         for proc in self.processes.iter_mut() {
             let mut proc = proc.lock();
-            if proc.state == ProcessState::Sleeping
-                && let Some(wake_at) = proc.wake_at
-                && ticks >= wake_at
-            {
-                log::trace!(
-                    "awakening process {} (woke at {}, current ticks {})",
-                    proc.name,
-                    wake_at,
-                    ticks
-                );
-                proc.state = ProcessState::Ready;
-                proc.wake_at = None;
+
+            match proc.state {
+                ProcessState::Sleeping(wake_at) => {
+                    if ticks > wake_at {
+                        log::trace!(
+                            "awakening process {} (woke at {}, current ticks {})",
+                            proc.name,
+                            wake_at,
+                            ticks
+                        );
+                        proc.state = ProcessState::Ready;
+                    }
+                },
+                _ => continue,
             }
         }
     }

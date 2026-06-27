@@ -6,6 +6,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use x86_64::VirtAddr;
 use x86_64::registers::control::Cr3;
 
+use crate::arch::layout::PROCESS_STACK_SIZE;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
@@ -18,7 +19,7 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 pub enum ProcessState {
     Ready,
     Running,
-    Sleeping,
+    Sleeping(u64),
     Zombie,
     Dead,
 }
@@ -35,7 +36,6 @@ pub struct Process {
     pub state: ProcessState,
     pub level: ProcessLevel,
     pub address_space: Option<AddressSpace>,
-    pub wake_at: Option<u64>,
     pub parent_id: Option<u64>,
     pub exit_status: Option<u64>,
     pub fds: FdTable,
@@ -77,14 +77,12 @@ impl Process {
 
 #[allow(clippy::fn_to_numeric_cast)]
 impl Process {
-    const STACK_SIZE: usize = 4096 * 4;
-
     /// creates a new kernel process
     pub fn new(name: &str, entry: fn()) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack = alloc::vec![0u8; Self::STACK_SIZE];
+        let stack = alloc::vec![0u8; PROCESS_STACK_SIZE];
 
-        let stack_top = stack.as_ptr() as u64 + Self::STACK_SIZE as u64;
+        let stack_top = stack.as_ptr() as u64 + PROCESS_STACK_SIZE as u64;
         let stack_top = stack_top & !0xF;
 
         let mut stack_ptr = stack_top;
@@ -121,7 +119,6 @@ impl Process {
             state: ProcessState::Ready,
             level: ProcessLevel::RING0,
             address_space: None,
-            wake_at: None,
             parent_id: None,
             exit_status: None,
             fds: FdTable::new(),
@@ -151,9 +148,9 @@ impl Process {
         user_heap: u64,
     ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack = alloc::vec![0u8; Self::STACK_SIZE];
+        let stack = alloc::vec![0u8; PROCESS_STACK_SIZE];
 
-        let stack_top = stack.as_ptr() as u64 + Self::STACK_SIZE as u64;
+        let stack_top = stack.as_ptr() as u64 + PROCESS_STACK_SIZE as u64;
         let stack_top = stack_top & !0xF; // align to 16 bytes
 
         let mut stack_ptr = stack_top;
@@ -190,7 +187,7 @@ impl Process {
             state: ProcessState::Ready,
             level: ProcessLevel::RING3,
             address_space: Some(address_space),
-            wake_at: None,
+
             parent_id: None,
             exit_status: None,
             fds: FdTable::new(),
@@ -217,9 +214,9 @@ impl Process {
         frame: &SyscallFrame,
     ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack = alloc::vec![0u8; Self::STACK_SIZE];
+        let stack = alloc::vec![0u8; PROCESS_STACK_SIZE];
 
-        let stack_top = stack.as_ptr() as u64 + Self::STACK_SIZE as u64;
+        let stack_top = stack.as_ptr() as u64 + PROCESS_STACK_SIZE as u64;
         let stack_top = stack_top & !0xF;
 
         let mut stack_ptr = stack_top;
@@ -279,7 +276,6 @@ impl Process {
             state: ProcessState::Ready,
             level: parent.level,
             address_space: Some(address_space),
-            wake_at: None,
             parent_id: Some(parent.id),
             exit_status: None,
             fds: parent.fds.clone(),
@@ -311,7 +307,6 @@ pub fn null_process() -> Process {
         state: ProcessState::Running,
         level: ProcessLevel::RING0,
         address_space: None,
-        wake_at: None,
         parent_id: None,
         exit_status: None,
         fds: FdTable::new(),

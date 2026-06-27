@@ -13,8 +13,7 @@ pub fn sleep(millis: u64) {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
                 let mut proc = proc.lock();
-                proc.wake_at = Some(wake_at);
-                proc.state = ProcessState::Sleeping;
+                proc.state = ProcessState::Sleeping(wake_at);
             } else {
                 panic!("trying to sleep while no process is running!");
             }
