@@ -182,6 +182,8 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             }
         }
 
+        log::info!("munmap: successfully unmapped pages");
+
         Ok(0)
     }
 }
