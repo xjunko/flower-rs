@@ -154,6 +154,14 @@ pub fn build_user_image(
             return Err("user stack overflow");
         }
 
+        // note: this got my ass so hard
+        // had to use clankers for this
+        // need (3 + argc) to be even -> need argc to be odd.
+        // if argc is even, push one padding word now to compensate.
+        if argv_ptrs.len() % 2 == 0 {
+            stack_builder.push(0)?;
+        }
+
         // auxv
         stack_builder.push_auxv_from_elf(&loaded)?;
 
@@ -169,15 +177,10 @@ pub fn build_user_image(
         // argc
         stack_builder.push(argv_ptrs.len() as u64)?;
 
-        // align
-        stack_builder.stack_pointer &= !0xF;
-        if stack_builder.stack_pointer < stack_low {
-            return Err("user stack overflow");
-        }
-
         // finalize stack
         stack_builder.finalize()
     };
+
     log::info!("User stack built at {:#x}", user_stack);
 
     Ok((address_space, loaded.entry, user_stack, user_heap))
