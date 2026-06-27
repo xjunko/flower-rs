@@ -10,11 +10,11 @@ pub const SYS_SEEK: u64 = 8;
 pub const SYS_EXECVE: u64 = 9;
 pub const SYS_STAT: u64 = 10;
 
-pub const SYS_WRITE_FS_BASE: u64 = 29;
-
-pub const SYS_GET_THREAD_ID: u64 = 30;
-
 pub const SYS_MMAP: u64 = 31;
 pub const SYS_MUNMAP: u64 = 32;
 
 pub const SYS_MSLEEP: u64 = 101;
+
+// old riria-specific impl
+pub const SYS_WRITE_FS_BASE: u64 = 29;
+pub const SYS_GET_THREAD_ID: u64 = 30;
