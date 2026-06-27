@@ -123,6 +123,12 @@ impl TarFS {
                         break;
                     }
 
+                    log::info!(
+                        "tarfs: loaded file {} ({} bytes)",
+                        path,
+                        file_size
+                    );
+
                     files.push(TarFile {
                         _data_position: data_position,
                         _position: AtomicUsize::new(0),

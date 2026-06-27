@@ -119,18 +119,16 @@ pub fn build_user_image(
     address_space.map_page_alloc(VirtAddr::new(user_heap), flags)?;
     user_heap += PAGE_SIZE;
 
-    for i in 0..USER_STACK_PAGES {
+    for i in 0..USER_STACK_PAGES + 1 {
         let page_addr = USER_STACK_TOP_PAGE - (i * PAGE_SIZE);
         address_space.map_page_alloc(VirtAddr::new(page_addr), flags)?;
     }
 
-    let stack_low =
-        USER_STACK_TOP_PAGE + PAGE_SIZE - (USER_STACK_PAGES * PAGE_SIZE);
+    let stack_low = USER_STACK_TOP_PAGE - (USER_STACK_PAGES * PAGE_SIZE);
     let user_stack_top =
         (USER_STACK_TOP_PAGE + PAGE_SIZE - USER_STACK_INITIAL_SLACK) & !0xF;
     debug_assert!(
-        user_stack_top >= stack_low
-            && user_stack_top < USER_STACK_TOP_PAGE + PAGE_SIZE
+        user_stack_top <= USER_STACK_TOP_PAGE && user_stack_top >= stack_low
     );
 
     let user_stack = {
