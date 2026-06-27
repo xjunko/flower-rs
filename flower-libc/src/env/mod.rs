@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::auxv;
+use crate::platform;
 
 pub struct Args<'a> {
     args: Vec<&'a str>,
@@ -8,16 +8,9 @@ pub struct Args<'a> {
 }
 
 impl<'a> Args<'a> {
+    #[allow(static_mut_refs)]
     pub fn new() -> Self {
-        let mut args = Vec::new();
-
-        for i in 0..auxv::argc() {
-            if let Some(arg) = auxv::argv(i) {
-                args.push(arg);
-            }
-        }
-
-        Args { args, index: 0 }
+        Args { args: unsafe { platform::argv.clone() }, index: 0 }
     }
 }
 
@@ -40,3 +33,15 @@ impl<'a> Iterator for Args<'a> {
 }
 
 pub fn args<'a>() -> Args<'a> { Args::new() }
+
+#[allow(static_mut_refs)]
+pub fn argv(i: usize) -> Option<&'static str> {
+    let args = unsafe { &platform::argv };
+    if i < args.len() { Some(args[i]) } else { None }
+}
+
+#[allow(static_mut_refs)]
+pub fn argc() -> usize {
+    let args = unsafe { &platform::argv };
+    args.len()
+}
