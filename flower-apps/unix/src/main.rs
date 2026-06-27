@@ -4,6 +4,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use core::ffi::c_char;
 
 use flower_libc::{env, println, process};
 
@@ -17,6 +18,7 @@ const IMPL_TABLES: &[(&str, StartFn)] = &[
     // core-utils
     ("cat", coreutils::cat::start),
     ("echo", coreutils::echo::start),
+    ("sleep", coreutils::sleep::start),
     // media-utils
     ("wav", media::wav::start),
     ("png", media::png::start),
@@ -26,9 +28,7 @@ const IMPL_TABLES: &[(&str, StartFn)] = &[
 ];
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    flower_libc::_init();
-
+pub extern "C" fn main() -> i32 {
     let mut args = env::args();
     let program_name =
         args.next().unwrap_or_default().split("/").last().unwrap_or_default();
@@ -44,6 +44,5 @@ pub extern "C" fn _start() -> ! {
             }
         }
     }
-
-    process::exit(0);
+    0
 }

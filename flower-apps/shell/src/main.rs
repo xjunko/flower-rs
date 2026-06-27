@@ -6,6 +6,7 @@ extern crate alloc;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use core::ffi::c_char;
 
 use flower_libc::file::File;
 use flower_libc::{io, print, println, process};
@@ -15,9 +16,7 @@ mod tools;
 const BUFFER_SIZE: usize = 64;
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    flower_libc::_init();
-
+pub extern "C" fn main() -> i32 {
     tools::exec::run_quiet("/init/bin/fetch");
 
     let mut buf = [0u8; BUFFER_SIZE];

@@ -12,14 +12,14 @@ const FB_HEIGHT: usize = 720;
 const FB_PITCH: usize = FB_WIDTH * 4;
 
 pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
-    let argc = flower_libc::auxv::argc();
+    let argc = flower_libc::env::argc();
 
     if argc < 2 {
         println!("usage: png <filename>");
         return Ok(0);
     }
 
-    let file_path = match flower_libc::auxv::argv(1) {
+    let file_path = match flower_libc::env::argv(1) {
         Some(path) => path,
         None => {
             println!("failed to get filename argument");
