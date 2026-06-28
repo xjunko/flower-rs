@@ -100,6 +100,9 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 2 => system::vfs::VFSSeek::End(offset as usize),
                 _ => return Err(VFSError::InvalidSeek),
             }),
+            FdKind::Stdin | FdKind::Stdout | FdKind::Stderr => {
+                Ok(0) // HACK: noop
+            },
             _ => {
                 log::error!("seek syscall: fd {} is not seekable", fd);
                 Err(VFSError::PermissionDenied)
