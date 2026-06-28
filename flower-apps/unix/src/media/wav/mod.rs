@@ -6,11 +6,13 @@ use alloc::string::ToString;
 use alloc::vec;
 
 use flower_libc::file::File;
+use flower_libc::thread::{self};
+use flower_libc::time::SystemTime;
 use flower_libc::{env, println};
 
 use self::resample::resample_linear_bits;
 
-const DRIVER_BUFFER: usize = 4096;
+const DRIVER_BUFFER: usize = 1024 * 32; // 32KiB
 
 const TARGET_SAMPLE_RATE: usize = 48000;
 const TARGET_CHANNELS: usize = 2;
@@ -71,7 +73,10 @@ fn play(args: &str) -> i32 {
     }
 
     let mut total_bytes = 0;
-    let mut out_samples: vec::Vec<i16> = vec![(DRIVER_BUFFER * 3) as i16];
+    let mut out_samples: vec::Vec<i16> =
+        vec::Vec::with_capacity(DRIVER_BUFFER * TARGET_CHANNELS);
+
+    let mut next_deadline = SystemTime::now().as_millis();
 
     while total_bytes < wav.data.len() {
         let end = (total_bytes + DRIVER_BUFFER).min(wav.data.len());
@@ -93,6 +98,9 @@ fn play(args: &str) -> i32 {
             )
         };
 
+        let out_frames = out_samples.len() / TARGET_CHANNELS;
+        let out_duration_ms = ((out_frames * 1000) / TARGET_SAMPLE_RATE) as u64;
+
         let mut written_total = 0;
         while written_total < out_bytes.len() {
             let written =
@@ -105,6 +113,15 @@ fn play(args: &str) -> i32 {
         }
 
         total_bytes += chunk.len();
+
+        // timing
+        {
+            next_deadline += out_duration_ms;
+            let now = SystemTime::now().as_millis();
+            if next_deadline > now {
+                thread::sleep(next_deadline - now);
+            }
+        }
     }
 
     0
