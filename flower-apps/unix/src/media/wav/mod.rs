@@ -79,13 +79,20 @@ fn play(args: &str) -> i32 {
     let mut next_deadline = SystemTime::now().as_millis();
 
     while total_bytes < wav.data.len() {
-        let byte_chunk_size = {
+        let (start, end) = {
             let frame_size =
                 (wav.bits_per_sample / 8) as usize * wav.channels as usize;
-            let frame_per_chunk = DRIVER_BUFFER / frame_size;
-            frame_per_chunk * frame_size
+
+            let frames_per_chunk = (DRIVER_BUFFER / frame_size).max(1);
+
+            let start_frame = total_bytes / frame_size;
+            let end_frame = ((total_bytes / frame_size) + frames_per_chunk)
+                .min(wav.data.len() / frame_size);
+
+            (start_frame * frame_size, end_frame * frame_size)
         };
-        let chunk = &wav.data[total_bytes..total_bytes + byte_chunk_size];
+
+        let chunk = &wav.data[start..end];
 
         out_samples.clear();
         resample_linear_bits(
