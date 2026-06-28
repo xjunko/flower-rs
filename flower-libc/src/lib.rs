@@ -13,4 +13,5 @@ pub mod process;
 pub mod start;
 pub mod sys;
 pub mod thread;
+pub mod time;
 pub mod tty;
