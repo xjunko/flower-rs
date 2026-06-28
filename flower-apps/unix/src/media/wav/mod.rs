@@ -79,8 +79,13 @@ fn play(args: &str) -> i32 {
     let mut next_deadline = SystemTime::now().as_millis();
 
     while total_bytes < wav.data.len() {
-        let end = (total_bytes + DRIVER_BUFFER).min(wav.data.len());
-        let chunk = &wav.data[total_bytes..end];
+        let byte_chunk_size = {
+            let frame_size =
+                (wav.bits_per_sample / 8) as usize * wav.channels as usize;
+            let frame_per_chunk = DRIVER_BUFFER / frame_size;
+            frame_per_chunk * frame_size
+        };
+        let chunk = &wav.data[total_bytes..total_bytes + byte_chunk_size];
 
         out_samples.clear();
         resample_linear_bits(
@@ -93,8 +98,8 @@ fn play(args: &str) -> i32 {
 
         let out_bytes: &[u8] = unsafe {
             core::slice::from_raw_parts(
-                out_samples.as_ptr() as *const u8,
-                out_samples.len() * 2,
+                out_samples.as_ptr().cast::<u8>(),
+                out_samples.len() * core::mem::size_of::<i16>(),
             )
         };
 
