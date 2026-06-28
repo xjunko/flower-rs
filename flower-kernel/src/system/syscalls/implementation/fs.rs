@@ -103,10 +103,10 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             FdKind::Stdin | FdKind::Stdout | FdKind::Stderr => {
                 Ok(0) // HACK: noop
             },
-            _ => {
-                log::error!("seek syscall: fd {} is not seekable", fd);
-                Err(VFSError::PermissionDenied)
-            },
+            // _ => {
+            //     log::error!("seek syscall: fd {} is not seekable", fd);
+            //     Err(VFSError::PermissionDenied)
+            // },
         });
 
     if let Ok(result) = result {

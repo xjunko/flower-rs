@@ -62,7 +62,7 @@ pub extern "C" fn flowerlibc_crt0(sp: &'static Stack) -> ! {
         let argc = sp.argc;
         let argv = sp.argv();
 
-        (0..argc as isize)
+        (0..argc)
             .map(|i| unsafe {
                 CStr::from_ptr(*argv.offset(i)).to_str().unwrap()
             })

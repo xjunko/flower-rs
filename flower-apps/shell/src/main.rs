@@ -6,7 +6,6 @@ extern crate alloc;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::ffi::c_char;
 
 use flower_libc::file::File;
 use flower_libc::{io, print, println, process};

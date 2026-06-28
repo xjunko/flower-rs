@@ -4,7 +4,6 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use core::ffi::c_char;
 
 use flower_libc::{env, println, process};
 

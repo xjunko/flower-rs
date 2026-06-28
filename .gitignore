@@ -7,3 +7,7 @@ target/
 /flower-boot/initramfs/*.hash
 /flower-boot/initramfs/*
 /flower-boot/*.tar
+
+# tooling and other misc hack stuff
+flower-apps/lethe/*
+flower-tooling/*

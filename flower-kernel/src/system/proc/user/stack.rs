@@ -26,7 +26,7 @@ impl<'a> StackBuilder<'a> {
     ) -> Self {
         Self {
             stack_pointer: stack_top,
-            stack_bottom: stack_bottom,
+            stack_bottom,
             adress_space: address_space,
         }
     }
@@ -64,7 +64,7 @@ impl<'a> StackBuilder<'a> {
         // is because the stack grows downwards
         self.push_auxv(AuxType::Null, 0)?;
         self.push_auxv(AuxType::Entry, program.entry)?;
-        self.push_auxv(AuxType::PageSize, PAGE_SIZE as u64)?;
+        self.push_auxv(AuxType::PageSize, PAGE_SIZE)?;
         self.push_auxv(AuxType::Phnum, program.phnum)?;
         self.push_auxv(AuxType::Phent, program.phent)?;
         if program.phdr != 0 {
@@ -87,7 +87,7 @@ impl<'a> StackBuilder<'a> {
 // stack final
 impl<'a> StackBuilder<'a> {
     fn finalize(self) -> u64 {
-        if self.stack_pointer % 16 != 0 {
+        if !self.stack_pointer.is_multiple_of(16) {
             panic!("user stack not aligned to 16 bytes");
         }
 
@@ -156,7 +156,7 @@ pub fn build_user_image(
         // had to use clankers for this
         // need (3 + argc) to be even -> need argc to be odd.
         // if argc is even, push one padding word now to compensate.
-        if argv_ptrs.len() % 2 == 0 {
+        if argv_ptrs.len().is_multiple_of(2) {
             stack_builder.push(0)?;
         }
 
