@@ -22,7 +22,7 @@ pub struct DevFile {
 
     fn_read: Option<fn(usize, &mut [u8]) -> usize>,
     fn_write: Option<fn(&[u8]) -> usize>,
-    fn_mmap: Option<fn(usize, c_int, c_int) -> *mut u8>,
+    fn_mmap: Option<fn(usize, c_int, c_int) -> VFSResult<*mut u8>>,
 }
 
 impl DevFile {
@@ -30,7 +30,7 @@ impl DevFile {
         path: String,
         read: Option<fn(usize, &mut [u8]) -> usize>,
         write: Option<fn(&[u8]) -> usize>,
-        mmap: Option<fn(usize, c_int, c_int) -> *mut u8>,
+        mmap: Option<fn(usize, c_int, c_int) -> VFSResult<*mut u8>>,
     ) -> Self {
         Self {
             path,
@@ -95,7 +95,7 @@ impl VFSFile for DevFile {
         flags: core::ffi::c_int,
     ) -> VFSResult<*mut u8> {
         if let Some(mmap_fn) = self.fn_mmap {
-            Ok(mmap_fn(len, prot, flags))
+            mmap_fn(len, prot, flags)
         } else {
             Err(VFSError::Unsupported)
         }
