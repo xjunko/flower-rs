@@ -1,8 +1,10 @@
 use limine::BaseRevision;
 use limine::request::{
     FramebufferRequest, HhdmRequest, MemoryMapRequest, ModuleRequest,
-    RequestsEndMarker, RequestsStartMarker, RsdpRequest,
+    RequestsEndMarker, RequestsStartMarker, RsdpRequest, StackSizeRequest,
 };
+
+use crate::arch::layout::KERNEL_STACK_SIZE;
 
 #[used]
 #[unsafe(link_section = ".limine_requests_start")]
@@ -31,6 +33,11 @@ pub static MODULE_REQUESTS: ModuleRequest = ModuleRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static RSDP_REQUEST: RsdpRequest = RsdpRequest::new();
+
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+pub static STACK_SIZE_REQUEST: StackSizeRequest =
+    StackSizeRequest::new().with_size(KERNEL_STACK_SIZE as u64);
 
 #[used]
 #[unsafe(link_section = ".limine_requests_end")]
