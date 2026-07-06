@@ -16,6 +16,37 @@ use crate::{arch, system};
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+struct UserMemory {
+    entry: u64,
+    stack: u64,
+    heap: u64,
+    heap_position: u64,
+    stack_bottom: u64,
+    stack_top: u64,
+    heap_top: u64,
+    heap_max: u64,
+}
+
+impl UserMemory {
+    fn new() -> Self {
+        Self {
+            entry: 0,
+            stack: 0,
+            heap: 0,
+            heap_position: 0,
+            stack_bottom: 0,
+            stack_top: 0,
+            heap_top: 0,
+            heap_max: 0,
+        }
+    }
+
+    fn from_user(entry: u64, stack: u64, heap: u64) -> Self {
+        Self { entry, stack, heap, heap_position: heap, ..Self::new() }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProcessState {
     Ready,
     Running,
@@ -45,17 +76,54 @@ pub struct Process {
     pub stack_ptr: u64,
     pub kernel_stack_top: u64,
 
-    pub user_entry: u64,
-    pub user_stack: u64,
-
-    pub user_heap: u64,
-    pub user_heap_position: u64,
-
     pub _fsbase: u64,
+    user: UserMemory,
     _stack: Vec<u8>,
 }
 
 impl Process {
+    pub fn user_entry(&self) -> u64 { self.user.entry }
+
+    pub fn set_user_entry(&mut self, user_entry: u64) {
+        self.user.entry = user_entry;
+    }
+
+    pub fn user_stack(&self) -> u64 { self.user.stack }
+
+    pub fn set_user_stack(&mut self, user_stack: u64) {
+        self.user.stack = user_stack;
+    }
+
+    pub fn user_heap(&self) -> u64 { self.user.heap }
+
+    pub fn set_user_heap(&mut self, user_heap: u64) {
+        self.user.heap = user_heap;
+    }
+
+    pub fn user_heap_position(&self) -> u64 { self.user.heap_position }
+
+    pub fn set_user_heap_position(&mut self, user_heap_position: u64) {
+        self.user.heap_position = user_heap_position;
+    }
+
+    pub fn user_stack_bottom(&self) -> u64 { self.user.stack_bottom }
+
+    pub fn user_stack_top(&self) -> u64 { self.user.stack_top }
+
+    pub fn set_user_stack_bounds(&mut self, bottom: u64, top: u64) {
+        self.user.stack_bottom = bottom;
+        self.user.stack_top = top;
+    }
+
+    pub fn user_heap_top(&self) -> u64 { self.user.heap_top }
+
+    pub fn user_heap_max(&self) -> u64 { self.user.heap_max }
+
+    pub fn set_user_heap_bounds(&mut self, top: u64, max: u64) {
+        self.user.heap_top = top;
+        self.user.heap_max = max;
+    }
+
     pub fn with_fd_table<F, R>(&mut self, f: F) -> VFSResult<R>
     where F: FnOnce(&mut FdTable) -> VFSResult<R> {
         f(&mut self.fds)
@@ -69,7 +137,7 @@ impl Process {
 
     pub unsafe fn switch_stack(&self) {
         system::syscalls::set_kernel_stack(self.kernel_stack_top);
-        system::syscalls::set_user_stack(self.user_stack);
+        system::syscalls::set_user_stack(self.user_stack());
         system::syscalls::write_cpu_context();
         arch::gdt::set_kernel_stack(VirtAddr::new(self.kernel_stack_top));
     }
@@ -128,11 +196,7 @@ impl Process {
             stack_ptr,
             kernel_stack_top: stack_top,
 
-            user_entry: 0,
-            user_stack: 0,
-
-            user_heap: 0,
-            user_heap_position: 0,
+            user: UserMemory::new(),
 
             _fsbase: 0,
             _stack: stack,
@@ -196,11 +260,7 @@ impl Process {
             stack_ptr,
             kernel_stack_top: stack_top,
 
-            user_entry,
-            user_stack,
-
-            user_heap,
-            user_heap_position: user_heap,
+            user: UserMemory::from_user(user_entry, user_stack, user_heap),
 
             _fsbase: 0,
             _stack: stack,
@@ -285,11 +345,16 @@ impl Process {
             stack_ptr,
             kernel_stack_top: stack_top,
 
-            user_entry: frame.rip,
-            user_stack: frame.rsp,
-
-            user_heap: parent.user_heap,
-            user_heap_position: parent.user_heap_position,
+            user: UserMemory {
+                entry: frame.rip,
+                stack: frame.rsp,
+                heap: parent.user_heap(),
+                heap_position: parent.user_heap_position(),
+                stack_bottom: parent.user_stack_bottom(),
+                stack_top: parent.user_stack_top(),
+                heap_top: parent.user_heap_top(),
+                heap_max: parent.user_heap_max(),
+            },
 
             _fsbase: parent._fsbase,
             _stack: stack,
@@ -316,12 +381,7 @@ pub fn null_process() -> Process {
         stack_ptr: 0,
         kernel_stack_top: 0,
 
-        user_entry: 0,
-        user_stack: 0,
-
-        user_heap: 0,
-        user_heap_position: 0,
-
+        user: UserMemory::new(),
         _fsbase: 0,
         _stack: Vec::new(),
     }

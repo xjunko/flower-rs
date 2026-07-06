@@ -11,6 +11,15 @@ use crate::arch::layout::{
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
 
+pub struct UserImageInfo {
+    pub address_space: AddressSpace,
+    pub entry: u64,
+    pub stack_ptr: u64,
+    pub stack_bottom: u64,
+    pub heap_start: u64,
+    pub heap_max: u64,
+}
+
 const PAGE_SIZE: u64 = arch::layout::PAGE_SIZE as u64;
 struct StackBuilder<'a> {
     pub stack_pointer: u64,
@@ -102,7 +111,7 @@ impl<'a> StackBuilder<'a> {
 pub fn build_user_image(
     elf_data: &[u8],
     argv: &[&str],
-) -> Result<(AddressSpace, u64, u64, u64), &'static str> {
+) -> Result<UserImageInfo, &'static str> {
     let address_space = AddressSpace::new()?;
     let loaded = elf::load_into(elf_data, &address_space)?;
 
@@ -114,15 +123,15 @@ pub fn build_user_image(
         | PageTableFlags::WRITABLE
         | PageTableFlags::USER_ACCESSIBLE;
 
+    // Allocate initial heap page (will grow on demand)
     let mut user_heap = loaded.entry + loaded.size as u64;
     user_heap = (user_heap + PAGE_SIZE - 1) & !0xFFF;
     address_space.map_page_alloc(VirtAddr::new(user_heap), flags)?;
-    user_heap += PAGE_SIZE;
+    let heap_max = user_heap + (512 * PAGE_SIZE as u64); // Allow heap to grow up to 512 pages (2MB)
 
-    for i in 0..USER_STACK_PAGES + 1 {
-        let page_addr = USER_STACK_TOP_PAGE - (i * PAGE_SIZE);
-        address_space.map_page_alloc(VirtAddr::new(page_addr), flags)?;
-    }
+    // Allocate only the initial stack page (will grow on demand)
+    let stack_top_page = USER_STACK_TOP_PAGE;
+    address_space.map_page_alloc(VirtAddr::new(stack_top_page), flags)?;
 
     let stack_low = USER_STACK_TOP_PAGE - (USER_STACK_PAGES * PAGE_SIZE);
     let user_stack_top =
@@ -179,7 +188,14 @@ pub fn build_user_image(
         stack_builder.finalize()
     };
 
-    log::info!("User stack built at {:#x}", user_stack);
+    log::debug!("User stack built at {:#x}", user_stack);
 
-    Ok((address_space, loaded.entry, user_stack, user_heap))
+    Ok(UserImageInfo {
+        address_space,
+        entry: loaded.entry,
+        stack_ptr: user_stack,
+        stack_bottom: stack_low,
+        heap_start: user_heap,
+        heap_max,
+    })
 }

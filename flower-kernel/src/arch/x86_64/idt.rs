@@ -1,8 +1,5 @@
 use spin::Lazy;
-use x86_64::registers::control::Cr2;
-use x86_64::structures::idt::{
-    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
-};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 use crate::arch::gdt::DOUBLE_FAULT_IST_INDEX;
 use crate::arch::interrupts::{
@@ -18,7 +15,7 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
     idt.device_not_available.set_handler_fn(device_not_available_handler);
     idt.breakpoint.set_handler_fn(breakpoint_handler);
-    idt.page_fault.set_handler_fn(page_fault_handler);
+    idt.page_fault.set_handler_fn(system::mem::fault::page_fault_handler);
 
     unsafe {
         idt.double_fault
@@ -89,20 +86,4 @@ extern "x86-interrupt" fn double_fault_handler(
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
     log::warn!("breakpoint triggered!");
     print_stack_frame(stack_frame);
-}
-
-extern "x86-interrupt" fn page_fault_handler(
-    stack_frame: InterruptStackFrame,
-    error_code: PageFaultErrorCode,
-) {
-    log::error!("page fault triggered, in process: {}", system::proc::name());
-    match Cr2::read() {
-        Ok(addr) => println!("CR2:    {:#x}", addr.as_u64()),
-        Err(addr) => println!("CR2 (invalid): {:?}", addr),
-    }
-    println!("error code: {:#x}", error_code);
-    print_stack_frame(stack_frame);
-
-    // HACK: for now we just kill the offending process.
-    system::proc::exit(1);
 }
