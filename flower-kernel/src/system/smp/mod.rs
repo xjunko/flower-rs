@@ -4,9 +4,10 @@ use crate::arch;
 use crate::boot::limine::SMP_REQUEST;
 
 unsafe extern "C" fn __smp_entry(ap: &Cpu) -> ! {
-    log::info!("SMP: core {} started", ap.lapic_id);
+    log::info!("SMP: core {} started.", ap.lapic_id);
     // we dont actually use them yet.
     loop {
+        arch::interrupts::disable();
         arch::halt();
     }
 }
@@ -14,8 +15,12 @@ unsafe extern "C" fn __smp_entry(ap: &Cpu) -> ! {
 pub fn install() {
     if let Some(smp) = SMP_REQUEST.get_response() {
         let cpus = smp.cpus();
-        log::info!("SMP: found {} cores", cpus.len());
-        log::info!("SMP: current core is {}", smp.bsp_lapic_id());
+
+        log::info!(
+            "SMP: found {} cores, BSP is {}.",
+            cpus.len(),
+            smp.bsp_lapic_id()
+        );
 
         for cpu in cpus {
             if cpu.lapic_id == smp.bsp_lapic_id() {
