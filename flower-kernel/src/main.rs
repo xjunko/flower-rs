@@ -9,7 +9,6 @@ extern crate alloc;
 mod arch;
 mod boot;
 mod drivers;
-mod smp;
 mod system;
 
 mod user;
@@ -38,7 +37,7 @@ fn kernel_init() {
     arch::interrupts::enable();
 
     // start other cores too
-    smp::install();
+    system::smp::install();
 
     // past this point, the kernel can now do dynamic allocation
     system::vfs::install();

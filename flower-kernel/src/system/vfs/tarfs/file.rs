@@ -141,6 +141,7 @@ impl VFSFile for TarFile {
         _len: usize,
         _prot: core::ffi::c_int,
         _flags: core::ffi::c_int,
+        _offset: u64,
     ) -> VFSResult<*mut u8> {
         unimplemented!()
     }

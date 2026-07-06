@@ -102,8 +102,13 @@ pub trait VFSFile: Send + Sync {
     fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize>;
 
     /// maps the file into memory and returns a pointer to the mapped region
-    fn mmap(&self, len: usize, prot: c_int, flags: c_int)
-    -> VFSResult<*mut u8>;
+    fn mmap(
+        &self,
+        len: usize,
+        prot: c_int,
+        flags: c_int,
+        offset: u64,
+    ) -> VFSResult<*mut u8>;
 
     /// gets the info for the file
     fn metadata(&self) -> VFSResult<VFSMetadata>;

@@ -1,3 +1,8 @@
+use core::ffi::c_int;
+
+use flower_mono::syscalls::{
+    MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
+};
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
@@ -9,17 +14,12 @@ use crate::system::vfs::{FdKind, VFSError};
 use crate::{arch, system};
 
 pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    // start - r->rdi
-    // size - r->rsi
-    // prot - r->rdx
-    // flags - r->r10
-    // fd - r->r8
-    // offset - r->r9
-
+    let addr = frame.rdi;
+    let size = frame.rsi;
+    let prot = frame.rdx;
+    let flags = frame.r10;
     let fd = frame.r8 as i64;
     let offset = frame.r9;
-    let size = frame.rsi;
-    let flags = frame.r10;
 
     log::debug!(
         "mmap: fd={}, offset={}, flags={}, size={}",
@@ -33,20 +33,56 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
 
+    if offset % arch::layout::PAGE_SIZE as u64 != 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let has_shared = flags & MAP_SHARED != 0;
+    let has_private = flags & MAP_PRIVATE != 0;
+    if has_shared == has_private {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    if fd == -1 && flags & MAP_ANONYMOUS == 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
     let current = system::proc::current()
         .ok_or(SyscallError::Other("no current process found".into()))?;
     let mut proc = current.lock();
 
-    let heap_start = proc.user_heap_position;
+    let heap_start = if addr == 0 {
+        proc.user_heap_position()
+    } else {
+        addr & !(arch::layout::PAGE_SIZE as u64 - 1)
+    };
     let heap_pages = (size + arch::layout::PAGE_SIZE as u64 - 1)
         / arch::layout::PAGE_SIZE as u64;
 
     let mut heap_ptr = heap_start;
+    let mut page_flags = PageTableFlags::PRESENT;
 
-    if fd != -1 {
+    if prot != PROT_NONE {
+        page_flags |= PageTableFlags::USER_ACCESSIBLE;
+    }
+
+    if prot & PROT_WRITE != 0 {
+        page_flags |= PageTableFlags::WRITABLE;
+    }
+
+    if prot & PROT_EXEC == 0 {
+        page_flags |= PageTableFlags::NO_EXECUTE;
+    }
+
+    if fd != -1 && flags & MAP_ANONYMOUS == 0 {
         let result =
             proc.with_fd_table(|table| match table.get(fd as usize)? {
-                FdKind::File(file) => file.mmap(size as usize, 0, 0),
+                FdKind::File(file) => file.mmap(
+                    size as usize,
+                    prot as c_int,
+                    flags as c_int,
+                    offset,
+                ),
                 _ => Err(VFSError::Unsupported),
             });
 
@@ -55,7 +91,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 "mmap: mapping fd {} at offset {} to user heap position {:#x} with size {}",
                 fd,
                 offset,
-                proc.user_heap_position,
+                proc.user_heap_position(),
                 size
             );
 
@@ -80,26 +116,25 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 proc.address_space.as_mut().unwrap().map_page(
                     VirtAddr::new(heap_ptr),
                     src_phys,
-                    PageTableFlags::PRESENT
-                        | PageTableFlags::USER_ACCESSIBLE
-                        | PageTableFlags::WRITABLE
-                        | PageTableFlags::NO_EXECUTE,
+                    page_flags,
                 ).map_err(|_| {
                     log::debug!(
                         "mmap failed: could not map page at user heap position {:#x}",
-                        proc.user_heap_position
+                        proc.user_heap_position()
                     );
                     SyscallError::InvalidArgument
                 })?;
 
                 heap_ptr += arch::layout::PAGE_SIZE as u64;
             }
-            proc.user_heap_position = heap_ptr;
-            log::info!(
+            if heap_ptr > proc.user_heap_position() {
+                proc.set_user_heap_position(heap_ptr);
+            }
+            log::debug!(
                 "mmap: successfully mapped fd {} to user heap position {:#x} - {:#x}",
                 fd,
                 heap_start,
-                proc.user_heap_position
+                proc.user_heap_position()
             );
             Ok(heap_start)
         } else {
@@ -110,21 +145,20 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         for _ in 0..heap_pages {
             proc.address_space.as_mut().unwrap().map_page_alloc(
                 VirtAddr::new(heap_ptr),
-                PageTableFlags::PRESENT
-                    | PageTableFlags::USER_ACCESSIBLE
-                    | PageTableFlags::WRITABLE
-                    | PageTableFlags::NO_EXECUTE,
+                page_flags,
             ).map_err(|_| {
                 log::debug!(
                     "mmap failed: could not map page at user heap position {:#x}",
-                    proc.user_heap_position
+                    proc.user_heap_position()
                 );
                 SyscallError::InvalidArgument
             })?;
             heap_ptr += arch::layout::PAGE_SIZE as u64;
         }
 
-        proc.user_heap_position = heap_ptr;
+        if heap_ptr > proc.user_heap_position() {
+            proc.set_user_heap_position(heap_ptr);
+        }
         Ok(heap_start)
     }
 }
@@ -150,13 +184,13 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             .ok_or(SyscallError::Other("no current process".into()))?;
         let mut proc = current.lock();
 
-        if addr < proc.user_heap || end > proc.user_heap_position {
+        if addr < proc.user_heap() || end > proc.user_heap_position() {
             log::error!(
                 "munmap failed: address range {:#x} - {:#x} is out of bounds for user heap ({:#x} - {:#x})",
                 addr,
                 end,
-                proc.user_heap,
-                proc.user_heap_position
+                proc.user_heap(),
+                proc.user_heap_position()
             );
             return Err(SyscallError::InvalidArgument);
         }
@@ -182,7 +216,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             }
         }
 
-        log::info!("munmap: successfully unmapped pages");
+        log::debug!("munmap: successfully unmapped pages");
 
         Ok(0)
     }

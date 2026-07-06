@@ -14,6 +14,7 @@ fn framebuffer_mmap(
     _size: usize,
     _prot: c_int,
     _flags: c_int,
+    _offset: u64,
 ) -> VFSResult<*mut u8> {
     if let Some(fb) = FRAMEBUFFER_REQUEST
         .get_response()

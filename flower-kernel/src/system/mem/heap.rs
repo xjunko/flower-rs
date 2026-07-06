@@ -68,7 +68,12 @@ unsafe impl GlobalAlloc for Allocator {
 
                 let addr =
                     VirtAddr::new((KERNEL_HEAP_START + state.heap_size) as u64);
-                if map_chunk(addr, KERNEL_HEAP_SIZE, flags).is_err() {
+
+                if let Err(reason) = map_chunk(addr, KERNEL_HEAP_SIZE, flags) {
+                    log::error!(
+                        "failed to map chunk for heap expansion: {}",
+                        reason
+                    );
                     return core::ptr::null_mut();
                 }
 
