@@ -14,3 +14,6 @@ crate-type = ["staticlib", "rlib"]
 flower-mono = { path = "../flower-mono" }
 linked_list_allocator = "0.10.5"
 spin = "0.10.0"
+
+[features]
+debug = []

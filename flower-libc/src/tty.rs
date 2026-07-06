@@ -66,6 +66,20 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
+#[cfg(feature = "debug")]
+#[macro_export]
+macro_rules! debugln {
+    () => ($crate::print!("dbg: \n"));
+    ($($arg:tt)*) => ($crate::print!("dbg: {}\n", format_args!($($arg)*)));
+}
+
+#[cfg(not(feature = "debug"))]
+#[macro_export]
+macro_rules! debugln {
+    () => {};
+    ($($arg:tt)*) => {};
+}
+
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     let err_str = b"application panicked!\n";

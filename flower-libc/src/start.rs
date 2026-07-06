@@ -3,7 +3,7 @@ use core::arch::global_asm;
 use core::ffi::{CStr, c_char};
 use core::ptr;
 
-use crate::{allocator, platform, println, process};
+use crate::{allocator, debugln, platform, process};
 
 global_asm!(
     "
@@ -55,8 +55,8 @@ impl Stack {
 pub extern "C" fn flowerlibc_crt0(sp: &'static Stack) -> ! {
     allocator::install();
 
-    println!("flowerlibc_crt0: sp at {:p}", sp);
-    println!("flowerlibc_crt0: argc = {}, argv0 = {:?}", sp.argc, sp.argv0);
+    debugln!("flowerlibc_crt0: sp at {:p}", sp);
+    debugln!("flowerlibc_crt0: argc = {}, argv0 = {:?}", sp.argc, sp.argv0);
 
     let args: Vec<&str> = {
         let argc = sp.argc;
@@ -73,7 +73,7 @@ pub extern "C" fn flowerlibc_crt0(sp: &'static Stack) -> ! {
         platform::argv = args;
     }
 
-    println!("flowerlibc_crt0: args = {:?}", unsafe { &platform::argv });
+    debugln!("flowerlibc_crt0: args = {:?}", unsafe { &platform::argv });
 
     unsafe {
         unsafe extern "C" {

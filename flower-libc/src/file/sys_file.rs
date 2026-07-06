@@ -93,7 +93,14 @@ impl File {
     }
 
     pub fn mmap(&self, length: usize) -> Result<*mut u8, FileError> {
-        let addr = kernel::mmap(self.fd, length);
+        let addr = kernel::mmap(
+            core::ptr::null_mut(),
+            length,
+            kernel::PROT_READ | kernel::PROT_WRITE,
+            kernel::MAP_SHARED,
+            self.fd,
+            0,
+        );
         if addr.is_null() { Err(FileError::FileMmapError) } else { Ok(addr) }
     }
 }
