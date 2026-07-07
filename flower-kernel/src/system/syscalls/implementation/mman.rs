@@ -31,23 +31,33 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     );
 
     if size == 0 {
+        log::error!("mmap failed: size is 0");
         return Err(SyscallError::InvalidArgument);
     }
 
     if offset % arch::layout::PAGE_SIZE as u64 != 0 {
+        log::error!("mmap failed: offset is not page-aligned");
         return Err(SyscallError::InvalidArgument);
     }
 
     let has_shared = flags & MAP_SHARED != 0;
     let has_private = flags & MAP_PRIVATE != 0;
-    if has_shared == has_private {
-        return Err(SyscallError::InvalidArgument);
-    }
 
-    if fd == -1 && flags & MAP_ANONYMOUS == 0 {
-        return Err(SyscallError::InvalidArgument);
-    }
+    if fd != -1 && flags & MAP_ANONYMOUS == 0 {
+        if !has_shared && !has_private {
+            log::error!(
+                "mmap failed: file mapping requires MAP_SHARED or MAP_PRIVATE"
+            );
+            return Err(SyscallError::InvalidArgument);
+        }
 
+        if has_shared && has_private {
+            log::error!(
+                "mmap failed: MAP_SHARED and MAP_PRIVATE cannot both be set"
+            );
+            return Err(SyscallError::InvalidArgument);
+        }
+    }
     let current = system::proc::current()
         .ok_or(SyscallError::Other("no current process found".into()))?;
     let mut proc = current.lock();
