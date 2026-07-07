@@ -1,8 +1,8 @@
-use flower_mono::syscalls::{SYS_MMAP, SYS_MUNMAP};
 pub use flower_mono::syscalls::{
     MAP_ANONYMOUS, MAP_FIXED, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE,
     PROT_READ, PROT_WRITE,
 };
+use flower_mono::syscalls::{SYS_MMAP, SYS_MUNMAP};
 
 use crate::sys::kernel::{syscall_result, syscall2, syscall6};
 

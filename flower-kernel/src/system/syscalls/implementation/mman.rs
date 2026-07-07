@@ -13,6 +13,7 @@ use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
 use crate::{arch, system};
 
+#[allow(clippy::manual_is_multiple_of)]
 pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let addr = frame.rdi;
     let size = frame.rsi;

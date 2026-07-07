@@ -127,7 +127,7 @@ pub fn build_user_image(
     let mut user_heap = loaded.entry + loaded.size as u64;
     user_heap = (user_heap + PAGE_SIZE - 1) & !0xFFF;
     address_space.map_page_alloc(VirtAddr::new(user_heap), flags)?;
-    let heap_max = user_heap + (512 * PAGE_SIZE as u64); // Allow heap to grow up to 512 pages (2MB)
+    let heap_max = user_heap + (512 * PAGE_SIZE); // Allow heap to grow up to 512 pages (2MB)
 
     // Allocate only the initial stack page (will grow on demand)
     let stack_top_page = USER_STACK_TOP_PAGE;

@@ -16,21 +16,25 @@ use crate::system::vfs::{
     VFSPermissions, VFSResult, VFSSeek,
 };
 
+type ReadFn = fn(usize, &mut [u8]) -> usize;
+type WriteFn = fn(&[u8]) -> usize;
+type MmapFn = fn(usize, c_int, c_int, u64) -> VFSResult<*mut u8>;
+
 pub struct DevFile {
     path: String,
     position: AtomicUsize,
 
-    fn_read: Option<fn(usize, &mut [u8]) -> usize>,
-    fn_write: Option<fn(&[u8]) -> usize>,
-    fn_mmap: Option<fn(usize, c_int, c_int, u64) -> VFSResult<*mut u8>>,
+    fn_read: Option<ReadFn>,
+    fn_write: Option<WriteFn>,
+    fn_mmap: Option<MmapFn>,
 }
 
 impl DevFile {
     pub fn new(
         path: String,
-        read: Option<fn(usize, &mut [u8]) -> usize>,
-        write: Option<fn(&[u8]) -> usize>,
-        mmap: Option<fn(usize, c_int, c_int, u64) -> VFSResult<*mut u8>>,
+        read: Option<ReadFn>,
+        write: Option<WriteFn>,
+        mmap: Option<MmapFn>,
     ) -> Self {
         Self {
             path,

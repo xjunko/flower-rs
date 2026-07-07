@@ -5,11 +5,8 @@ use crate::boot::limine::SMP_REQUEST;
 
 unsafe extern "C" fn __smp_entry(ap: &Cpu) -> ! {
     log::info!("SMP: core {} started.", ap.lapic_id);
-    // we dont actually use them yet.
-    loop {
-        arch::interrupts::disable();
-        arch::halt();
-    }
+    arch::interrupts::disable();
+    arch::halt();
 }
 
 pub fn install() {

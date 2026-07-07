@@ -1,5 +1,6 @@
+use core::sync::atomic::{AtomicU32, Ordering};
+
 use raw_cpuid::CpuId;
-use spin::{Lazy, Mutex};
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
@@ -86,10 +87,7 @@ unsafe fn ioapic_set_redirection(irq: u8, vector: u8, dest_apic_id: u8) {
 const PIT_FREQ: u32 = 1193182;
 const CALIBRATE_MS: u32 = 10;
 
-// lmao, just for a one time value.
-// couldve went with just a static mut, but the thing kept bugging me so whatever
-// here it is then, a very super secure mutex protected use-once global variable
-static TICKS_PER_MS: Lazy<Mutex<u32>> = Lazy::new(|| Mutex::new(0));
+static LAPIC_TICKS_PER_MS: AtomicU32 = AtomicU32::new(0);
 
 fn calibrate_timer() {
     unsafe {
@@ -116,12 +114,10 @@ fn calibrate_timer() {
 
         lapic_write(LAPIC_TIMER_INIT, 0);
 
-        *TICKS_PER_MS.lock() = elapsed / CALIBRATE_MS;
+        let ticks_ms = elapsed / CALIBRATE_MS;
+        LAPIC_TICKS_PER_MS.store(ticks_ms, Ordering::Relaxed);
 
-        log::debug!(
-            "calibrated lapic timer: {} ticks/ms",
-            *TICKS_PER_MS.lock()
-        );
+        log::debug!("calibrated lapic timer: {} ticks/ms", ticks_ms);
     }
 }
 
@@ -196,7 +192,7 @@ pub fn install() {
         calibrate_timer();
 
         // finish
-        let ticks_1ms = TICKS_PER_MS.lock();
+        let ticks_ms = LAPIC_TICKS_PER_MS.load(Ordering::Relaxed);
 
         unsafe {
             lapic_write(LAPIC_TIMER_DIV, 0x3);
@@ -204,7 +200,7 @@ pub fn install() {
                 LAPIC_TIMER_LVT,
                 (1 << 17) | InterruptIndex::Timer as u32,
             );
-            lapic_write(LAPIC_TIMER_INIT, *ticks_1ms);
+            lapic_write(LAPIC_TIMER_INIT, ticks_ms);
 
             let lapic_id = (lapic_read(LAPIC_ID) >> 24) as u8;
             ioapic_set_redirection(1, InterruptIndex::Keyboard as u8, lapic_id);
