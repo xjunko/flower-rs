@@ -27,6 +27,14 @@ impl Vfs {
     /// creates a new VFS instance
     pub fn new() -> Self { Self { mounts: Vec::new() } }
 
+    /// start up all the filesystems
+    pub fn initialize(&mut self) -> VFSResult<()> {
+        for mount in &mut self.mounts {
+            mount.fs.initialize()?;
+        }
+        Ok(())
+    }
+
     /// mounts the given filesystem at the given path
     pub fn mount(
         &mut self,
@@ -120,6 +128,9 @@ pub fn install() {
         .lock()
         .mount("/proc", Box::new(procfs))
         .expect("failed to mount procfs");
+
+    log::info!("mounted {} filesystems", ROOT_VFS.lock().mounts.len());
+    ROOT_VFS.lock().initialize().expect("failed to initialize vfs");
 }
 
 // public methods

@@ -114,7 +114,12 @@ pub trait VFSFile: Send + Sync {
     fn metadata(&self) -> VFSResult<VFSMetadata>;
 }
 
+pub trait VFSDirectory: Send + Sync {}
+
 pub trait VFSImplementation: Send + Sync {
+    /// initializes the filesystem
+    fn initialize(&mut self) -> VFSResult<()>;
+
     /// opens the file
     fn open(&self, path: &str, flags: u32) -> VFSResult<Box<dyn VFSFile>>;
 

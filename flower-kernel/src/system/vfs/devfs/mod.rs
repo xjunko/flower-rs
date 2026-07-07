@@ -135,6 +135,9 @@ impl DevFS {
 }
 
 impl VFSImplementation for DevFS {
+    // DevFS is special since it can easily be used on the other parts of the kernel, so we don't need to initialize it
+    fn initialize(&mut self) -> VFSResult<()> { Ok(()) }
+
     fn open(&self, path: &str, _flags: u32) -> VFSResult<Box<dyn VFSFile>> {
         self.files
             .iter()

@@ -19,7 +19,16 @@ pub struct TarFS {
 
 impl TarFS {
     pub fn new() -> Self {
-        let mut files = Vec::new();
+        Self { data: Arc::new(Vec::new()), files: Vec::new() }
+    }
+
+    fn get_file(&self, path: &str) -> VFSResult<&TarFile> {
+        self.files.iter().find(|f| f.path == path).ok_or(VFSError::NotFound)
+    }
+}
+
+impl VFSImplementation for TarFS {
+    fn initialize(&mut self) -> VFSResult<()> {
         let file = {
             MODULE_REQUESTS
                 .get_response()
@@ -129,7 +138,7 @@ impl TarFS {
                         file_size
                     );
 
-                    files.push(TarFile {
+                    self.files.push(TarFile {
                         _data_position: data_position,
                         _position: AtomicUsize::new(0),
                         _data: Arc::clone(&data),
@@ -165,19 +174,11 @@ impl TarFS {
                     },
                 };
             }
-
-            return Self { data, files };
         }
 
-        Self { data: Arc::new(Vec::new()), files: Vec::new() }
+        Ok(())
     }
 
-    fn get_file(&self, path: &str) -> VFSResult<&TarFile> {
-        self.files.iter().find(|f| f.path == path).ok_or(VFSError::NotFound)
-    }
-}
-
-impl VFSImplementation for TarFS {
     fn open(
         &self,
         path: &str,
