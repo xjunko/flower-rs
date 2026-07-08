@@ -59,10 +59,10 @@ pub struct VFSMetadata {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum VFSSeek {
-    Start(usize),
-    Current(usize),
-    End(usize),
+pub enum VFSWhence {
+    Start,
+    Current,
+    End,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -99,7 +99,7 @@ pub trait VFSFile: Send + Sync {
     fn write(&self, buf: &mut [u8]) -> VFSResult<usize>;
 
     /// seeks to the given position and returns the new position
-    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize>;
+    fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize>;
 
     /// maps the file into memory and returns a pointer to the mapped region
     fn mmap(

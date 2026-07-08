@@ -13,7 +13,7 @@ pub use proc::create_procfs;
 
 use crate::system::vfs::{
     VFSError, VFSFile, VFSFileType, VFSImplementation, VFSMetadata,
-    VFSPermissions, VFSResult, VFSSeek,
+    VFSPermissions, VFSResult, VFSWhence,
 };
 
 type ReadFn = fn(usize, &mut [u8]) -> usize;
@@ -80,12 +80,12 @@ impl VFSFile for DevFile {
         }
     }
 
-    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
+    fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize> {
         let current = self.position.load(Ordering::Acquire);
         let new_pos = match pos {
-            VFSSeek::Start(n) => n,
-            VFSSeek::Current(n) => current.saturating_add(n),
-            VFSSeek::End(n) => n,
+            VFSWhence::Start => offset as usize,
+            VFSWhence::Current => current.saturating_add(offset as usize),
+            VFSWhence::End => offset as usize, // HACK: just treat it as is
         };
 
         self.position.store(new_pos, Ordering::Release);

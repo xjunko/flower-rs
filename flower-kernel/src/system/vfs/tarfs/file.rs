@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::system::vfs::{
-    VFSFile, VFSFileType, VFSMetadata, VFSPermissions, VFSResult, VFSSeek,
+    VFSFile, VFSFileType, VFSMetadata, VFSPermissions, VFSResult, VFSWhence,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -121,13 +121,14 @@ impl VFSFile for TarFile {
 
     fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> { unimplemented!() }
 
-    fn seek(&mut self, pos: VFSSeek) -> VFSResult<usize> {
+    fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize> {
         let mut new_pos = match pos {
-            VFSSeek::Start(n) => n,
-            VFSSeek::Current(n) => {
-                self._position.load(Ordering::Acquire).saturating_add(n)
-            },
-            VFSSeek::End(n) => self.size.saturating_add(n),
+            VFSWhence::Start => offset as usize,
+            VFSWhence::Current => self
+                ._position
+                .load(Ordering::Acquire)
+                .saturating_add(offset as usize),
+            VFSWhence::End => self.size.saturating_add(offset as usize),
         };
 
         new_pos = core::cmp::min(new_pos, self.size);
