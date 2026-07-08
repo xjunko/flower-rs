@@ -10,18 +10,10 @@ pub const SYS_SEEK: u64 = 8;
 pub const SYS_EXECVE: u64 = 9;
 pub const SYS_STAT: u64 = 10;
 
+pub const SYS_ARCHCTL: u64 = 103;
+
 pub const SYS_MMAP: u64 = 31;
 pub const SYS_MUNMAP: u64 = 32;
-
-pub const PROT_NONE: u64 = 0;
-pub const PROT_READ: u64 = 0x1;
-pub const PROT_WRITE: u64 = 0x2;
-pub const PROT_EXEC: u64 = 0x4;
-
-pub const MAP_SHARED: u64 = 0x01;
-pub const MAP_PRIVATE: u64 = 0x02;
-pub const MAP_FIXED: u64 = 0x10;
-pub const MAP_ANONYMOUS: u64 = 0x20;
 
 pub const SYS_MSLEEP: u64 = 101;
 pub const SYS_MTIME: u64 = 102;

@@ -2,6 +2,7 @@ use alloc::string::String;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 
+use flower_mono::mmap::{MAP_SHARED, PROT_READ, PROT_WRITE};
 use flower_mono::structs::FileStat;
 
 use crate::sys::{fs, kernel};
@@ -96,8 +97,8 @@ impl File {
         let addr = kernel::mmap(
             core::ptr::null_mut(),
             length,
-            kernel::PROT_READ | kernel::PROT_WRITE,
-            kernel::MAP_SHARED,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
             self.fd,
             0,
         );

@@ -1,6 +1,6 @@
 use core::ffi::c_int;
 
-use flower_mono::syscalls::{
+use flower_mono::mmap::{
     MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
 };
 use x86_64::VirtAddr;

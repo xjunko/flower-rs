@@ -4,7 +4,7 @@ use flower_mono::structs::FileStat;
 
 use crate::print;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
-use crate::system::vfs::{FdKind, VFSError};
+use crate::system::vfs::{FdKind, VFSError, VFSWhence};
 use crate::system::{self, ToSyscallError};
 
 pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -94,12 +94,15 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     let result =
         system::proc::with_fd_table(|table| match table.get_mut(fd)? {
-            FdKind::File(file) => file.seek(match whence {
-                0 => system::vfs::VFSSeek::Start(offset as usize),
-                1 => system::vfs::VFSSeek::Current(offset as usize),
-                2 => system::vfs::VFSSeek::End(offset as usize),
-                _ => return Err(VFSError::InvalidSeek),
-            }),
+            FdKind::File(file) => file.seek(
+                offset,
+                match whence {
+                    0 => VFSWhence::Start,
+                    1 => VFSWhence::Current,
+                    2 => VFSWhence::End,
+                    _ => return Err(VFSError::InvalidSeek),
+                },
+            ),
             FdKind::Stdin | FdKind::Stdout | FdKind::Stderr => {
                 Ok(0) // HACK: noop
             },
