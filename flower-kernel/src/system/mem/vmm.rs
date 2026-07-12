@@ -261,8 +261,8 @@ impl AddressSpace {
                     flush.ignore();
                 },
                 Err(e) => {
-                    log::debug!(
-                        "map_to failed for virt={:#x} phys={:#x}: {:?}",
+                    log::error!(
+                        "map_to failed virt={:#x} phys={:#x}: {:?}",
                         virt.as_u64(),
                         phys.as_u64(),
                         e
@@ -290,7 +290,13 @@ impl AddressSpace {
         }
 
         if let Err(e) = self.map_page(virt, phys, flags) {
-            log::error!("failed to map page in address space: {}", e);
+            log::error!(
+                "failed to map page virt={:#x}, phys={:#x}, flags={:?}: {}",
+                virt.as_u64(),
+                phys.as_u64(),
+                flags,
+                e
+            );
             system::mem::pmm::free(phys.as_u64());
             return Err(e);
         }

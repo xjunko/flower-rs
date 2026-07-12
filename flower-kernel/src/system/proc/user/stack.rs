@@ -7,7 +7,7 @@ use x86_64::structures::paging::PageTableFlags;
 use crate::arch::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
 };
-use crate::system::elf;
+use crate::system::elf::{self, ELFLoadType};
 use crate::system::mem::vmm::AddressSpace;
 use crate::{arch, system};
 
@@ -113,18 +113,24 @@ pub fn build_user_image(
     argv: &[&str],
 ) -> Result<UserImageInfo, &'static str> {
     let address_space = AddressSpace::new()?;
-    let loaded = elf::load_into(elf_data, &address_space)?;
+    let loaded = elf::load_into(elf_data, &address_space, ELFLoadType::Main)?;
 
     let mut entry = loaded.entry;
     let mut base = loaded.base;
 
+    // NOTE: dynamic linking, still a bit hacky, but it works
     if let Some(interp_path) = &loaded.interp {
         if let Ok(interp_file) = system::vfs::open(interp_path, 0) {
             let metadata =
                 interp_file.metadata().expect("failed to get interp metadata.");
             let mut buffer = alloc::vec![0u8; metadata.size];
             interp_file.read(&mut buffer).expect("failed to read interp");
-            let interp_loaded = elf::load_into(&buffer, &address_space)?;
+            let interp_loaded = elf::load_into(
+                &buffer,
+                &address_space,
+                ELFLoadType::Interpreter,
+            )
+            .expect("failed to load elf");
             entry = interp_loaded.entry;
             base = interp_loaded.base;
         } else {
@@ -141,14 +147,18 @@ pub fn build_user_image(
         | PageTableFlags::USER_ACCESSIBLE;
 
     // Allocate initial heap page (will grow on demand)
-    let mut user_heap = loaded.entry + loaded.size as u64;
+    let mut user_heap = loaded.end;
     user_heap = (user_heap + PAGE_SIZE - 1) & !0xFFF;
-    address_space.map_page_alloc(VirtAddr::new(user_heap), flags)?;
+    address_space
+        .map_page_alloc(VirtAddr::new(user_heap), flags)
+        .expect("failed to allocate initial heap");
     let heap_max = user_heap + (512 * PAGE_SIZE); // Allow heap to grow up to 512 pages (2MB)
 
     // Allocate only the initial stack page (will grow on demand)
     let stack_top_page = USER_STACK_TOP_PAGE;
-    address_space.map_page_alloc(VirtAddr::new(stack_top_page), flags)?;
+    address_space
+        .map_page_alloc(VirtAddr::new(stack_top_page), flags)
+        .expect("failed to allocate initial stack");
 
     let stack_low = USER_STACK_TOP_PAGE - (USER_STACK_PAGES * PAGE_SIZE);
     let user_stack_top =

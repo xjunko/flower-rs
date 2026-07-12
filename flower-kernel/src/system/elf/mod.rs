@@ -1,4 +1,5 @@
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use x86_64::structures::paging::PageTableFlags;
 use x86_64::{VirtAddr, align_down, align_up};
@@ -20,6 +21,14 @@ pub struct ELF64 {
 
     pub interp: Option<String>,
     pub base: u64,
+
+    pub end: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ELFLoadType {
+    Main,
+    Interpreter,
 }
 
 fn merge_page_flags(
@@ -54,6 +63,7 @@ fn segment_flags(flags: Flags) -> PageTableFlags {
 pub fn load_into(
     elf_data: &[u8],
     address_space: &AddressSpace,
+    load_type: ELFLoadType,
 ) -> Result<ELF64, &'static str> {
     let elf = ElfFile::new(elf_data).map_err(|_| "failed to read elf")?;
     let header = elf.header;
@@ -62,15 +72,17 @@ pub fn load_into(
         return Err("not amd64");
     }
 
-    let load_base: u64 = match header.pt2.type_().as_type() {
-        header::Type::Executable => 0,
-        header::Type::SharedObject => USER_DYNAMIC_LINKER_BASE,
+    let load_base: u64 = match (header.pt2.type_().as_type(), load_type) {
+        (header::Type::Executable, _) => 0x0,
+        (header::Type::SharedObject, ELFLoadType::Main) => 0x0,
+        (header::Type::SharedObject, ELFLoadType::Interpreter) => {
+            USER_DYNAMIC_LINKER_BASE
+        },
         _ => return Err("unsupported elf type"),
     };
 
-    let mut phdr_vaddr = 0;
-
     let mut interp: Option<String> = None;
+    let mut image_end = load_base;
 
     for program_header in elf.program_iter() {
         let align = program_header.align();
@@ -83,11 +95,8 @@ pub fn load_into(
             }
         }
 
+        // load segments
         match program_header.get_type().map_err(|_| "invalid header")? {
-            Type::Phdr => {
-                phdr_vaddr = program_header.virtual_addr();
-            },
-
             Type::Load => {
                 let flags = segment_flags(program_header.flags());
 
@@ -102,6 +111,10 @@ pub fn load_into(
                     vaddr + mem_size + load_base,
                     arch::layout::PAGE_SIZE as u64,
                 );
+
+                if end_page > image_end {
+                    image_end = end_page;
+                }
 
                 let mut addr = start_page;
 
@@ -146,7 +159,10 @@ pub fn load_into(
                 let bytes = elf_data[program_header.offset() as usize
                     ..(program_header.offset() + program_header.file_size())
                         as usize]
-                    .to_vec();
+                    .to_vec()
+                    .into_iter()
+                    .take_while(|&b| b != 0)
+                    .collect::<Vec<u8>>();
 
                 let path = core::str::from_utf8(&bytes)
                     .map_err(|_| "invalid interp path")?;
@@ -158,13 +174,48 @@ pub fn load_into(
         }
     }
 
+    // find phdr
+    let mut phdr_vaddr: Option<u64> = None;
+
+    for header in elf.program_iter() {
+        if matches!(header.get_type(), Ok(Type::Phdr)) {
+            phdr_vaddr = Some(header.virtual_addr() + load_base);
+            break;
+        }
+    }
+
+    if phdr_vaddr.is_none() {
+        let ph_offset = elf.header.pt2.ph_offset();
+
+        for header in elf.program_iter() {
+            if matches!(header.get_type(), Ok(Type::Load)) {
+                continue;
+            }
+
+            let seg_start = header.offset();
+            let seg_end = seg_start + header.file_size();
+            if ph_offset >= seg_start && ph_offset < seg_end {
+                phdr_vaddr = Some(
+                    header.virtual_addr() + (ph_offset - seg_start) + load_base,
+                );
+                break;
+            }
+        }
+
+        // worst case scenario
+        if phdr_vaddr.is_none() {
+            phdr_vaddr = Some(ph_offset + load_base);
+        }
+    }
+
     Ok(ELF64 {
         entry: elf.header.pt2.entry_point() + load_base,
         size: elf_data.len(),
-        phdr: phdr_vaddr + load_base,
+        phdr: phdr_vaddr.unwrap(),
         phent: header.pt2.ph_entry_size() as u64,
         phnum: header.pt2.ph_count() as u64,
         interp,
         base: load_base,
+        end: image_end,
     })
 }

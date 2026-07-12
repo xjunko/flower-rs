@@ -42,19 +42,34 @@ pub extern "x86-interrupt" fn page_fault_handler(
                         | PageTableFlags::WRITABLE
                         | PageTableFlags::USER_ACCESSIBLE;
 
-                    if address_space.map_page_alloc(page_addr, flags).is_ok() {
-                        // extend stack, if necessary
-                        if page_addr.as_u64() < stack_top {
-                            proc.set_user_stack_bounds(
-                                stack_bottom,
-                                page_addr.as_u64(),
+                    log::debug!(
+                        "stack fault: addr={:#x} page={:#x} already_mapped={}",
+                        fault_addr,
+                        page_addr.as_u64(),
+                        address_space.is_mapped(page_addr)
+                    );
+
+                    match address_space.map_page_alloc(page_addr, flags) {
+                        Ok(_) => {
+                            if page_addr.as_u64() < stack_bottom {
+                                proc.set_user_stack_bounds(
+                                    page_addr.as_u64(),
+                                    stack_top,
+                                );
+                            }
+                            log::debug!(
+                                "allocated stack page at {:#x}",
+                                page_addr.as_u64()
                             );
-                        }
-                        log::debug!(
-                            "allocated stack page at {:#x}",
-                            page_addr.as_u64()
-                        );
-                        return;
+                            return;
+                        },
+                        Err(e) => {
+                            log::error!(
+                                "stack demand-page alloc FAILED at {:#x}: {}",
+                                page_addr.as_u64(),
+                                e
+                            );
+                        },
                     }
                 }
             }

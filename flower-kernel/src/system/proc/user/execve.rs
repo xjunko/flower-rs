@@ -53,14 +53,21 @@ pub fn execve(
     proc.set_user_entry(image.entry);
     proc.set_user_stack(image.stack_ptr);
     proc.set_user_heap(image.heap_start);
+
     proc.set_user_heap_position(
         image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
     );
-    proc.set_user_stack_bounds(image.stack_bottom, USER_STACK_TOP_PAGE);
+
     proc.set_user_heap_bounds(
         image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
         image.heap_max,
     );
+
+    proc.set_user_stack_bounds(
+        image.stack_bottom,
+        USER_STACK_TOP_PAGE + crate::arch::layout::PAGE_SIZE as u64,
+    );
+
     proc._fsbase = 0;
 
     log::trace!("execve: address space switched, preparing to switch stacks");
