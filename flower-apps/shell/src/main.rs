@@ -16,7 +16,7 @@ const BUFFER_SIZE: usize = 64;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> i32 {
-    tools::exec::run_quiet("/init/bin/fetch");
+    tools::exec::run_quiet("/bin/fetch");
 
     let mut buf = [0u8; BUFFER_SIZE];
     loop {
@@ -64,7 +64,7 @@ fn exec(input: String) {
         "exec" => tools::exec::run(&args),
         "exit" => process::exit(0),
         _ => {
-            let mut path = format!("/init/bin/{}", cmd);
+            let mut path = format!("/bin/{}", cmd);
             let file = File::open(path.clone());
             if file.is_ok() {
                 drop(file);
