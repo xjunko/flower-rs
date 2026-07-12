@@ -6,6 +6,7 @@ use flower_mono::mmap::{
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::layout::PAGE_SIZE;
 use crate::system::ToSyscallError;
 use crate::system::mem::vmm;
 use crate::system::syscalls::SyscallFrame;
@@ -231,4 +232,55 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
         Ok(0)
     }
+}
+
+fn prot_to_flags(prot: u64) -> PageTableFlags {
+    let mut flags = PageTableFlags::PRESENT;
+
+    if prot != PROT_NONE {
+        flags |= PageTableFlags::USER_ACCESSIBLE;
+    }
+
+    if prot & PROT_WRITE != 0 {
+        flags |= PageTableFlags::WRITABLE;
+    }
+
+    if prot & PROT_EXEC == 0 {
+        flags |= PageTableFlags::NO_EXECUTE;
+    }
+
+    flags
+}
+
+pub fn mprotect(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let addr = frame.rdi;
+    let size = frame.rsi;
+    let prot = frame.rdx;
+
+    if size == 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    if (addr as usize & (PAGE_SIZE - 1)) != 0 {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let end = addr.checked_add(size).ok_or(SyscallError::InvalidArgument)?;
+    let flags = prot_to_flags(prot);
+
+    let current = system::proc::current()
+        .ok_or(SyscallError::Other("no process found".into()))?;
+    let mut proc = current.lock();
+
+    let mut page = addr;
+    while page < end {
+        proc.address_space
+            .as_mut()
+            .unwrap()
+            .update_page_flags(VirtAddr::new(page), flags)
+            .map_err(|_| SyscallError::InvalidArgument)?;
+        page += PAGE_SIZE as u64;
+    }
+
+    Ok(0)
 }
