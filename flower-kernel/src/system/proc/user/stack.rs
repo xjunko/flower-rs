@@ -9,6 +9,7 @@ use crate::arch::layout::{
 };
 use crate::system::elf::{self, ELFLoadType};
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::vfs::VFSFilelike;
 use crate::{arch, system};
 
 pub struct UserImageInfo {
@@ -121,18 +122,23 @@ pub fn build_user_image(
     // NOTE: dynamic linking, still a bit hacky, but it works
     if let Some(interp_path) = &loaded.interp {
         if let Ok(interp_file) = system::vfs::open(interp_path, 0) {
-            let metadata =
-                interp_file.metadata().expect("failed to get interp metadata.");
-            let mut buffer = alloc::vec![0u8; metadata.size];
-            interp_file.read(&mut buffer).expect("failed to read interp");
-            let interp_loaded = elf::load_into(
-                &buffer,
-                &address_space,
-                ELFLoadType::Interpreter,
-            )
-            .expect("failed to load elf");
-            entry = interp_loaded.entry;
-            base = interp_loaded.base;
+            match interp_file {
+                VFSFilelike::File(f) => {
+                    let metadata =
+                        f.metadata().expect("failed to get interp metadata.");
+                    let mut buffer = alloc::vec![0u8; metadata.size];
+                    f.read(&mut buffer).expect("failed to read interp");
+                    let interp_loaded = elf::load_into(
+                        &buffer,
+                        &address_space,
+                        ELFLoadType::Interpreter,
+                    )
+                    .expect("failed to load elf");
+                    entry = interp_loaded.entry;
+                    base = interp_loaded.base;
+                },
+                _ => return Err("interpreter is not a regular file"),
+            };
         } else {
             return Err("failed to open interpreter");
         }

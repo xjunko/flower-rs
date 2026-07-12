@@ -4,7 +4,7 @@ use flower_mono::structs::FileStat;
 
 use crate::print;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
-use crate::system::vfs::{FdKind, VFSError, VFSWhence};
+use crate::system::vfs::{FdKind, VFSError, VFSFilelike, VFSWhence};
 use crate::system::{self, ToSyscallError};
 
 pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -15,11 +15,17 @@ pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     // TODO: handle directory
     match system::vfs::open(path, flags) {
-        Ok(file) => {
-            let result = system::proc::with_fd_table(|table| {
-                table.alloc(FdKind::File(file))
-            });
-            Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
+        Ok(file) => match file {
+            VFSFilelike::File(f) => {
+                let result = system::proc::with_fd_table(|table| {
+                    table.alloc(FdKind::File(f))
+                });
+                Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
+            },
+            _ => {
+                log::error!("open syscall: {} is not a regular file", path);
+                Err(SyscallError::IOError)
+            },
         },
         Err(e) => Err(e.to_syscall_error()),
     }
