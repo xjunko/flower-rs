@@ -1,7 +1,9 @@
 mod consts;
+mod directory;
 mod file;
 
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -9,21 +11,33 @@ use core::sync::atomic::AtomicUsize;
 
 use crate::boot::limine::MODULE_REQUESTS;
 use crate::system::vfs::tarfs::consts::*;
+use crate::system::vfs::tarfs::directory::TarFSDirectory;
 use crate::system::vfs::tarfs::file::{TarFSFileType, TarFile};
 use crate::system::vfs::types::*;
 
 pub struct TarFS {
-    data: Arc<Vec<u8>>,
-    files: Vec<TarFile>,
+    files: Arc<Vec<TarFile>>,
+    index: BTreeMap<String, usize>,
 }
 
 impl TarFS {
     pub fn new() -> Self {
-        Self { data: Arc::new(Vec::new()), files: Vec::new() }
+        Self { files: Arc::new(Vec::new()), index: BTreeMap::new() }
     }
 
     fn get_file(&self, path: &str) -> VFSResult<&TarFile> {
-        self.files.iter().find(|f| f.path == path).ok_or(VFSError::NotFound)
+        self.index
+            .get(path)
+            .and_then(|&i| self.files.get(i))
+            .ok_or(VFSError::NotFound)
+    }
+
+    fn directory_filelike(&self, file: &TarFile) -> VFSFilelike {
+        VFSFilelike::Directory(Box::new(TarFSDirectory {
+            name: file.name.clone(),
+            path: file.path.clone(),
+            files: Arc::clone(&self.files),
+        }))
     }
 }
 
@@ -50,7 +64,6 @@ impl VFSImplementation for TarFS {
         }
 
         if let Ok(file) = file {
-            // stream the file into memory
             let size = file.size() as usize;
             let mut data = alloc::vec![0u8; size];
             unsafe {
@@ -62,7 +75,7 @@ impl VFSImplementation for TarFS {
             }
             let data = Arc::new(data);
 
-            // read all the files
+            let mut files: Vec<TarFile> = Vec::new();
             let mut offset = 0;
 
             while offset + 512 <= data.len() {
@@ -75,7 +88,6 @@ impl VFSImplementation for TarFS {
                     break;
                 }
 
-                // pretty much parse everything we can
                 // based on https://wiki.osdev.org/USTAR
                 let file_name = String::from_utf8_lossy(&header[..100])
                     .trim_matches(char::from(0))
@@ -87,6 +99,10 @@ impl VFSImplementation for TarFS {
                 let file_last_modified = oct_to_bin(&header[136..136 + 12]);
                 let file_checksum = oct_to_bin(&header[148..148 + 8]);
                 let file_type = TarFSFileType::from(header[156]);
+                let file_linkname =
+                    String::from_utf8_lossy(&header[157..157 + 100])
+                        .trim_matches(char::from(0))
+                        .to_string();
                 let file_owner_name =
                     String::from_utf8_lossy(&header[265..265 + 32])
                         .trim_matches(char::from(0))
@@ -119,12 +135,28 @@ impl VFSImplementation for TarFS {
                     continue;
                 }
 
-                let path = "/".to_string() + &file_name;
+                // USTAR splits long paths across `name` and `prefix`
+                // (prefix + "/" + name); ignoring `prefix` truncates any
+                // path over 100 bytes.
+                let full_name = if file_prefix.is_empty() {
+                    file_name.clone()
+                } else {
+                    alloc::format!("{}/{}", file_prefix, file_name)
+                };
+                let path = normalize_tar_path(&full_name);
 
-                // copy the data right away
-                if file_size > 0 {
+                // Symlinks/hardlinks carry no data blocks (size is 0), so
+                // the old `file_size > 0` gate silently dropped them.
+                let should_track = matches!(
+                    file_type,
+                    TarFSFileType::Directory
+                        | TarFSFileType::Symlink
+                        | TarFSFileType::HardLink
+                ) || file_size > 0;
+
+                if should_track {
                     let data_position = offset + 512;
-                    if data_position + file_size > data.len() {
+                    if file_size > 0 && data_position + file_size > data.len() {
                         log::error!(
                             "tarfs: file {} exceeds archive bounds, stopping...",
                             path
@@ -133,18 +165,20 @@ impl VFSImplementation for TarFS {
                     }
 
                     log::info!(
-                        "tarfs: loaded file {} ({} bytes)",
+                        "tarfs: loaded type={:?} {} ({} bytes)",
+                        file_type,
                         path,
                         file_size
                     );
 
-                    self.files.push(TarFile {
+                    files.push(TarFile {
                         _data_position: data_position,
                         _position: AtomicUsize::new(0),
                         _data: Arc::clone(&data),
                         name: file_name
-                            .split("/")
-                            .last()
+                            .trim_end_matches('/')
+                            .split('/')
+                            .next_back()
                             .unwrap_or(file_name.as_str())
                             .to_string(),
                         path,
@@ -160,6 +194,7 @@ impl VFSImplementation for TarFS {
                         device_major: file_device_major,
                         device_minor: file_device_minor,
                         prefix: file_prefix,
+                        linkname: file_linkname,
                     });
                 }
 
@@ -174,18 +209,33 @@ impl VFSImplementation for TarFS {
                     },
                 };
             }
+
+            self.index = files
+                .iter()
+                .enumerate()
+                .map(|(i, f)| (f.path.clone(), i))
+                .collect();
+            self.files = Arc::new(files);
         }
 
         Ok(())
     }
 
-    fn open(
-        &self,
-        path: &str,
-        _flags: u32,
-    ) -> VFSResult<alloc::boxed::Box<dyn VFSFile>> {
+    fn open(&self, path: &str, _flags: u32) -> VFSResult<VFSFilelike> {
+        if path == "/" && !self.index.contains_key("/") {
+            return Ok(VFSFilelike::Directory(Box::new(TarFSDirectory {
+                name: String::new(),
+                path: "/".to_string(),
+                files: Arc::clone(&self.files),
+            })));
+        }
+
         let file = self.get_file(path)?;
-        Ok(Box::new(file.clone()))
+
+        match file.file_type {
+            TarFSFileType::Directory => Ok(self.directory_filelike(file)),
+            _ => Ok(VFSFilelike::File(Box::new(file.clone()))),
+        }
     }
 
     fn metadata(&self, path: &str) -> VFSResult<VFSMetadata> {
@@ -196,6 +246,17 @@ impl VFSImplementation for TarFS {
 
 impl Default for TarFS {
     fn default() -> Self { Self::new() }
+}
+
+fn normalize_tar_path(name: &str) -> String {
+    let trimmed = name.trim_end_matches('/');
+    if trimmed.is_empty() {
+        "/".to_string()
+    } else if let Some(stripped) = trimmed.strip_prefix('/') {
+        alloc::format!("/{}", stripped)
+    } else {
+        alloc::format!("/{}", trimmed)
+    }
 }
 
 fn oct_to_bin(bytes: &[u8]) -> usize {

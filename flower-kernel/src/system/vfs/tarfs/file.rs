@@ -4,7 +4,8 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::system::vfs::{
-    VFSFile, VFSFileType, VFSMetadata, VFSPermissions, VFSResult, VFSWhence,
+    VFSError, VFSFile, VFSMetadata, VFSMetadataFileType, VFSPermissions,
+    VFSResult, VFSWhence,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -22,7 +23,7 @@ pub enum TarFSFileType {
 impl From<u8> for TarFSFileType {
     fn from(value: u8) -> Self {
         match value {
-            b'0' => TarFSFileType::File,
+            b'0' | 0 => TarFSFileType::File,
             b'1' => TarFSFileType::HardLink,
             b'2' => TarFSFileType::Symlink,
             b'3' => TarFSFileType::CharacterDevice,
@@ -53,6 +54,8 @@ pub struct TarFile {
     pub device_major: usize,
     pub device_minor: usize,
     pub prefix: String,
+    /// symlink target path, if this is a symlink. empty otherwise.
+    pub linkname: String,
 }
 
 impl Clone for TarFile {
@@ -75,11 +78,14 @@ impl Clone for TarFile {
             device_major: self.device_major,
             device_minor: self.device_minor,
             prefix: self.prefix.clone(),
+            linkname: self.linkname.clone(),
         }
     }
 }
 
 impl VFSFile for TarFile {
+    fn name(&self) -> VFSResult<String> { Ok(self.name.clone()) }
+
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
         let (position, bytes_to_read) = loop {
             let position = self._position.load(Ordering::Acquire);
@@ -119,7 +125,10 @@ impl VFSFile for TarFile {
         Ok(bytes_to_read)
     }
 
-    fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> { unimplemented!() }
+    fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> {
+        // tarfs is a read-only view over the initramfs archive.
+        Err(VFSError::Unsupported)
+    }
 
     fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize> {
         let mut new_pos = match pos {
@@ -149,14 +158,16 @@ impl VFSFile for TarFile {
 
     fn metadata(&self) -> VFSResult<VFSMetadata> {
         let typ = match self.file_type {
-            TarFSFileType::File => VFSFileType::File,
-            TarFSFileType::Directory => VFSFileType::Directory,
-            TarFSFileType::CharacterDevice | TarFSFileType::BlockDevice => {
-                VFSFileType::Device
+            TarFSFileType::File | TarFSFileType::HardLink => {
+                VFSMetadataFileType::File
             },
-            TarFSFileType::Symlink => VFSFileType::Symlink,
-            TarFSFileType::Fifo => VFSFileType::Pipe,
-            _ => VFSFileType::Unknown,
+            TarFSFileType::Directory => VFSMetadataFileType::Directory,
+            TarFSFileType::CharacterDevice | TarFSFileType::BlockDevice => {
+                VFSMetadataFileType::Device
+            },
+            TarFSFileType::Symlink => VFSMetadataFileType::Symlink,
+            TarFSFileType::Fifo => VFSMetadataFileType::Pipe,
+            _ => VFSMetadataFileType::Unknown,
         };
 
         Ok(VFSMetadata {

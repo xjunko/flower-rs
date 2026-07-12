@@ -12,8 +12,8 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 pub use proc::create_procfs;
 
 use crate::system::vfs::{
-    VFSError, VFSFile, VFSFileType, VFSImplementation, VFSMetadata,
-    VFSPermissions, VFSResult, VFSWhence,
+    VFSError, VFSFile, VFSFilelike, VFSImplementation, VFSMetadata,
+    VFSMetadataFileType, VFSPermissions, VFSResult, VFSWhence,
 };
 
 type ReadFn = fn(usize, &mut [u8]) -> usize;
@@ -59,6 +59,8 @@ impl Clone for DevFile {
 }
 
 impl VFSFile for DevFile {
+    fn name(&self) -> VFSResult<String> { Ok(self.path.clone()) }
+
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
         if let Some(read_fn) = self.fn_read {
             let position = self.position.load(Ordering::Acquire);
@@ -114,7 +116,7 @@ impl VFSFile for DevFile {
                 .last()
                 .unwrap_or(self.path.as_str())
                 .to_string(),
-            typ: VFSFileType::Device,
+            typ: VFSMetadataFileType::Device,
             size: 0,
             last_modified: 0,
             owner_id: 0,
@@ -138,11 +140,11 @@ impl VFSImplementation for DevFS {
     // DevFS is special since it can easily be used on the other parts of the kernel, so we don't need to initialize it
     fn initialize(&mut self) -> VFSResult<()> { Ok(()) }
 
-    fn open(&self, path: &str, _flags: u32) -> VFSResult<Box<dyn VFSFile>> {
+    fn open(&self, path: &str, _flags: u32) -> VFSResult<VFSFilelike> {
         self.files
             .iter()
             .find(|f| f.path == path)
-            .map(|f| Box::new(f.clone()) as Box<dyn VFSFile>)
+            .map(|f| VFSFilelike::File(Box::new(f.clone())))
             .ok_or(VFSError::NotFound)
     }
 
