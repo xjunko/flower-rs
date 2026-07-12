@@ -10,10 +10,11 @@ pub const SYS_SEEK: u64 = 8;
 pub const SYS_EXECVE: u64 = 9;
 pub const SYS_STAT: u64 = 10;
 
-pub const SYS_ARCHCTL: u64 = 103;
+pub const SYS_ARCHCTL: u64 = 157;
 
 pub const SYS_MMAP: u64 = 31;
 pub const SYS_MUNMAP: u64 = 32;
+pub const SYS_MPROTECT: u64 = 33;
 
 pub const SYS_MSLEEP: u64 = 101;
 pub const SYS_MTIME: u64 = 102;

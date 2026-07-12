@@ -1,7 +1,7 @@
 use flower_mono::syscalls::{
     SYS_ARCHCTL, SYS_CLOSE, SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_MMAP,
-    SYS_MSLEEP, SYS_MTIME, SYS_MUNMAP, SYS_OPEN, SYS_READ, SYS_SEEK, SYS_STAT,
-    SYS_WAITPID, SYS_WRITE, SYS_WRITE_FS_BASE,
+    SYS_MPROTECT, SYS_MSLEEP, SYS_MTIME, SYS_MUNMAP, SYS_OPEN, SYS_READ,
+    SYS_SEEK, SYS_STAT, SYS_WAITPID, SYS_WRITE,
 };
 
 mod arch;
@@ -33,6 +33,7 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
 
     handlers[SYS_MMAP as usize] = Some(mman::mmap as SyscallHandler);
     handlers[SYS_MUNMAP as usize] = Some(mman::munmap as SyscallHandler);
+    handlers[SYS_MPROTECT as usize] = Some(mman::mprotect as SyscallHandler);
 
     handlers
 };
