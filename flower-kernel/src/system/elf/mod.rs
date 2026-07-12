@@ -87,12 +87,11 @@ pub fn load_into(
     for program_header in elf.program_iter() {
         let align = program_header.align();
 
-        if align > 1 {
-            if program_header.virtual_addr() % align
+        if align > 1
+            && program_header.virtual_addr() % align
                 != program_header.offset() % align
-            {
-                return Err("bad segment alignment");
-            }
+        {
+            return Err("bad segment alignment");
         }
 
         // load segments
@@ -159,8 +158,8 @@ pub fn load_into(
                 let bytes = elf_data[program_header.offset() as usize
                     ..(program_header.offset() + program_header.file_size())
                         as usize]
-                    .to_vec()
-                    .into_iter()
+                    .iter()
+                    .copied()
                     .take_while(|&b| b != 0)
                     .collect::<Vec<u8>>();
 
