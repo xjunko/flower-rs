@@ -4,12 +4,12 @@ use flower_mono::auxv::AuxType;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch;
 use crate::arch::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
 };
 use crate::system::elf;
 use crate::system::mem::vmm::AddressSpace;
+use crate::{arch, system};
 
 pub struct UserImageInfo {
     pub address_space: AddressSpace,
@@ -87,8 +87,10 @@ impl<'a> StackBuilder<'a> {
         aux_type: AuxType,
         value: u64,
     ) -> Result<u64, &'static str> {
-        let _ = self.push(value);
-        let _ = self.push(aux_type as u64);
+        log::info!("pushing auxv: {:?} = {:#x}", aux_type, value);
+
+        self.push(value)?;
+        self.push(aux_type as u64)?;
         Ok(self.stack_pointer)
     }
 }
@@ -115,7 +117,24 @@ pub fn build_user_image(
     let address_space = AddressSpace::new()?;
     let loaded = elf::load_into(elf_data, &address_space)?;
 
-    if !address_space.is_mapped(VirtAddr::new(loaded.entry & !0xFFF)) {
+    let mut entry = loaded.entry;
+    let mut base = loaded.base;
+
+    if let Some(interp_path) = &loaded.interp {
+        if let Ok(interp_file) = system::vfs::open(interp_path, 0) {
+            let metadata =
+                interp_file.metadata().expect("failed to get interp metadata.");
+            let mut buffer = alloc::vec![0u8; metadata.size];
+            interp_file.read(&mut buffer).expect("failed to read interp");
+            let interp_loaded = elf::load_into(&buffer, &address_space)?;
+            entry = interp_loaded.entry;
+            base = interp_loaded.base;
+        } else {
+            return Err("failed to open interpreter");
+        }
+    }
+
+    if !address_space.is_mapped(VirtAddr::new(entry & !0xFFF)) {
         return Err("entry point is not mapped");
     }
 
@@ -172,6 +191,10 @@ pub fn build_user_image(
         // auxv
         stack_builder.push_auxv_from_elf(&loaded)?;
 
+        if base != 0 {
+            stack_builder.push_auxv(AuxType::Base, base)?;
+        }
+
         // envp
         stack_builder.push(0)?;
         stack_builder.push(0)?;
@@ -192,7 +215,7 @@ pub fn build_user_image(
 
     Ok(UserImageInfo {
         address_space,
-        entry: loaded.entry,
+        entry,
         stack_ptr: user_stack,
         stack_bottom: stack_low,
         heap_start: user_heap,

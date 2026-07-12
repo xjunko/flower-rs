@@ -151,9 +151,6 @@ pub fn load_into(
                     .map_err(|_| "invalid interp path")?;
 
                 interp = Some(path.to_string());
-
-                // HACK: use our's for now
-                interp = Some("/init/lib/ld.so".to_string());
             },
 
             _ => {},

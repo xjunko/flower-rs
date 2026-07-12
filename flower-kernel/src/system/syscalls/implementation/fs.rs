@@ -37,6 +37,9 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     unsafe { core::slice::from_raw_parts_mut(buf, len) };
                 file.read(slice)
             },
+            FdKind::Stdin => {
+                unimplemented!("read from stdin");
+            },
             _ => {
                 log::error!("read syscall: fd {} is not readable", fd);
                 Err(VFSError::PermissionDenied)
