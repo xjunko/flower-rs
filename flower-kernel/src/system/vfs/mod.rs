@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
@@ -71,30 +72,39 @@ impl Vfs {
         path: &str,
     ) -> VFSResult<(&dyn VFSImplementation, String)> {
         let path = path.to_string();
+        let mut best: Option<(&dyn VFSImplementation, usize, String)> = None;
 
         for mount in &self.mounts {
-            if mount.path == "/" {
-                return Ok((mount.fs.as_ref(), path.clone()));
+            let matches = if mount.path == "/" {
+                true
+            } else {
+                path == mount.path
+                    || path.starts_with(&format!("{}/", mount.path))
+            };
+
+            if !matches {
+                continue;
             }
 
-            if mount.path == path {
-                return Ok((mount.fs.as_ref(), "/".to_string()));
-            }
+            let relative = if mount.path == "/" {
+                path.to_string()
+            } else if path == mount.path {
+                "/".to_string()
+            } else {
+                path[mount.path.len()..].to_string()
+            };
 
-            if path.starts_with(&mount.path) {
-                let rest = &path[mount.path.len()..];
-                let relative = if rest.is_empty() || rest == "/" {
-                    "/".to_string()
-                } else if rest.starts_with("/") {
-                    rest.to_string()
-                } else {
-                    continue;
-                };
-                return Ok((mount.fs.as_ref(), relative));
+            let length = mount.path.len();
+
+            if best.as_ref().map_or(true, |(_, l, _)| length > *l) {
+                best = Some((mount.fs.as_ref(), length, relative));
             }
         }
 
-        Err(VFSError::NotFound)
+        match best {
+            Some((fs, _, relative)) => Ok((fs, relative)),
+            None => Err(VFSError::NotFound),
+        }
     }
 }
 
@@ -112,10 +122,7 @@ static ROOT_VFS: Lazy<Mutex<Vfs>> = Lazy::new(|| Mutex::new(Vfs::new()));
 
 pub fn install() {
     let tarfs = TarFS::new();
-    ROOT_VFS
-        .lock()
-        .mount("/init", Box::new(tarfs))
-        .expect("failed to mount tarfs");
+    ROOT_VFS.lock().mount("/", Box::new(tarfs)).expect("failed to mount tarfs");
 
     let devfs = devfs::create_devfs();
     ROOT_VFS
