@@ -96,7 +96,7 @@ impl Vfs {
 
             let length = mount.path.len();
 
-            if best.as_ref().map_or(true, |(_, l, _)| length > *l) {
+            if best.as_ref().is_none_or(|(_, l, _)| length > *l) {
                 best = Some((mount.fs.as_ref(), length, relative));
             }
         }
@@ -111,7 +111,7 @@ impl Vfs {
 // public api
 impl Vfs {
     /// opens the file at the given path with the given flags
-    pub fn open(&self, path: &str, flags: u32) -> VFSResult<Box<dyn VFSFile>> {
+    pub fn open(&self, path: &str, flags: u32) -> VFSResult<VFSFilelike> {
         let (fs, relative) = self.resolve(path)?;
         fs.open(&relative, flags)
     }
@@ -141,14 +141,18 @@ pub fn install() {
 }
 
 // public methods
-pub fn open(path: &str, flags: u32) -> VFSResult<Box<dyn VFSFile>> {
+pub fn open(path: &str, flags: u32) -> VFSResult<VFSFilelike> {
     ROOT_VFS.lock().open(path, flags)
 }
 
 /// reads the entire contents of the file then returns it as a vector of bytes.
 /// only for internal use
 pub fn __read(path: &str) -> Result<Vec<u8>, &'static str> {
-    let file = open(path, 0).map_err(|_| "failed to read file")?;
+    let file = match open(path, 0).map_err(|_| "failed to read file")? {
+        VFSFilelike::File(f) => f,
+        _ => return Err("expected a regular file"),
+    };
+
     let metadata = file.metadata().map_err(|_| "failed to stat file")?;
 
     let mut file_data = Vec::with_capacity(metadata.size.max(1));

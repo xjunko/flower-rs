@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::ffi::c_int;
 
 use crate::system::ToSyscallError;
@@ -38,7 +39,7 @@ impl VFSPermissions {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum VFSFileType {
+pub enum VFSMetadataFileType {
     File,
     Directory,
     Device,
@@ -50,8 +51,8 @@ pub enum VFSFileType {
 #[derive(Debug, Clone)]
 pub struct VFSMetadata {
     pub name: String,
-    pub typ: VFSFileType,
     pub size: usize,
+    pub typ: VFSMetadataFileType,
     pub last_modified: usize,
     pub owner_id: usize,
     pub group_id: usize,
@@ -91,7 +92,15 @@ impl ToSyscallError for VFSError {
 
 pub type VFSResult<T> = Result<T, VFSError>;
 
+pub enum VFSFilelike {
+    File(Box<dyn VFSFile>),
+    Directory(Box<dyn VFSDirectory>),
+}
+
 pub trait VFSFile: Send + Sync {
+    /// gets the name of the file
+    fn name(&self) -> VFSResult<String>;
+
     /// reads data into the given buffer and returns the number of bytes read
     fn read(&self, buf: &mut [u8]) -> VFSResult<usize>;
 
@@ -112,16 +121,41 @@ pub trait VFSFile: Send + Sync {
 
     /// gets the info for the file
     fn metadata(&self) -> VFSResult<VFSMetadata>;
+
+    /// changes the permissions of the file
+    fn chmod(&self, _mode: u32) -> VFSResult<()> { Err(VFSError::Unsupported) }
+
+    /// changes the owner of the file
+    fn chown(&self, _uid: u32, _gid: u32) -> VFSResult<()> {
+        Err(VFSError::Unsupported)
+    }
 }
 
-pub trait VFSDirectory: Send + Sync {}
+pub trait VFSDirectory: Send + Sync {
+    /// get the name of the directory
+    fn name(&self) -> VFSResult<String>;
+
+    /// get the contents of the directory
+    fn contents(&self) -> VFSResult<Vec<VFSFilelike>>;
+
+    /// deletes a file in the directory
+    fn delete(&self, name: &str) -> VFSResult<()>;
+
+    /// changes the permissions of the directory
+    fn chmod(&self, _mode: u32) -> VFSResult<()> { Err(VFSError::Unsupported) }
+
+    /// changes the owner of the directory
+    fn chown(&self, _uid: u32, _gid: u32) -> VFSResult<()> {
+        Err(VFSError::Unsupported)
+    }
+}
 
 pub trait VFSImplementation: Send + Sync {
     /// initializes the filesystem
     fn initialize(&mut self) -> VFSResult<()>;
 
     /// opens the file
-    fn open(&self, path: &str, flags: u32) -> VFSResult<Box<dyn VFSFile>>;
+    fn open(&self, path: &str, flags: u32) -> VFSResult<VFSFilelike>;
 
     /// gets the info for the file
     fn metadata(&self, path: &str) -> VFSResult<VFSMetadata>;
