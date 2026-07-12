@@ -35,17 +35,6 @@ static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
         let stack_start = VirtAddr::from_ptr(&raw const STACK);
         stack_start + (STACK_SIZE as u64)
     };
-
-    // NOTE: we dont need this anymore because
-    //       every user process has it's own stack now.
-    // tss.privilege_stack_table[0] = {
-    //     const STACK_SIZE: usize = 4096 * 5;
-    //     static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
-
-    //     let stack_start = VirtAddr::from_ptr(&raw const STACK);
-    //     stack_start + (STACK_SIZE as u64)
-    // };
-
     tss
 });
 
