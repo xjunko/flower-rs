@@ -1,6 +1,6 @@
 use crate::system;
 
-const SHELL_PATH: &str = "/init/bin/shell";
+const SHELL_PATH: &str = "/bin/shell";
 pub fn entry() {
     if let Ok(file) = system::vfs::open(SHELL_PATH, 0) {
         let metadata = file.metadata().expect("invalid metadata");

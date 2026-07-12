@@ -6,6 +6,7 @@ use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
 use crate::arch;
+use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
 use crate::system::mem::vmm::AddressSpace;
 
 #[derive(Debug)]
@@ -63,7 +64,7 @@ pub fn load_into(
 
     let load_base: u64 = match header.pt2.type_().as_type() {
         header::Type::Executable => 0,
-        header::Type::SharedObject => 0x7f_0000_0000,
+        header::Type::SharedObject => USER_DYNAMIC_LINKER_BASE,
         _ => return Err("unsupported elf type"),
     };
 

@@ -87,8 +87,6 @@ impl<'a> StackBuilder<'a> {
         aux_type: AuxType,
         value: u64,
     ) -> Result<u64, &'static str> {
-        log::info!("pushing auxv: {:?} = {:#x}", aux_type, value);
-
         self.push(value)?;
         self.push(aux_type as u64)?;
         Ok(self.stack_pointer)
