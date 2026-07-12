@@ -82,5 +82,9 @@ make clean run
 
 and thousands other stuff that i don't remember or know yet.
 
+## credits
+early part of the kernel was loosely based of [riria](https://github.com/xjunko/riria).
+some part of the newer rust side of things are based on [seele](https://github.com/SeeleOS/seele).
+
 ## license
 ISC License, see [[LICENSE]](LICENSE) for more details.
