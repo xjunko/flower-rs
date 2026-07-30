@@ -1,76 +1,60 @@
-override IMAGE_NAME := flower
-override TEMP := /tmp/$(IMAGE_NAME)-build
+override IMG_NAME := flower
+override TMP := /tmp/$(IMG_NAME)-build
 
+# kernel stages
+.PHONY: $(IMG_NAME).iso
+all: $(IMG_NAME).iso
 
-# running
-.PHONY: run
-run: $(IMAGE_NAME).iso
-	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 2 -m 256M \
-                       -device e1000 -vga std -d guest_errors,int \
-		               -serial stdio -no-reboot -no-shutdown \
-					   -audio driver=sdl,model=ac97,id=0 \
-					   -cdrom $(IMAGE_NAME).iso -d int
-
-# kernel build
-.PHONY: $(IMAGE_NAME).iso
-all: $(IMAGE_NAME).iso
-
-.PHONY: apps
-apps:
-	make -C flower-apps
+# limine
+override LIMINE := $(TMP)/limine
+$(LIMINE)/limine:
+	rm -rf $(LIMINE)
+	git clone https://github.com/Limine-Bootloader/Limine --branch=v11.x-binary --depth 1 $(LIMINE)
+	$(MAKE) -C $(LIMINE)
 
 .PHONY: kernel
 kernel:
-	make -C flower-kernel
+	cargo build --profile release
 
-# libc build
-.PHONY: libc
-libc:
-	make -C flower-libc
+$(IMG_NAME).iso: $(LIMINE)/limine kernel
+	rm    -rf $(TMP)/iso_root
+	mkdir -p  $(TMP)/iso_root/boot
 
-# limine
-LIMINE_ROOT := $(TEMP)/limine
-$(LIMINE_ROOT)/limine:
-	rm -rf $(LIMINE_ROOT)
-	git clone https://github.com/Limine-Bootloader/Limine --branch=v10.x-binary --depth 1 $(TEMP)/limine
-	$(MAKE) -C $(TEMP)/limine
+	# kernel elf
+	cp -v target/x86_64-riria/release/kernel $(TMP)/iso_root/boot/kernel
 
-# initramfs
-INITRAMFS_FILE := flower-boot/initramfs.tar
-.PHONY: $(INITRAMFS_FILE)
-$(INITRAMFS_FILE):
-	make -C flower-boot/initramfs
+	# limine
+	mkdir -p $(TMP)/iso_root/boot/limine
+	cp    limine.conf $(TMP)/iso_root/boot/limine/
 
+	# limine binaries
+	mkdir -p $(TMP)/iso_root/EFI/BOOT
 
-$(IMAGE_NAME).iso: $(LIMINE_ROOT)/limine $(INITRAMFS_FILE) kernel
-	rm -rf $(TEMP)/iso_root
-	mkdir -p $(TEMP)/iso_root/boot
+	cp    -v $(LIMINE)/limine-bios.sys $(LIMINE)/limine-bios-cd.bin \
+			 $(LIMINE)/limine-uefi-cd.bin \
+			 $(TMP)/iso_root/boot/limine
 
-	# copy the kernel
-	cp -v target/x86_64-unknown-none/release/flower-kernel $(TEMP)/iso_root/boot/kernel
+	cp    -v $(LIMINE)/BOOTX64.EFI $(TMP)/iso_root/EFI/BOOT
+	cp    -v $(LIMINE)/BOOTIA32.EFI $(TMP)/iso_root/EFI/BOOT
 
-	# copy initramfs
-	cp -v $(INITRAMFS_FILE) $(TEMP)/iso_root/boot/
-
-	# limine stuff
-	mkdir -p $(TEMP)/iso_root/boot/limine
-	cp flower-boot/limine.conf $(TEMP)/iso_root/boot/limine/
-
-	# limine important stuff
-	mkdir -p $(TEMP)/iso_root/EFI/BOOT
-	cp -v $(LIMINE_ROOT)/limine-bios.sys $(LIMINE_ROOT)/limine-bios-cd.bin \
-		  $(LIMINE_ROOT)/limine-uefi-cd.bin $(TEMP)/iso_root/boot/limine
-	cp -v $(LIMINE_ROOT)/BOOTX64.EFI $(TEMP)/iso_root/EFI/BOOT
-	cp -v $(LIMINE_ROOT)/BOOTIA32.EFI $(TEMP)/iso_root/EFI/BOOT
-
-	# final
+	# create iso
 	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
-		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
+		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus  \
 		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		-o $(IMAGE_NAME).iso $(TEMP)/iso_root
+		-o $(IMG_NAME).iso $(TMP)/iso_root
 
+# cleaning
 .PHONY: clean
 clean:
+	rm -rf $(TMP)
 	cargo clean
-	rm -rf $(TEMP)/iso_root $(IMAGE_NAME).iso
+
+# running
+.PHONY: run
+run: $(IMG_NAME).iso
+	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 16M \
+                       -device e1000 -vga std -d guest_errors,int \
+		               -serial stdio -no-reboot -no-shutdown \
+					   -audio driver=sdl,model=ac97,id=0 \
+					   -cdrom $(IMG_NAME).iso -d int
