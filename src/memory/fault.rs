@@ -3,7 +3,7 @@ use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::idt::print_stack_frame;
+use crate::arch::x86_64::idt::print_stack_frame;
 use crate::{println, system};
 
 pub extern "x86-interrupt" fn page_fault_handler(

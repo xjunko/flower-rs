@@ -1,8 +1,8 @@
 use acpi::AcpiTables;
 use spin::once::Once;
 
-use crate::arch::acpi::parser::AcpiReader;
-use crate::arch::acpi::tables::KernelAcpiTables;
+use crate::acpi::parser::KernelAcpiReader;
+use crate::acpi::tables::KernelAcpiTables;
 use crate::boot::limine::RSDP_REQUEST;
 
 mod parser;
@@ -18,7 +18,8 @@ pub fn install() {
         log::debug!("ACPI: RSDP found at {:#x}", rsdp.address());
 
         unsafe {
-            if let Ok(acpi) = AcpiTables::from_rsdp(AcpiReader, rsdp.address())
+            if let Ok(acpi) =
+                AcpiTables::from_rsdp(KernelAcpiReader, rsdp.address())
             {
                 tables.parse_madt(&acpi);
             } else {

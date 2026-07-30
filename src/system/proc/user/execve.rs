@@ -5,7 +5,7 @@ use x86_64::PhysAddr;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::PhysFrame;
 
-use crate::arch::layout::USER_STACK_TOP_PAGE;
+use crate::arch::x86_64::layout::{PAGE_SIZE, USER_STACK_TOP_PAGE};
 use crate::system::proc::ProcessLevel;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::{self, vfs};
@@ -54,18 +54,16 @@ pub fn execve(
     proc.set_user_stack(image.stack_ptr);
     proc.set_user_heap(image.heap_start);
 
-    proc.set_user_heap_position(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
-    );
+    proc.set_user_heap_position(image.heap_start + PAGE_SIZE as u64);
 
     proc.set_user_heap_bounds(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
+        image.heap_start + PAGE_SIZE as u64,
         image.heap_max,
     );
 
     proc.set_user_stack_bounds(
         image.stack_bottom,
-        USER_STACK_TOP_PAGE + crate::arch::layout::PAGE_SIZE as u64,
+        USER_STACK_TOP_PAGE + PAGE_SIZE as u64,
     );
 
     proc._fsbase = 0;

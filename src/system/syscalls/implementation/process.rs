@@ -24,7 +24,7 @@ pub fn mtime(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
     unsafe {
-        core::ptr::write_volatile(time_ptr, arch::ticks());
+        core::ptr::write_volatile(time_ptr, arch::x86_64::ticks());
     }
     Ok(0)
 }

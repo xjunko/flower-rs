@@ -1,4 +1,4 @@
-use crate::arch::layout::USER_STACK_TOP_PAGE;
+use crate::arch::x86_64::layout::{PAGE_SIZE, USER_STACK_TOP_PAGE};
 use crate::system::proc::user::stack::build_user_image;
 use crate::system::proc::{Process, SCHEDULER};
 
@@ -21,13 +21,13 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
         image.address_space,
         image.entry,
         image.stack_ptr,
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
+        image.heap_start + PAGE_SIZE as u64,
     );
 
     // Set the stack/heap bounds after process creation
     proc.set_user_stack_bounds(image.stack_bottom, USER_STACK_TOP_PAGE);
     proc.set_user_heap_bounds(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
+        image.heap_start + PAGE_SIZE as u64,
         image.heap_max,
     );
 
@@ -40,7 +40,7 @@ pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
 
     proc.set_user_stack_bounds(image.stack_bottom, USER_STACK_TOP_PAGE);
     proc.set_user_heap_bounds(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
+        image.heap_start + PAGE_SIZE as u64,
         image.heap_max,
     );
 

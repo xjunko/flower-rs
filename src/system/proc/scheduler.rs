@@ -64,7 +64,7 @@ impl Scheduler {
 
     /// awakens any sleeping processes whose wake time has passed, setting them to ready.
     pub fn awaken(&mut self) {
-        let ticks = arch::ticks();
+        let ticks = arch::x86_64::ticks();
         for proc in self.processes.iter_mut() {
             let mut proc = proc.lock();
 

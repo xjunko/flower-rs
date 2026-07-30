@@ -2,7 +2,7 @@ use core::arch::{asm, naked_asm};
 
 use x86_64::instructions::interrupts;
 
-use crate::arch::gdt;
+use crate::arch;
 use crate::system::proc;
 
 #[allow(improper_ctypes_definitions)]
@@ -27,7 +27,7 @@ pub unsafe extern "C" fn kernel_trampoline_entry() -> ! {
 extern "C" fn user_process_entry(user_entry: u64, user_stack: u64) -> ! {
     interrupts::enable();
     {
-        let segments = gdt::segments();
+        let segments = arch::x86_64::gdt::segments();
 
         let user_cs = segments.user_code.0 as u64;
         let user_ss = segments.user_data.0 as u64;

@@ -4,11 +4,11 @@ use flower_mono::auxv::AuxType;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::layout::{
+use crate::arch::x86_64::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
 };
-use crate::system::elf::{self, ELFLoadType};
 use crate::memory::vmm::AddressSpace;
+use crate::system::elf::{self, ELFLoadType};
 use crate::system::vfs::VFSFilelike;
 use crate::{arch, system};
 
@@ -21,7 +21,7 @@ pub struct UserImageInfo {
     pub heap_max: u64,
 }
 
-const PAGE_SIZE: u64 = arch::layout::PAGE_SIZE as u64;
+const PAGE_SIZE: u64 = arch::x86_64::layout::PAGE_SIZE as u64;
 struct StackBuilder<'a> {
     pub stack_pointer: u64,
     stack_bottom: u64,

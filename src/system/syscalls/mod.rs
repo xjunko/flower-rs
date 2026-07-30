@@ -11,7 +11,7 @@ use x86_64::registers::model_specific::{KernelGsBase, LStar, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
 
 pub use self::types::SyscallError;
-use crate::arch::gdt;
+use crate::arch;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
 
 #[repr(C, align(16))]
@@ -47,7 +47,7 @@ pub fn write_cpu_context() {
 #[allow(static_mut_refs)]
 pub fn install() {
     interrupts::without_interrupts(|| {
-        let segments = gdt::segments();
+        let segments = arch::x86_64::gdt::segments();
 
         unsafe {
             // enable syscall

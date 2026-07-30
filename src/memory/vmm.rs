@@ -7,7 +7,7 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{boot, memory, system};
+use crate::{boot, memory};
 
 static HHDM: Mutex<Option<u64>> = Mutex::new(None);
 static PML4: Mutex<Option<PhysAddr>> = Mutex::new(None);

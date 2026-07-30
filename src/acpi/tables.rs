@@ -2,8 +2,9 @@ use alloc::vec::Vec;
 
 use acpi::AcpiTables;
 use acpi::sdt::madt::{Madt, MadtEntry};
+use x86_64::VirtAddr;
 
-use crate::arch::acpi::parser::AcpiReader;
+use crate::acpi::parser::KernelAcpiReader;
 
 #[derive(Debug)]
 pub struct LapicInfo {
@@ -18,15 +19,29 @@ pub struct IoApicInfo {
     pub address: u32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct KernelAcpiTables {
+    pub lapic_base: VirtAddr,
     pub lapics: Vec<LapicInfo>,
     pub ioapics: Vec<IoApicInfo>,
 }
 
+impl Default for KernelAcpiTables {
+    fn default() -> Self {
+        Self {
+            lapic_base: VirtAddr::new(0),
+            lapics: Vec::new(),
+            ioapics: Vec::new(),
+        }
+    }
+}
+
 impl KernelAcpiTables {
-    pub fn parse_madt(&mut self, acpi: &AcpiTables<AcpiReader>) {
+    pub fn parse_madt(&mut self, acpi: &AcpiTables<KernelAcpiReader>) {
         for madt in acpi.find_tables::<Madt>() {
+            self.lapic_base =
+                VirtAddr::new(madt.get().local_apic_address as u64);
+
             for entry in madt.get().entries() {
                 match entry {
                     MadtEntry::LocalApic(lapic) => {

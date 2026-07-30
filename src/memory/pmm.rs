@@ -2,7 +2,7 @@ use limine::memory_map::EntryType;
 use spin::Mutex;
 use x86_64::{VirtAddr, align_up};
 
-use crate::arch::layout::PAGE_SIZE;
+use crate::arch::x86_64::layout::PAGE_SIZE;
 use crate::boot;
 
 static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);

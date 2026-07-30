@@ -7,7 +7,7 @@ use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
 use crate::arch;
-use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
+use crate::arch::x86_64::layout::USER_DYNAMIC_LINKER_BASE;
 use crate::memory::vmm::AddressSpace;
 
 #[derive(Debug)]
@@ -104,11 +104,11 @@ pub fn load_into(
 
                 let start_page = align_down(
                     vaddr + load_base,
-                    arch::layout::PAGE_SIZE as u64,
+                    arch::x86_64::layout::PAGE_SIZE as u64,
                 );
                 let end_page = align_up(
                     vaddr + mem_size + load_base,
-                    arch::layout::PAGE_SIZE as u64,
+                    arch::x86_64::layout::PAGE_SIZE as u64,
                 );
 
                 if end_page > image_end {
@@ -128,7 +128,7 @@ pub fn load_into(
                         address_space.update_page_flags(page, merged)?;
                     }
 
-                    addr += arch::layout::PAGE_SIZE as u64;
+                    addr += arch::x86_64::layout::PAGE_SIZE as u64;
                 }
 
                 let offset = program_header.offset() as usize;

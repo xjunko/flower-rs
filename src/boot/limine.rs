@@ -5,7 +5,7 @@ use limine::request::{
     StackSizeRequest,
 };
 
-use crate::arch::layout::KERNEL_STACK_SIZE;
+use crate::arch::x86_64::layout::KERNEL_STACK_SIZE;
 
 #[used]
 #[unsafe(link_section = ".limine_requests_start")]

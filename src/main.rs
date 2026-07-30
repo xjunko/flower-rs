@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+mod acpi;
 mod arch;
 mod boot;
 mod drivers;
@@ -18,23 +19,23 @@ fn kernel_init() {
     drivers::tty::serial::install();
     drivers::tty::logging::install();
 
-    arch::install_cpu_features();
-    arch::gdt::install();
-    arch::idt::install();
+    arch::x86_64::install_cpu_features();
+    arch::x86_64::gdt::install();
+    arch::x86_64::idt::install();
 
     memory::pmm::install();
     memory::vmm::install();
     memory::heap::install().expect("failed to install heap");
 
-    arch::acpi::install();
-    arch::apic::install();
+    acpi::install();
+    arch::x86_64::apic::install();
 
     drivers::ps2::install();
     drivers::pci::install();
 
     system::syscalls::install();
     system::proc::install();
-    arch::interrupts::enable();
+    arch::x86_64::interrupts::enable();
 
     // start other cores too
     system::smp::install();
@@ -48,12 +49,13 @@ fn kernel_init() {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     kernel_init();
-    system::proc::spawn("userland-entry", user::entry);
-    arch::halt();
+    // system::proc::spawn("userland-entry", user::entry);
+    println!("hello world!");
+    arch::x86_64::halt();
 }
 
 #[panic_handler]
 fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
     log::error!("panic: {}", _info);
-    arch::halt()
+    arch::x86_64::halt()
 }

@@ -3,7 +3,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::InterruptStackFrame;
 
-use crate::arch::apic;
+use crate::arch::x86_64::apic;
 use crate::system::proc;
 
 static TICKS: AtomicU64 = AtomicU64::new(0);

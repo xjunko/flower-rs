@@ -6,7 +6,7 @@ use crate::system::{self};
 
 /// sleeps the current process for the given number of milliseconds.
 pub fn sleep(millis: u64) {
-    let wake_at = arch::ticks() + millis;
+    let wake_at = arch::x86_64::ticks() + millis;
 
     interrupts::without_interrupts(|| {
         system::syscalls::write_cpu_context();

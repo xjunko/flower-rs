@@ -6,9 +6,10 @@ use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE};
+use crate::arch::x86_64::layout::{
+    KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE,
+};
 use crate::memory;
-use crate::system::{self};
 
 struct Allocator;
 #[global_allocator]

@@ -7,9 +7,9 @@ use x86_64::structures::paging::PageTableFlags;
 use crate::memory;
 
 #[derive(Clone, Debug)]
-pub struct AcpiReader;
+pub struct KernelAcpiReader;
 
-impl acpi::Handler for AcpiReader {
+impl acpi::Handler for KernelAcpiReader {
     unsafe fn map_physical_region<T>(
         &self,
         physical_address: usize,
