@@ -4,7 +4,7 @@ use acpi::PhysicalMapping;
 use x86_64::PhysAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::system;
+use crate::memory;
 
 #[derive(Clone, Debug)]
 pub struct AcpiReader;
@@ -15,12 +15,11 @@ impl acpi::Handler for AcpiReader {
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
-        let virt_addr = system::mem::vmm::phys_to_virt(PhysAddr::new(
-            physical_address as u64,
-        ));
+        let virt_addr =
+            memory::vmm::phys_to_virt(PhysAddr::new(physical_address as u64));
 
-        if !system::mem::vmm::page_is_mapped(virt_addr)
-            && let Err(e) = system::mem::vmm::page_map(
+        if !memory::vmm::page_is_mapped(virt_addr)
+            && let Err(e) = memory::vmm::page_map(
                 virt_addr,
                 PhysAddr::new(physical_address as u64),
                 PageTableFlags::PRESENT | PageTableFlags::WRITABLE,

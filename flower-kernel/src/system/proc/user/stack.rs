@@ -8,7 +8,7 @@ use crate::arch::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
 };
 use crate::system::elf::{self, ELFLoadType};
-use crate::system::mem::vmm::AddressSpace;
+use crate::memory::vmm::AddressSpace;
 use crate::system::vfs::VFSFilelike;
 use crate::{arch, system};
 

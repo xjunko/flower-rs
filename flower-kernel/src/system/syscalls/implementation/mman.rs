@@ -7,8 +7,8 @@ use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::layout::PAGE_SIZE;
+use crate::memory::{self, vmm};
 use crate::system::ToSyscallError;
-use crate::system::mem::vmm;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
@@ -218,8 +218,8 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             })?;
 
             // NOTE: this might fuck me later
-            if system::mem::pmm::is_usable_address(phys.as_u64()) {
-                system::mem::pmm::free(phys.as_u64());
+            if memory::pmm::is_usable_address(phys.as_u64()) {
+                memory::pmm::free(phys.as_u64());
             } else {
                 log::debug!(
                     "munmap: skipping free for non-usable physical page {:#x}",

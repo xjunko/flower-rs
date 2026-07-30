@@ -2,10 +2,11 @@ use crate::system::syscalls::SyscallError;
 use crate::system::vfs::VFSError;
 
 pub mod elf;
-pub mod mem;
+
 pub mod proc;
 pub mod smp;
 pub mod syscalls;
+// pub mod vfs_ng;
 pub mod vfs;
 
 pub enum KernelError {

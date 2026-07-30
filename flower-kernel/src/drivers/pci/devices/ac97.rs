@@ -9,7 +9,7 @@ use x86_64::structures::paging::PageTableFlags;
 
 use crate::drivers::pci::io::PciIO;
 use crate::drivers::pci::parser::PciBus;
-use crate::system;
+use crate::memory;
 
 #[repr(C, packed)]
 struct BDL_Entry {
@@ -111,12 +111,12 @@ impl Ac97 {
                 );
 
                 assert!(
-                    !system::mem::vmm::page_is_mapped(vaddr),
+                    !memory::vmm::page_is_mapped(vaddr),
                     "AC97 buffer virt collision at {:#x}",
                     vaddr.as_u64()
                 );
 
-                let phys = system::mem::vmm::page_map_alloc(
+                let phys = memory::vmm::page_map_alloc(
                     vaddr,
                     PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
                 )
@@ -198,12 +198,12 @@ pub fn install(pci: &PciBus) {
 
         let bdl_virt_addr = VirtAddr::new(AC97_BDL_VIRT_BASE);
         assert!(
-            !system::mem::vmm::page_is_mapped(bdl_virt_addr),
+            !memory::vmm::page_is_mapped(bdl_virt_addr),
             "AC97 BDL virt collision at {:#x}",
             bdl_virt_addr.as_u64()
         );
 
-        let bdl_phys = system::mem::vmm::page_map_alloc(
+        let bdl_phys = memory::vmm::page_map_alloc(
             bdl_virt_addr,
             PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
         )

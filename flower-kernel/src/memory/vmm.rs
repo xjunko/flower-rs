@@ -7,7 +7,7 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{boot, system};
+use crate::{boot, memory, system};
 
 static HHDM: Mutex<Option<u64>> = Mutex::new(None);
 static PML4: Mutex<Option<PhysAddr>> = Mutex::new(None);
@@ -15,7 +15,7 @@ static PML4: Mutex<Option<PhysAddr>> = Mutex::new(None);
 pub struct PMMFrameAllocator;
 unsafe impl FrameAllocator<Size4KiB> for PMMFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        let addr = system::mem::pmm::alloc()?;
+        let addr = memory::pmm::alloc()?;
         Some(PhysFrame::containing_address(PhysAddr::new(addr)))
     }
 }
@@ -42,7 +42,7 @@ pub fn phys_to_virt(phys: PhysAddr) -> VirtAddr {
 pub fn virt_to_phys(virt: VirtAddr) -> Option<PhysAddr> {
     let hhdm = hhdm();
 
-    if let Some(max_phys) = system::mem::pmm::max_phys_address()
+    if let Some(max_phys) = memory::pmm::max_phys_address()
         && let Some(hhdm_end) = hhdm.checked_add(max_phys)
         && virt.as_u64() >= hhdm
         && virt.as_u64() < hhdm_end
@@ -104,7 +104,7 @@ pub fn page_map_alloc(
     virt: VirtAddr,
     flags: PageTableFlags,
 ) -> Result<PhysAddr, &'static str> {
-    let phys_addr = system::mem::pmm::alloc().ok_or("oom")?;
+    let phys_addr = memory::pmm::alloc().ok_or("oom")?;
     let phys = PhysAddr::new(phys_addr);
 
     unsafe {
@@ -114,7 +114,7 @@ pub fn page_map_alloc(
 
     if let Err(e) = page_map(virt, phys, flags) {
         log::error!("Failed to map page: {}", e);
-        system::mem::pmm::free(phys.as_u64());
+        memory::pmm::free(phys.as_u64());
         return Err(e);
     }
 
@@ -198,10 +198,10 @@ unsafe fn page_table_free(table_phys: PhysAddr, level: u8) {
             if level > 1 && !flags.contains(PageTableFlags::HUGE_PAGE) {
                 let child_phys = frame.start_address();
                 unsafe { page_table_free(child_phys, level - 1) };
-                system::mem::pmm::free(child_phys.as_u64());
+                memory::pmm::free(child_phys.as_u64());
             } else if level == 1 {
                 let leaf_phys = frame.start_address();
-                system::mem::pmm::free(leaf_phys.as_u64());
+                memory::pmm::free(leaf_phys.as_u64());
             }
         }
 
@@ -215,7 +215,7 @@ pub struct AddressSpace {
 
 impl AddressSpace {
     pub fn new() -> Result<Self, &'static str> {
-        let pml4_phys_addr = system::mem::pmm::alloc().ok_or("oom")?;
+        let pml4_phys_addr = memory::pmm::alloc().ok_or("oom")?;
         let pml4_phys = PhysAddr::new(pml4_phys_addr);
 
         unsafe {
@@ -281,7 +281,7 @@ impl AddressSpace {
         virt: VirtAddr,
         flags: PageTableFlags,
     ) -> Result<PhysAddr, &'static str> {
-        let phys_addr = system::mem::pmm::alloc().ok_or("oom")?;
+        let phys_addr = memory::pmm::alloc().ok_or("oom")?;
         let phys = PhysAddr::new(phys_addr);
 
         unsafe {
@@ -297,7 +297,7 @@ impl AddressSpace {
                 flags,
                 e
             );
-            system::mem::pmm::free(phys.as_u64());
+            memory::pmm::free(phys.as_u64());
             return Err(e);
         }
 
@@ -524,7 +524,7 @@ impl Drop for AddressSpace {
         unsafe {
             page_table_free(pml4_phys, 4);
         }
-        system::mem::pmm::free(pml4_phys.as_u64());
+        memory::pmm::free(pml4_phys.as_u64());
         log::trace!(
             "dropped address space and freed PML4 at {:#x}",
             pml4_phys.as_u64()

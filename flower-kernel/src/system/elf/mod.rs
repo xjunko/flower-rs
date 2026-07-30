@@ -8,7 +8,7 @@ use xmas_elf::{ElfFile, header};
 
 use crate::arch;
 use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
-use crate::system::mem::vmm::AddressSpace;
+use crate::memory::vmm::AddressSpace;
 
 #[derive(Debug)]
 pub struct ELF64 {

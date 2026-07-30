@@ -6,7 +6,7 @@ use crate::arch::interrupts::{
     InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
 };
 use crate::drivers::ps2::keyboard;
-use crate::{println, system};
+use crate::{memory, println};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
@@ -15,7 +15,7 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
     idt.device_not_available.set_handler_fn(device_not_available_handler);
     idt.breakpoint.set_handler_fn(breakpoint_handler);
-    idt.page_fault.set_handler_fn(system::mem::fault::page_fault_handler);
+    idt.page_fault.set_handler_fn(memory::fault::page_fault_handler);
 
     unsafe {
         idt.double_fault

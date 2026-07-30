@@ -7,6 +7,7 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE};
+use crate::memory;
 use crate::system::{self};
 
 struct Allocator;
@@ -31,7 +32,7 @@ fn map_chunk(
     for i in 0..pages {
         let page_addr = addr + (i * PAGE_SIZE) as u64;
 
-        system::mem::vmm::page_map_alloc(page_addr, flags)?;
+        memory::vmm::page_map_alloc(page_addr, flags)?;
     }
 
     Ok(())

@@ -9,7 +9,7 @@ use x86_64::{PhysAddr, VirtAddr};
 
 use crate::arch::acpi;
 use crate::arch::interrupts::InterruptIndex;
-use crate::system::mem::vmm;
+use crate::memory::vmm;
 
 // legacy pic
 const PIC1: u16 = 0x20;

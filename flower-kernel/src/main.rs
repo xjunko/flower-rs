@@ -9,8 +9,8 @@ extern crate alloc;
 mod arch;
 mod boot;
 mod drivers;
+mod memory;
 mod system;
-
 mod user;
 
 fn kernel_init() {
@@ -22,9 +22,9 @@ fn kernel_init() {
     arch::gdt::install();
     arch::idt::install();
 
-    system::mem::pmm::install();
-    system::mem::vmm::install();
-    system::mem::heap::install().expect("failed to install heap");
+    memory::pmm::install();
+    memory::vmm::install();
+    memory::heap::install().expect("failed to install heap");
 
     arch::acpi::install();
     arch::apic::install();
@@ -42,7 +42,7 @@ fn kernel_init() {
     // past this point, the kernel can now do dynamic allocation
     system::vfs::install();
     drivers::tty::terminal::install();
-    system::mem::self_test();
+    memory::self_test();
 }
 
 #[unsafe(no_mangle)]

@@ -7,7 +7,7 @@ use x86_64::VirtAddr;
 use x86_64::registers::control::Cr3;
 
 use crate::arch::layout::PROCESS_STACK_SIZE;
-use crate::system::mem::vmm::AddressSpace;
+use crate::memory::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::vfs::{FdTable, VFSResult};
