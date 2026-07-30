@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use acpi::PciAddress;
 use pci_types::{Bar, EndpointHeader, HeaderType, PciHeader};
 
-use crate::drivers::pci::io::PciIO;
+use crate::devices::pci::io::PciIO;
 
 #[derive(Debug, Clone)]
 pub struct PciDevice {

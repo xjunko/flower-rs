@@ -6,7 +6,6 @@ pub mod elf;
 pub mod proc;
 pub mod smp;
 pub mod syscalls;
-// pub mod vfs_ng;
 pub mod vfs;
 
 pub enum KernelError {

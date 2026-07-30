@@ -7,8 +7,8 @@ use x86_64::VirtAddr;
 use x86_64::instructions::port::Port;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::drivers::pci::io::PciIO;
-use crate::drivers::pci::parser::PciBus;
+use crate::devices::pci::io::PciIO;
+use crate::devices::pci::parser::PciBus;
 use crate::memory;
 
 #[repr(C, packed)]

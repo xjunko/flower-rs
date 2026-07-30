@@ -3,7 +3,7 @@ use x86_64::instructions::port::Port;
 use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::arch::x86_64::apic;
-use crate::drivers::ps2::keyboard_defs::{
+use crate::devices::ps2::keyboard_defs::{
     scancode_to_ascii, scancode_to_keycode,
 };
 

@@ -9,15 +9,16 @@ extern crate alloc;
 mod acpi;
 mod arch;
 mod boot;
-mod drivers;
+mod devices;
+mod logging;
 mod memory;
 mod system;
 mod user;
 
 fn kernel_init() {
     assert!(boot::limine::BASE_REVISION.is_supported());
-    drivers::tty::serial::install();
-    drivers::tty::logging::install();
+    devices::tty::serial::install();
+    logging::install();
 
     arch::x86_64::install_cpu_features();
     arch::x86_64::gdt::install();
@@ -30,8 +31,8 @@ fn kernel_init() {
     acpi::install();
     arch::x86_64::apic::install();
 
-    drivers::ps2::install();
-    drivers::pci::install();
+    devices::ps2::install();
+    devices::pci::install();
 
     system::syscalls::install();
     system::proc::install();
@@ -42,15 +43,14 @@ fn kernel_init() {
 
     // past this point, the kernel can now do dynamic allocation
     system::vfs::install();
-    drivers::tty::terminal::install();
+    devices::tty::terminal::install();
     memory::self_test();
 }
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
     kernel_init();
-    // system::proc::spawn("userland-entry", user::entry);
-    println!("hello world!");
+    system::proc::spawn("userland-entry", user::entry);
     arch::x86_64::halt();
 }
 

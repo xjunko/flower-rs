@@ -1,6 +1,6 @@
 use alloc::string::ToString;
 
-use crate::drivers;
+use crate::devices;
 use crate::system::vfs::devfs::{DevFS, DevFile};
 
 struct DevFSAudio;
@@ -11,7 +11,7 @@ const AC97_FRAME_SIZE: usize = 4;
 fn audio_read(_offset: usize, _buf: &mut [u8]) -> usize { unimplemented!() }
 
 fn audio_write(_buf: &[u8]) -> usize {
-    let mut guard = drivers::pci::devices::ac97::get_driver();
+    let mut guard = devices::pci::drivers::ac97::get_driver();
     if let Some(driver) = guard.as_mut() {
         let mut total_written = 0;
 

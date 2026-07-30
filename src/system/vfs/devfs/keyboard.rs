@@ -4,7 +4,7 @@ use alloc::string::ToString;
 
 use spin::Mutex;
 
-use crate::drivers::ps2::keyboard::{KEYBOARD, KeyEvent, KeyboardSubscriber};
+use crate::devices::ps2::keyboard::{KEYBOARD, KeyEvent, KeyboardSubscriber};
 use crate::system::vfs::devfs::{DevFS, DevFile};
 
 static KB_BUFFER: Mutex<VecDeque<u8>> = Mutex::new(VecDeque::new());

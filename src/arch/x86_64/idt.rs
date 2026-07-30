@@ -5,7 +5,7 @@ use crate::arch::x86_64::gdt::DOUBLE_FAULT_IST_INDEX;
 use crate::arch::x86_64::interrupts::{
     InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
 };
-use crate::drivers::ps2::keyboard;
+use crate::devices::ps2::keyboard;
 use crate::{memory, println};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
