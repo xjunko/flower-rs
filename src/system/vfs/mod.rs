@@ -159,7 +159,8 @@ pub fn __read(path: &str) -> Result<Vec<u8>, &'static str> {
     let mut tmp = alloc::vec![0u8; 4096];
 
     loop {
-        let read = file.read(&mut tmp).map_err(|_| "failed to read file")?;
+        let read =
+            file.read(tmp.as_mut_slice()).map_err(|_| "failed to read file")?;
         if read == 0 {
             break;
         }

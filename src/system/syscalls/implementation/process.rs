@@ -80,7 +80,9 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         argv.push(path.to_string());
     }
 
-    if let Err(reason) = system::proc::user::execve(path, &argv, frame) {
+    if let Err(reason) =
+        system::proc::user::execve(path, argv.as_slice(), frame)
+    {
         log::error!("execve failed for path '{}': {:?}", path, reason);
         return Err(SyscallError::NoSuchFile);
     }

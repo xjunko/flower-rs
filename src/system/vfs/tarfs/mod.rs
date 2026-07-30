@@ -77,7 +77,7 @@ impl VFSImplementation for TarFS {
             let mut offset = 0;
 
             while offset + 512 <= data.len() {
-                let header = &data[offset..offset + 512];
+                let header = &data.as_ref()[offset..offset + 512];
                 if header.iter().all(|&b| b == 0) {
                     break;
                 }

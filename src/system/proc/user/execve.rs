@@ -28,7 +28,10 @@ pub fn execve(
     let argv_refs: Vec<&str> =
         argv_storage.iter().map(|arg| arg.as_str()).collect();
 
-    let image = system::proc::user::build_user_image(&elf_data, &argv_refs)?;
+    let image = system::proc::user::build_user_image(
+        elf_data.as_slice(),
+        argv_refs.as_slice(),
+    )?;
     let new_cr3 = image.address_space.cr3();
     let (current_frame, current_flags) = Cr3::read();
     if current_frame.start_address().as_u64() != new_cr3 {

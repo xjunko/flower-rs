@@ -30,7 +30,9 @@ impl Scheduler {
         let length = self.processes.len();
         for i in 1..length {
             let idx = (self.current + i) % length;
-            if self.processes[idx].lock().state == ProcessState::Ready {
+            if self.processes.get(idx).expect("process not found").lock().state
+                == ProcessState::Ready
+            {
                 return Some(idx);
             }
         }
@@ -43,7 +45,8 @@ impl Scheduler {
         while i > 0 {
             i -= 1;
             let reapable = {
-                let proc = self.processes[i].lock();
+                let proc =
+                    self.processes.get(i).expect("process not found").lock();
                 proc.state == ProcessState::Dead
                     || (proc.state == ProcessState::Zombie
                         && proc.parent_id.is_none())
@@ -52,7 +55,11 @@ impl Scheduler {
             if i != self.current && reapable {
                 log::trace!(
                     "reaping process {}",
-                    self.processes[i].lock().name
+                    self.processes
+                        .get(i)
+                        .expect("process not found")
+                        .lock()
+                        .name
                 );
                 self.processes.remove(i);
                 if i < self.current {
@@ -121,8 +128,13 @@ impl Scheduler {
 
         self.current = next;
 
-        let mut current_proc = self.processes[current].lock();
-        let mut next_proc = self.processes[next].lock();
+        let mut current_proc = self
+            .processes
+            .get(current)
+            .expect("current process not found")
+            .lock();
+        let mut next_proc =
+            self.processes.get(next).expect("next process not found").lock();
 
         if current_proc.state == ProcessState::Running {
             current_proc.state = ProcessState::Ready;

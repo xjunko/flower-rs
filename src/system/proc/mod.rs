@@ -6,7 +6,7 @@ mod trampoline;
 
 pub mod user;
 
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 
 pub use process::*;
@@ -82,9 +82,15 @@ pub fn name() -> String {
             .lock()
             .as_ref()
             .map(|sched| {
-                sched.processes[sched.current_idx()].lock().name.clone()
+                sched
+                    .processes
+                    .get(sched.current_idx())
+                    .expect("current process not found")
+                    .lock()
+                    .name
+                    .clone()
             })
-            .unwrap_or(String::from("undefined"))
+            .unwrap_or("undefined".to_string())
     })
 }
 

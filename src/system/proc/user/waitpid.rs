@@ -21,7 +21,11 @@ pub fn waitpid(pid: u64) -> Result<u64, &'static str> {
                 .ok_or("no child process")?;
 
             let status = {
-                let child = sched.processes[child_idx].lock();
+                let child = sched
+                    .processes
+                    .get(child_idx)
+                    .expect("child process not found")
+                    .lock();
                 if child.state != system::proc::ProcessState::Zombie {
                     return Ok(None);
                 }

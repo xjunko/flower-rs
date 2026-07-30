@@ -163,7 +163,7 @@ pub fn load_into(
                     .take_while(|&b| b != 0)
                     .collect::<Vec<u8>>();
 
-                let path = core::str::from_utf8(&bytes)
+                let path = core::str::from_utf8(bytes.as_slice())
                     .map_err(|_| "invalid interp path")?;
 
                 interp = Some(path.to_string());

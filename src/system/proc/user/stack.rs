@@ -121,15 +121,16 @@ pub fn build_user_image(
 
     // NOTE: dynamic linking, still a bit hacky, but it works
     if let Some(interp_path) = &loaded.interp {
-        if let Ok(interp_file) = system::vfs::open(interp_path, 0) {
+        if let Ok(interp_file) = system::vfs::open(interp_path.as_str(), 0) {
             match interp_file {
                 VFSFilelike::File(f) => {
                     let metadata =
                         f.metadata().expect("failed to get interp metadata.");
                     let mut buffer = alloc::vec![0u8; metadata.size];
-                    f.read(&mut buffer).expect("failed to read interp");
+                    f.read(buffer.as_mut_slice())
+                        .expect("failed to read interp");
                     let interp_loaded = elf::load_into(
-                        &buffer,
+                        buffer.as_slice(),
                         &address_space,
                         ELFLoadType::Interpreter,
                     )
@@ -183,7 +184,7 @@ pub fn build_user_image(
             let mut bytes = Vec::from(arg.as_bytes());
             bytes.push(0);
 
-            let arg_ptr = stack_builder.push_bytes(&bytes)?;
+            let arg_ptr = stack_builder.push_bytes(bytes.as_slice())?;
             argv_ptrs.push(arg_ptr);
         }
         argv_ptrs.reverse();

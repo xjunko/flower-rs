@@ -1,5 +1,5 @@
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -185,7 +185,7 @@ impl Process {
 
         Self {
             id,
-            name: String::from(name),
+            name: name.to_string(),
             state: ProcessState::Ready,
             level: ProcessLevel::RING0,
             address_space: None,
@@ -249,7 +249,7 @@ impl Process {
 
         Self {
             id,
-            name: String::from(name),
+            name: name.to_string(),
             state: ProcessState::Ready,
             level: ProcessLevel::RING3,
             address_space: Some(address_space),
@@ -370,7 +370,7 @@ pub fn null_process() -> Process {
 
     Process {
         id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
-        name: String::from("null"),
+        name: "null".to_string(),
         state: ProcessState::Running,
         level: ProcessLevel::RING0,
         address_space: None,
