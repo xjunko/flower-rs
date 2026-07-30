@@ -8,8 +8,8 @@ pub fn entry() {
             VFSFilelike::File(f) => {
                 let metadata = f.metadata().expect("invalid metadata");
                 let mut buffer = alloc::vec![0u8; metadata.size ];
-                f.read(&mut buffer).expect("failed to read file");
-                system::proc::user::spawn_elf("shell", &buffer)
+                f.read(buffer.as_mut_slice()).expect("failed to read file");
+                system::proc::user::spawn_elf("shell", buffer.as_mut_slice())
                     .expect("failed to spawn shell process");
             },
             _ => {
