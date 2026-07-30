@@ -34,7 +34,7 @@ struct AudioBuffer {
     data_written: usize,
 }
 
-pub struct Ac97 {
+struct Ac97 {
     nam: u16,
     nabm: u16,
     entry: usize,
@@ -62,7 +62,7 @@ impl Ac97 {
         unsafe { port.read() }
     }
 
-    pub fn set_volume(&mut self, vol: usize) {
+    fn set_volume(&mut self, vol: usize) {
         assert!(vol <= 100);
         self.volume = vol;
         let s = if vol == 0 { 31 } else { (31 * vol) / 100 };
@@ -84,7 +84,7 @@ impl Ac97 {
         self.nabm_write(0x10 + 0xB, s);
     }
 
-    pub fn can_write(&self) -> bool {
+    fn can_write(&self) -> bool {
         if !AC97_INITIALIZED.load(Ordering::SeqCst) {
             return false;
         }
@@ -141,7 +141,7 @@ impl Ac97 {
         }
     }
 
-    pub fn write_buffer(&mut self, buf: &[u8]) -> usize {
+    fn write_buffer(&mut self, buf: &[u8]) -> usize {
         assert!(buf.len() < AC97_BUFFER_SIZE);
 
         let _lock = self.lock.lock();
@@ -187,7 +187,26 @@ impl Ac97 {
 
 static AC97_DRIVER: Mutex<Option<Ac97>> = Mutex::new(None);
 
-pub fn get_driver() -> MutexGuard<'static, Option<Ac97>> { AC97_DRIVER.lock() }
+fn get_driver() -> MutexGuard<'static, Option<Ac97>> { AC97_DRIVER.lock() }
+
+pub fn ready() -> bool { AC97_INITIALIZED.load(Ordering::SeqCst) }
+
+pub fn busy() -> bool {
+    let guard = get_driver();
+    if let Some(driver) = guard.as_ref() { !driver.can_write() } else { false }
+}
+
+pub fn write(buf: &[u8]) -> usize {
+    let mut guard = get_driver();
+    if let Some(driver) = guard.as_mut() { driver.write_buffer(buf) } else { 0 }
+}
+
+pub fn set_volume(vol: usize) {
+    let mut guard = get_driver();
+    if let Some(driver) = guard.as_mut() {
+        driver.set_volume(vol)
+    }
+}
 
 pub fn install(pci: &PciBus) {
     if let Some(ac97) = pci.find_by_class(0x04, 0x01) {
