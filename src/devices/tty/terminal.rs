@@ -99,7 +99,7 @@ pub fn print(args: core::fmt::Arguments<'_>) {
 
     if let Some(term) = TERMINAL.get() {
         let mut term = term.lock();
-        let mut fixer = CrLfFixer { inner: &mut *term };
+        let mut fixer = CrLfFixer { inner: &mut term };
         fixer.write_fmt(args).unwrap();
     }
 }
