@@ -33,6 +33,7 @@ fn kernel_init() {
 
     devices::ps2::install();
     devices::pci::install();
+    devices::gpu::install();
 
     system::syscalls::install();
     system::proc::install();

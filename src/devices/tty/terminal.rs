@@ -6,59 +6,90 @@ use os_terminal::{DrawTarget, Terminal};
 use spin::Once;
 use spinning_top::Spinlock;
 
-use crate::boot::limine::FRAMEBUFFER_REQUEST;
+use crate::system::vfs::VFSFilelike::File;
+use crate::system::vfs::{self, VFSFilelike};
 
 type WrappedTerminal = Terminal<FramebufferTerminal>;
 static TERMINAL: Once<Spinlock<WrappedTerminal>> = Once::new();
 
-unsafe impl Send for FramebufferTerminal {}
-unsafe impl Sync for FramebufferTerminal {}
-
 pub struct FramebufferTerminal {
-    buffer: *mut u8,
-    width: usize,
-    height: usize,
-
-    bpp: usize,
-    pitch: usize,
+    info_file: Option<VFSFilelike>,
+    draw_file: Option<VFSFilelike>,
 }
 
 impl DrawTarget for FramebufferTerminal {
-    fn size(&self) -> (usize, usize) { (self.width, self.height) }
+    fn size(&self) -> (usize, usize) {
+        if let Some(ref fb_info) = self.info_file {
+            match fb_info {
+                File(f) => {
+                    // format goes like this:
+                    // [width: u32, height: u32]
+                    let mut buf = [0u8; 8];
+                    if let Ok(read_bytes) = f.read(&mut buf)
+                        && read_bytes == 8
+                    {
+                        let width =
+                            u32::from_le_bytes(buf[0..4].try_into().unwrap())
+                                as usize;
+                        let height =
+                            u32::from_le_bytes(buf[4..8].try_into().unwrap())
+                                as usize;
+                        return (width, height);
+                    }
+                },
+
+                _ => {
+                    unreachable!()
+                },
+            }
+        }
+        (0, 0)
+    }
 
     #[inline(always)]
     fn draw_pixel(&mut self, x: usize, y: usize, rgb: os_terminal::Rgb) {
-        let offset = y * self.pitch + x * self.bpp / 8;
-        unsafe {
-            let pixel = self.buffer.add(offset) as *mut u32;
-            *pixel =
-                (rgb.0 as u32) << 16 | (rgb.1 as u32) << 8 | (rgb.2 as u32);
+        if let Some(ref fb_info) = self.draw_file {
+            match fb_info {
+                File(f) => {
+                    // format goes like this:
+                    // [x: u32, y: u32, r: u8, g: u8, b: u8]
+                    let mut buf = [0u8; 11];
+                    buf[0..4].copy_from_slice(&(x as u32).to_le_bytes());
+                    buf[4..8].copy_from_slice(&(y as u32).to_le_bytes());
+                    buf[8] = rgb.0;
+                    buf[9] = rgb.1;
+                    buf[10] = rgb.2;
+
+                    if let Ok(written_bytes) = f.write(buf.as_mut_slice())
+                        && written_bytes == 11
+                    {
+                        return;
+                    }
+                },
+                _ => {
+                    unreachable!()
+                },
+            }
         }
     }
 }
 
 impl FramebufferTerminal {
     fn new() -> Option<WrappedTerminal> {
-        if let Some(framebuffer) = FRAMEBUFFER_REQUEST
-            .get_response()
-            .expect("no framebuffer")
-            .framebuffers()
-            .next()
-        {
-            let term = FramebufferTerminal {
-                buffer: framebuffer.addr(),
-                width: framebuffer.width() as usize,
-                height: framebuffer.height() as usize,
-                bpp: framebuffer.bpp() as usize,
-                pitch: framebuffer.pitch() as usize,
-            };
+        let mut term = FramebufferTerminal { info_file: None, draw_file: None };
 
-            let mut terminal = Terminal::new(term, Box::new(BitmapFont));
-            terminal.set_color_scheme(0);
-
-            return Some(terminal);
+        if let Ok(fb_info) = vfs::open("/dev/fb0/info", 0) {
+            term.info_file = Some(fb_info);
         }
-        None
+
+        if let Ok(fb_draw) = vfs::open("/dev/fb0/draw", 0) {
+            term.draw_file = Some(fb_draw);
+        }
+
+        let mut terminal = Terminal::new(term, Box::new(BitmapFont));
+        terminal.set_color_scheme(0);
+
+        return Some(terminal);
     }
 }
 
