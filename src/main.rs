@@ -18,6 +18,8 @@
 
 #![no_std]
 #![no_main]
+#![feature(const_index)]
+#![feature(const_trait_impl)]
 #![feature(abi_x86_interrupt)]
 #![allow(dead_code)]
 #![allow(clippy::manual_div_ceil)]
@@ -30,6 +32,7 @@ mod boot;
 mod devices;
 mod logging;
 mod memory;
+mod posix;
 mod system;
 mod user;
 

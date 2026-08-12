@@ -16,11 +16,4 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#![no_std]
-
-pub mod auxv;
-pub mod mmap;
-pub mod prctl;
-pub mod structs;
-pub mod syscalls;
-pub mod uapi;
+pub mod utsname;

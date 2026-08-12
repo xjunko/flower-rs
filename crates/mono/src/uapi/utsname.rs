@@ -16,11 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#![no_std]
-
-pub mod auxv;
-pub mod mmap;
-pub mod prctl;
-pub mod structs;
-pub mod syscalls;
-pub mod uapi;
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct utsname {
+    pub sysname: [u8; 65],
+    pub nodename: [u8; 65],
+    pub release: [u8; 65],
+    pub version: [u8; 65],
+    pub machine: [u8; 65],
+    pub domainname: [u8; 65],
+}
