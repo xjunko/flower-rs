@@ -13,9 +13,9 @@ fn audio_read(_offset: usize, _buf: &mut [u8]) -> usize { unimplemented!() }
 fn audio_write(buf: &[u8]) -> usize {
     if devices::pci::drivers::ac97::ready() {
         let mut total_written = 0;
-        let mut chunks = buf.chunks_exact(AC97_WRITE_CHUNK_SIZE);
+        let (chunks, remainder) = buf.as_chunks::<AC97_WRITE_CHUNK_SIZE>();
 
-        for chunk in &mut chunks {
+        for chunk in chunks {
             while devices::pci::drivers::ac97::busy() {
                 core::hint::spin_loop();
             }
@@ -28,7 +28,7 @@ fn audio_write(buf: &[u8]) -> usize {
         }
 
         // tail
-        let tail = chunks.remainder();
+        let tail = remainder;
         let aligned_len = tail.len() - (tail.len() % AC97_FRAME_SIZE);
         if aligned_len > 0 {
             while devices::pci::drivers::ac97::busy() {

@@ -47,6 +47,7 @@ fn framebuffer_info(_offset: usize, buf: &mut [u8]) -> usize {
 fn framebuffer_draw_pixel(buf: &[u8]) -> usize {
     // format goes like this:
     // [x: u32, y: u32, r: u8, g: u8, b: u8]
+
     if buf.len() < 11 {
         return 0;
     }

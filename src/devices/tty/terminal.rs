@@ -54,16 +54,15 @@ impl DrawTarget for FramebufferTerminal {
                     // format goes like this:
                     // [x: u32, y: u32, r: u8, g: u8, b: u8]
                     let mut buf = [0u8; 11];
+
                     buf[0..4].copy_from_slice(&(x as u32).to_le_bytes());
                     buf[4..8].copy_from_slice(&(y as u32).to_le_bytes());
                     buf[8] = rgb.0;
                     buf[9] = rgb.1;
                     buf[10] = rgb.2;
 
-                    if let Ok(written_bytes) = f.write(buf.as_mut_slice())
-                        && written_bytes == 11
-                    {
-                        return;
+                    if f.write(buf.as_mut_slice()).is_err() {
+                        log::error!("failed to write to framebuffer");
                     }
                 },
                 _ => {
@@ -89,7 +88,7 @@ impl FramebufferTerminal {
         let mut terminal = Terminal::new(term, Box::new(BitmapFont));
         terminal.set_color_scheme(0);
 
-        return Some(terminal);
+        Some(terminal)
     }
 }
 
