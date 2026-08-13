@@ -17,6 +17,7 @@
  */
 
 use spin::Once;
+use x86_64::VirtAddr;
 
 use crate::boot::limine::FRAMEBUFFER_REQUEST;
 
@@ -26,7 +27,7 @@ unsafe impl Send for LimineFramebuffer {}
 unsafe impl Sync for LimineFramebuffer {}
 
 pub struct LimineFramebuffer {
-    buffer: *mut u8,
+    addr: VirtAddr,
     pub width: usize,
     pub height: usize,
     pub bpp: usize,
@@ -42,7 +43,7 @@ impl LimineFramebuffer {
             .next()
         {
             let fb = LimineFramebuffer {
-                buffer: framebuffer.addr(),
+                addr: VirtAddr::new(framebuffer.addr() as u64),
                 width: framebuffer.width() as usize,
                 height: framebuffer.height() as usize,
                 bpp: framebuffer.bpp() as usize,
@@ -51,7 +52,7 @@ impl LimineFramebuffer {
 
             log::debug!(
                 "Framebuffer: Addr={:#x} Res={}x{} Col={}bpp",
-                fb.buffer as usize,
+                fb.addr.as_u64() as usize,
                 fb.width,
                 fb.height,
                 fb.bpp
@@ -63,14 +64,14 @@ impl LimineFramebuffer {
         None
     }
 
-    pub fn addr(&self) -> *mut u8 { self.buffer }
+    pub fn addr(&self) -> VirtAddr { self.addr }
 
     pub fn size(&self) -> (usize, usize) { (self.width, self.height) }
 
     pub fn draw_pixel(&self, x: usize, y: usize, rgb: (u8, u8, u8)) {
         let offset = y * self.pitch + x * self.bpp / 8;
         unsafe {
-            let pixel = self.buffer.add(offset) as *mut u32;
+            let pixel = (self.addr + offset as u64).as_mut_ptr::<u32>();
             *pixel =
                 (rgb.0 as u32) << 16 | (rgb.1 as u32) << 8 | (rgb.2 as u32);
         }

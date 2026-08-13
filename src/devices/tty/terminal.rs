@@ -19,6 +19,7 @@
 use alloc::boxed::Box;
 use core::fmt::Write;
 
+use flower_mono::kapi::framebuffer::{fb_draw_pixel, fb_info};
 use os_terminal::font::BitmapFont;
 use os_terminal::{DrawTarget, Terminal};
 use spin::Once;
@@ -37,23 +38,19 @@ pub struct FramebufferTerminal {
 
 impl DrawTarget for FramebufferTerminal {
     fn size(&self) -> (usize, usize) {
-        if let Some(ref fb_info) = self.info_file {
-            match fb_info {
+        if let Some(ref fb_file) = self.info_file {
+            match fb_file {
                 File(f) => {
-                    // format goes like this:
-                    // [width: u32, height: u32]
-                    let mut buf = [0u8; 8];
+                    let mut buf = [0u8; fb_info::SIZE];
+
                     if let Ok(read_bytes) = f.read(&mut buf)
-                        && read_bytes == 8
+                        && read_bytes == buf.len()
+                        && let Some(info) = fb_info::from_bytes(&buf)
                     {
-                        let width =
-                            u32::from_le_bytes(buf[0..4].try_into().unwrap())
-                                as usize;
-                        let height =
-                            u32::from_le_bytes(buf[4..8].try_into().unwrap())
-                                as usize;
-                        return (width, height);
+                        return (info.width as usize, info.height as usize);
                     }
+
+                    return (0, 0);
                 },
 
                 _ => {
@@ -69,17 +66,15 @@ impl DrawTarget for FramebufferTerminal {
         if let Some(ref fb_info) = self.draw_file {
             match fb_info {
                 File(f) => {
-                    // format goes like this:
-                    // [x: u32, y: u32, r: u8, g: u8, b: u8]
-                    let mut buf = [0u8; 11];
+                    let draw = fb_draw_pixel {
+                        x: x as u32,
+                        y: y as u32,
+                        r: rgb.0,
+                        g: rgb.1,
+                        b: rgb.2,
+                    };
 
-                    buf[0..4].copy_from_slice(&(x as u32).to_le_bytes());
-                    buf[4..8].copy_from_slice(&(y as u32).to_le_bytes());
-                    buf[8] = rgb.0;
-                    buf[9] = rgb.1;
-                    buf[10] = rgb.2;
-
-                    if f.write(buf.as_mut_slice()).is_err() {
+                    if f.write(draw.to_bytes().as_mut_slice()).is_err() {
                         log::error!("failed to write to framebuffer");
                     }
                 },

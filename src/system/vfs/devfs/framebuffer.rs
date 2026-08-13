@@ -19,6 +19,8 @@
 use alloc::string::ToString;
 use core::ffi::c_int;
 
+use flower_mono::kapi::framebuffer::{fb_draw_pixel, fb_info};
+
 use crate::devices;
 use crate::system::vfs::devfs::{DevFS, DevFile};
 use crate::system::vfs::{VFSError, VFSResult};
@@ -35,49 +37,46 @@ fn framebuffer_mmap(
     _offset: u64,
 ) -> VFSResult<*mut u8> {
     if let Some(fb) = devices::gpu::fb::get() {
-        // TODO: we should probably point it to a virtual address instead.
-        Ok(fb.addr())
+        // NOTE: limine already maps the framebuffer.
+        Ok(fb.addr().as_mut_ptr::<u8>())
     } else {
         Err(VFSError::NotFound)
     }
 }
 
 fn framebuffer_info(_offset: usize, buf: &mut [u8]) -> usize {
-    // format goes like this:
-    // [width: u32, height: u32]
-    if buf.len() < 8 {
+    let info = match devices::gpu::fb::get() {
+        Some(fb) => fb_info {
+            width: fb.width as u32,
+            height: fb.height as u32,
+            bpp: fb.bpp as u32,
+            pitch: fb.pitch as u32,
+        },
+        None => return 0,
+    };
+
+    if buf.len() < fb_info::SIZE {
         return 0;
     }
 
-    if let Some(fb) = devices::gpu::fb::get() {
-        let width_bytes = (fb.width as u32).to_le_bytes();
-        let height_bytes = (fb.height as u32).to_le_bytes();
+    buf[..fb_info::SIZE].copy_from_slice(info.to_bytes().as_slice());
 
-        buf[0..4].copy_from_slice(&width_bytes);
-        buf[4..8].copy_from_slice(&height_bytes);
-
-        return 8;
-    }
-
-    0
+    fb_info::SIZE
 }
 
 fn framebuffer_draw_pixel(buf: &[u8]) -> usize {
-    // format goes like this:
-    // [x: u32, y: u32, r: u8, g: u8, b: u8]
-
-    if buf.len() < 11 {
+    if buf.len() < fb_draw_pixel::SIZE {
         return 0;
     }
 
-    let x = u32::from_le_bytes(buf[0..4].try_into().unwrap()) as usize;
-    let y = u32::from_le_bytes(buf[4..8].try_into().unwrap()) as usize;
-    let r = buf[8];
-    let g = buf[9];
-    let b = buf[10];
-
-    if let Some(fb) = devices::gpu::fb::get() {
-        fb.draw_pixel(x, y, (r, g, b));
+    if let Some(draw) = fb_draw_pixel::from_bytes(buf)
+        && let Some(fb) = devices::gpu::fb::get()
+    {
+        fb.draw_pixel(
+            draw.x as usize,
+            draw.y as usize,
+            (draw.r, draw.g, draw.b),
+        );
     }
 
     0
