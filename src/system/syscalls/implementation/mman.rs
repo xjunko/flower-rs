@@ -25,7 +25,8 @@ use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::x86_64::layout::PAGE_SIZE;
-use crate::memory::{self, vmm};
+use crate::memory::vmm::AddressSpace;
+use crate::memory::{self};
 use crate::system::ToSyscallError;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
@@ -136,7 +137,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     data.add(i as usize * arch::x86_64::layout::PAGE_SIZE)
                         as u64
                 });
-                let src_phys = vmm::virt_to_phys(src_virt).ok_or_else(|| {
+                let src_phys = AddressSpace::virt_to_phys(src_virt).ok_or_else(|| {
                     log::error!(
                         "mmap failed: could not translate source virt {:#x} to phys",
                         src_virt.as_u64()

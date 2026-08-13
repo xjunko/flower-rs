@@ -27,7 +27,7 @@ use x86_64::structures::paging::PageTableFlags;
 
 use crate::devices::pci::io::PciIO;
 use crate::devices::pci::parser::PciBus;
-use crate::memory;
+use crate::memory::vmm::AddressSpace;
 
 #[repr(C, packed)]
 struct BDL_Entry {
@@ -120,6 +120,8 @@ impl Ac97 {
     }
 
     fn setup_buffers(&mut self) {
+        let address_space = AddressSpace::current();
+
         unsafe {
             let bdl_entries = self.bdl_virt.as_mut_ptr::<BDL_Entry>();
 
@@ -129,16 +131,17 @@ impl Ac97 {
                 );
 
                 assert!(
-                    !memory::vmm::page_is_mapped(vaddr),
+                    !address_space.is_mapped(vaddr),
                     "AC97 buffer virt collision at {:#x}",
                     vaddr.as_u64()
                 );
 
-                let phys = memory::vmm::page_map_alloc(
-                    vaddr,
-                    PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-                )
-                .expect("failed to allocate ac97 buffers");
+                let phys = address_space
+                    .map_page_alloc(
+                        vaddr,
+                        PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+                    )
+                    .expect("failed to allocate ac97 buffers");
 
                 self.buffers[i] = AudioBuffer {
                     virt: vaddr,
@@ -227,6 +230,8 @@ pub fn set_volume(vol: usize) {
 }
 
 pub fn install(pci: &PciBus) {
+    let address_space = AddressSpace::current();
+
     if let Some(ac97) = pci.find_by_class(0x04, 0x01) {
         let nam = ac97.bars[0].unwrap().unwrap_io() as u16;
         let nabm = ac97.bars[1].unwrap().unwrap_io() as u16;
@@ -235,16 +240,17 @@ pub fn install(pci: &PciBus) {
 
         let bdl_virt_addr = VirtAddr::new(AC97_BDL_VIRT_BASE);
         assert!(
-            !memory::vmm::page_is_mapped(bdl_virt_addr),
+            !address_space.is_mapped(bdl_virt_addr),
             "AC97 BDL virt collision at {:#x}",
             bdl_virt_addr.as_u64()
         );
 
-        let bdl_phys = memory::vmm::page_map_alloc(
-            bdl_virt_addr,
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-        )
-        .expect("failed to allocate ac97 bdl");
+        let bdl_phys = address_space
+            .map_page_alloc(
+                bdl_virt_addr,
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+            )
+            .expect("failed to allocate ac97 bdl");
         let bdl_virt = bdl_virt_addr;
 
         let mut driver = Ac97 {

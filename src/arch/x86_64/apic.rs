@@ -27,7 +27,7 @@ use x86_64::{PhysAddr, VirtAddr};
 
 use crate::acpi;
 use crate::arch::x86_64::interrupts::InterruptIndex;
-use crate::memory::vmm;
+use crate::memory::vmm::AddressSpace;
 
 // legacy pic
 const PIC1: u16 = 0x20;
@@ -145,6 +145,7 @@ pub fn install() {
 
     // check if we can even use it
     let cpuid = CpuId::new();
+    let address_space = AddressSpace::current();
     if let Some(finfo) = cpuid.get_feature_info() {
         // check for x2apic
         if finfo.has_x2apic() {
@@ -178,12 +179,13 @@ pub fn install() {
         let flags = PageTableFlags::PRESENT
             | PageTableFlags::WRITABLE
             | PageTableFlags::NO_CACHE;
-        vmm::page_map(
-            VirtAddr::new(LAPIC_VIRT),
-            apic_base.start_address(),
-            flags,
-        )
-        .expect("failed to map lapic.");
+        address_space
+            .map_page(
+                VirtAddr::new(LAPIC_VIRT),
+                apic_base.start_address(),
+                flags,
+            )
+            .expect("failed to map lapic.");
 
         // also map ioapic
         let acpi_tables = acpi::get();
@@ -192,12 +194,13 @@ pub fn install() {
         }
         let ioapic_addr = acpi_tables.ioapics[0].address;
         log::debug!("ioapic addr: {:#x}", ioapic_addr);
-        vmm::page_map(
-            VirtAddr::new(IOAPIC_VIRT),
-            PhysAddr::new(ioapic_addr as u64),
-            flags,
-        )
-        .expect("failed to map ioapic");
+        address_space
+            .map_page(
+                VirtAddr::new(IOAPIC_VIRT),
+                PhysAddr::new(ioapic_addr as u64),
+                flags,
+            )
+            .expect("failed to map ioapic");
 
         // enable spurious
         unsafe {
