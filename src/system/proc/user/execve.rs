@@ -42,11 +42,9 @@ pub fn execve(
 ) -> Result<(), &'static str> {
     let elf_data;
 
-    if let Ok(elf_file) = system::vfs2::open(
-        path,
-        OpenFlags::from_bits(OpenFlags::RDONLY),
-        Credentials::ROOT,
-    ) {
+    if let Ok(elf_file) =
+        system::vfs2::open(path, OpenFlags::RDONLY, Credentials::ROOT)
+    {
         let metadata =
             elf_file.metadata().map_err(|_| "failed to get metadata")?;
         let mut buffer = alloc::vec![0u8; metadata.size];

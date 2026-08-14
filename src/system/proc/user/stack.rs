@@ -142,7 +142,7 @@ pub fn build_user_image(
     if let Some(interp_path) = &loaded.interp {
         if let Ok(interp_file) = system::vfs2::open(
             interp_path.as_str(),
-            OpenFlags::from_bits(OpenFlags::RDONLY),
+            OpenFlags::RDONLY,
             Credentials::ROOT,
         ) {
             let metadata =

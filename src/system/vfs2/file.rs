@@ -29,20 +29,20 @@ use crate::system::vfs2::inode::{DirectoryEntry, FileType, Inode, Metadata};
 pub struct OpenFlags(u32);
 
 impl OpenFlags {
-    pub const APPEND: u32 = 1 << 4;
-    pub const CREATE: u32 = 1 << 2;
-    pub const DIRECTORY: u32 = 1 << 5;
-    pub const EXCLUSIVE: u32 = 1 << 6;
-    pub const RDONLY: u32 = 0;
-    pub const RDWR: u32 = 1 << 1;
-    pub const TRUNCATE: u32 = 1 << 3;
-    pub const WRONLY: u32 = 1 << 0;
+    pub const APPEND: Self = Self(1 << 4);
+    pub const CREATE: Self = Self(1 << 2);
+    pub const DIRECTORY: Self = Self(1 << 5);
+    pub const EXCLUSIVE: Self = Self(1 << 6);
+    pub const RDONLY: Self = Self(0);
+    pub const RDWR: Self = Self(1 << 1);
+    pub const TRUNCATE: Self = Self(1 << 3);
+    pub const WRONLY: Self = Self(1 << 0);
 
-    pub fn from_bits(bits: u32) -> Self { Self(bits) }
+    pub const fn from_bits(bits: u32) -> Self { Self(bits) }
 
-    pub fn bits(&self) -> u32 { self.0 }
+    pub const fn bits(&self) -> u32 { self.0 }
 
-    pub fn contains(&self, flag: u32) -> bool { self.0 & flag != 0 }
+    pub fn contains(&self, flag: Self) -> bool { self.0 & flag.0 != 0 }
 
     pub fn readable(&self) -> bool {
         !self.contains(Self::WRONLY) || self.contains(Self::RDWR)

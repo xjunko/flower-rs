@@ -67,11 +67,9 @@ impl FramebufferTerminal {
     fn new() -> Option<WrappedTerminal> {
         let mut term = FramebufferTerminal { fb_info: None, fb_addr: None };
 
-        if let Ok(fb_file) = vfs2::open(
-            "/dev/fb0",
-            OpenFlags::from_bits(OpenFlags::RDONLY),
-            Credentials::ROOT,
-        ) {
+        if let Ok(fb_file) =
+            vfs2::open("/dev/fb0", OpenFlags::RDONLY, Credentials::ROOT)
+        {
             let mut buf = [0u8; fb_info::SIZE];
             let fb_info_file = fb_file.clone();
             fb_info_file.read(&mut buf).expect("/dev/fb0 failed to read");
