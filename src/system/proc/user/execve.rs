@@ -27,8 +27,8 @@ use crate::arch::x86_64::layout::{PAGE_SIZE, USER_STACK_TOP_PAGE};
 use crate::system;
 use crate::system::proc::ProcessLevel;
 use crate::system::syscalls::SyscallFrame;
-use crate::system::vfs2::file::OpenFlags;
-use crate::system::vfs2::perm::Credentials;
+use crate::system::vfs::file::OpenFlags;
+use crate::system::vfs::perm::Credentials;
 
 fn process_name_from_path(path: &str) -> String {
     path.rsplit('/').find(|part| !part.is_empty()).unwrap_or(path).to_string()
@@ -43,7 +43,7 @@ pub fn execve(
     let elf_data;
 
     if let Ok(elf_file) =
-        system::vfs2::open(path, OpenFlags::RDONLY, Credentials::ROOT)
+        system::vfs::open(path, OpenFlags::RDONLY, Credentials::ROOT)
     {
         let metadata =
             elf_file.metadata().map_err(|_| "failed to get metadata")?;

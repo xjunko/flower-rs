@@ -30,7 +30,7 @@ use crate::memory::{self};
 use crate::system::ToSyscallError;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
-use crate::system::vfs2::error::VfsError;
+use crate::system::vfs::error::VfsError;
 use crate::{arch, system};
 
 #[allow(clippy::manual_is_multiple_of)]

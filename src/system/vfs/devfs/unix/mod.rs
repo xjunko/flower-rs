@@ -20,7 +20,7 @@ mod fb;
 mod snd;
 mod stdin;
 
-use crate::system::vfs2::devfs::DevFs;
+use crate::system::vfs::devfs::DevFs;
 
 pub fn create() -> DevFs {
     let mut mnt = DevFs::new();

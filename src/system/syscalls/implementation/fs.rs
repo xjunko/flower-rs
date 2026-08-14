@@ -21,9 +21,9 @@ use core::ffi::{CStr, c_char};
 use flower_mono::structs::FileStat;
 
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
-use crate::system::vfs2::error::VfsError;
-use crate::system::vfs2::file::{OpenFlags, Whence};
-use crate::system::vfs2::perm::Credentials;
+use crate::system::vfs::error::VfsError;
+use crate::system::vfs::file::{OpenFlags, Whence};
+use crate::system::vfs::perm::Credentials;
 use crate::system::{self, ToSyscallError};
 
 pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -34,7 +34,7 @@ pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     // TODO: handle directory
     if let Ok(file) =
-        system::vfs2::open(path, OpenFlags::from_bits(flags), Credentials::ROOT)
+        system::vfs::open(path, OpenFlags::from_bits(flags), Credentials::ROOT)
     {
         let result = system::proc::with_fd_table(|table| table.install(file));
         Ok(result.map(|fd| fd as u64).unwrap_or(u64::MAX))
@@ -55,7 +55,7 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         },
         Err(_) => {
             log::error!("read syscall: fd {} is not readable", fd);
-            Err(system::vfs2::error::VfsError::PermissionDenied)
+            Err(system::vfs::error::VfsError::PermissionDenied)
         },
     });
 

@@ -21,8 +21,8 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ffi::c_int;
 
-use crate::system::vfs2::error::VfsResult;
-use crate::system::vfs2::perm::Permissions;
+use crate::system::vfs::error::VfsResult;
+use crate::system::vfs::perm::Permissions;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileType {

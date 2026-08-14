@@ -34,8 +34,8 @@ use x86_64::instructions::interrupts;
 pub use self::exit::exit;
 pub use self::sleep::sleep;
 use crate::system::proc::scheduler::Scheduler;
-use crate::system::vfs2::error::{VfsError, VfsResult};
-use crate::system::vfs2::fd::FdTable;
+use crate::system::vfs::error::{VfsError, VfsResult};
+use crate::system::vfs::fd::FdTable;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 

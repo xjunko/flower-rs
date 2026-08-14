@@ -28,8 +28,8 @@ use crate::arch::x86_64::layout::PROCESS_STACK_SIZE;
 use crate::memory::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
-use crate::system::vfs2::error::VfsResult;
-use crate::system::vfs2::fd::FdTable;
+use crate::system::vfs::error::VfsResult;
+use crate::system::vfs::fd::FdTable;
 use crate::{arch, system};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);

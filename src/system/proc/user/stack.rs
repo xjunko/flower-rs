@@ -27,8 +27,8 @@ use crate::arch::x86_64::layout::{
 };
 use crate::memory::vmm::AddressSpace;
 use crate::system::elf::{self, ELFLoadType};
-use crate::system::vfs2::file::OpenFlags;
-use crate::system::vfs2::perm::Credentials;
+use crate::system::vfs::file::OpenFlags;
+use crate::system::vfs::perm::Credentials;
 use crate::{arch, system};
 
 pub struct UserImageInfo {
@@ -140,7 +140,7 @@ pub fn build_user_image(
 
     // NOTE: dynamic linking, still a bit hacky, but it works
     if let Some(interp_path) = &loaded.interp {
-        if let Ok(interp_file) = system::vfs2::open(
+        if let Ok(interp_file) = system::vfs::open(
             interp_path.as_str(),
             OpenFlags::RDONLY,
             Credentials::ROOT,

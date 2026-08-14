@@ -18,8 +18,8 @@
 
 use alloc::sync::Arc;
 
-use crate::system::vfs2::error::VfsResult;
-use crate::system::vfs2::inode::Inode;
+use crate::system::vfs::error::VfsResult;
+use crate::system::vfs::inode::Inode;
 
 pub trait FileSystem: Send + Sync {
     fn name(&self) -> &str;

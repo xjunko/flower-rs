@@ -17,13 +17,13 @@
  */
 
 use crate::system::syscalls::SyscallError;
-use crate::system::vfs2::error::VfsError;
+use crate::system::vfs::error::VfsError;
 
 pub mod elf;
 pub mod proc;
 pub mod smp;
 pub mod syscalls;
-pub mod vfs2;
+pub mod vfs;
 
 pub enum KernelError {
     FileSystem(VfsError),

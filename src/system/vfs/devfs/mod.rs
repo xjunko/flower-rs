@@ -25,10 +25,10 @@ use alloc::vec::Vec;
 use core::ffi::c_int;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::system::vfs2::error::{VfsError, VfsResult};
-use crate::system::vfs2::fs::FileSystem;
-use crate::system::vfs2::inode::{DirectoryEntry, FileType, Inode, Metadata};
-use crate::system::vfs2::perm::Permissions;
+use crate::system::vfs::error::{VfsError, VfsResult};
+use crate::system::vfs::fs::FileSystem;
+use crate::system::vfs::inode::{DirectoryEntry, FileType, Inode, Metadata};
+use crate::system::vfs::perm::Permissions;
 
 type ReadFn = fn(usize, &mut [u8]) -> VfsResult<usize>;
 type WriteFn = fn(&[u8]) -> VfsResult<usize>;

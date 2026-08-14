@@ -24,12 +24,12 @@ use alloc::vec::Vec;
 
 use spin::{Lazy, Mutex};
 
-use crate::system::vfs2::error::{VfsError, VfsResult};
-use crate::system::vfs2::file::{File, OpenFlags};
-use crate::system::vfs2::fs::FileSystem;
-use crate::system::vfs2::inode::{FileType, Inode, Metadata};
-use crate::system::vfs2::path::{components, join, normalize, parent_and_name};
-use crate::system::vfs2::perm::{Access, Credentials};
+use crate::system::vfs::error::{VfsError, VfsResult};
+use crate::system::vfs::file::{File, OpenFlags};
+use crate::system::vfs::fs::FileSystem;
+use crate::system::vfs::inode::{FileType, Inode, Metadata};
+use crate::system::vfs::path::{components, join, normalize, parent_and_name};
+use crate::system::vfs::perm::{Access, Credentials};
 
 // internals
 pub mod error;

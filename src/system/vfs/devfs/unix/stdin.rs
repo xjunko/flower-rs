@@ -23,8 +23,8 @@ use alloc::string::ToString;
 use spin::Mutex;
 
 use crate::devices::ps2::keyboard::{KEYBOARD, KeyEvent, KeyboardSubscriber};
-use crate::system::vfs2::devfs::{DevFile, DevFs};
-use crate::system::vfs2::error::VfsResult;
+use crate::system::vfs::devfs::{DevFile, DevFs};
+use crate::system::vfs::error::VfsResult;
 
 static KB_BUFFER: Mutex<VecDeque<u8>> = Mutex::new(VecDeque::new());
 

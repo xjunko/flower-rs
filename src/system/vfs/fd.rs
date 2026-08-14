@@ -19,8 +19,8 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::system::vfs2::error::{VfsError, VfsResult};
-use crate::system::vfs2::file::File;
+use crate::system::vfs::error::{VfsError, VfsResult};
+use crate::system::vfs::file::File;
 
 pub const MAX_FDS: usize = 128;
 

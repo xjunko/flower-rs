@@ -22,8 +22,8 @@ use core::ffi::c_int;
 
 use spin::Mutex;
 
-use crate::system::vfs2::error::{VfsError, VfsResult};
-use crate::system::vfs2::inode::{DirectoryEntry, FileType, Inode, Metadata};
+use crate::system::vfs::error::{VfsError, VfsResult};
+use crate::system::vfs::inode::{DirectoryEntry, FileType, Inode, Metadata};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenFlags(u32);

@@ -16,14 +16,14 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::system::vfs2::file::OpenFlags;
-use crate::system::vfs2::perm::Credentials;
+use crate::system::vfs::file::OpenFlags;
+use crate::system::vfs::perm::Credentials;
 use crate::system::{self};
 
 const SHELL_PATH: &str = "/bin/shell";
 pub fn entry() {
     if let Ok(file) =
-        system::vfs2::open(SHELL_PATH, OpenFlags::RDONLY, Credentials::ROOT)
+        system::vfs::open(SHELL_PATH, OpenFlags::RDONLY, Credentials::ROOT)
     {
         let metadata = file.metadata().expect("invalid metadata");
         let mut buffer = alloc::vec![0u8; metadata.size ];

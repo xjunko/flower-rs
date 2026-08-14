@@ -19,8 +19,8 @@
 use alloc::format;
 use alloc::string::ToString;
 
-use crate::system::vfs2::devfs::{DevFile, DevFs};
-use crate::system::vfs2::error::VfsResult;
+use crate::system::vfs::devfs::{DevFile, DevFs};
+use crate::system::vfs::error::VfsResult;
 use crate::{arch, memory};
 
 fn meminfo_read(offset: usize, buf: &mut [u8]) -> VfsResult<usize> {

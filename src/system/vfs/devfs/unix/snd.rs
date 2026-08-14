@@ -19,8 +19,8 @@
 use alloc::string::ToString;
 
 use crate::devices;
-use crate::system::vfs2::devfs::{DevFile, DevFs};
-use crate::system::vfs2::error::{VfsError, VfsResult};
+use crate::system::vfs::devfs::{DevFile, DevFs};
+use crate::system::vfs::error::{VfsError, VfsResult};
 
 struct DevFSAudio;
 

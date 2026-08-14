@@ -22,8 +22,8 @@ use core::ffi::c_int;
 use flower_mono::kapi::framebuffer::fb_info;
 
 use crate::devices;
-use crate::system::vfs2::devfs::{DevFile, DevFs};
-use crate::system::vfs2::error::{VfsError, VfsResult};
+use crate::system::vfs::devfs::{DevFile, DevFs};
+use crate::system::vfs::error::{VfsError, VfsResult};
 
 fn fb_mmap(
     _size: usize,

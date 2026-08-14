@@ -25,9 +25,9 @@ use os_terminal::{DrawTarget, Terminal};
 use spin::Once;
 use spinning_top::Spinlock;
 
-use crate::system::vfs2;
-use crate::system::vfs2::file::OpenFlags;
-use crate::system::vfs2::perm::Credentials;
+use crate::system::vfs;
+use crate::system::vfs::file::OpenFlags;
+use crate::system::vfs::perm::Credentials;
 
 type WrappedTerminal = Terminal<FramebufferTerminal>;
 static TERMINAL: Once<Spinlock<WrappedTerminal>> = Once::new();
@@ -68,7 +68,7 @@ impl FramebufferTerminal {
         let mut term = FramebufferTerminal { fb_info: None, fb_addr: None };
 
         if let Ok(fb_file) =
-            vfs2::open("/dev/fb0", OpenFlags::RDONLY, Credentials::ROOT)
+            vfs::open("/dev/fb0", OpenFlags::RDONLY, Credentials::ROOT)
         {
             let mut buf = [0u8; fb_info::SIZE];
             let fb_info_file = fb_file.clone();
