@@ -44,8 +44,8 @@ pub fn install() {
     let (pml4_frame, _) = Cr3::read();
     KERNEL_SPACE.lock().replace(AddressSpace::wrap(pml4_frame.start_address()));
 
-    log::info!("VMM installed.");
-    log::info!("PML4 physical address: {:#x}.", pml4_frame.start_address());
+    log::info!("vmm installed.");
+    log::info!("pml4 physical address: {:#x}.", pml4_frame.start_address());
 }
 
 fn hhdm() -> u64 { HHDM.lock().expect("no hhdm") }
@@ -66,7 +66,7 @@ impl AddressSpace {
         }
 
         let kernel_pml4_phys = PhysAddr::new(
-            KERNEL_SPACE.lock().as_ref().ok_or("VMM not initialized")?.cr3(),
+            KERNEL_SPACE.lock().as_ref().ok_or("vmm not initialized")?.cr3(),
         );
 
         unsafe {
@@ -98,7 +98,7 @@ impl AddressSpace {
     /// returns the kernel address space
     pub fn kernel() -> Self {
         let kernel_space = KERNEL_SPACE.lock();
-        let kernel_space = kernel_space.as_ref().expect("VMM not initialized");
+        let kernel_space = kernel_space.as_ref().expect("vmm not initialized");
         Self::wrap(PhysAddr::new(kernel_space.cr3()))
     }
 
@@ -455,7 +455,7 @@ impl Drop for AddressSpace {
 
         if current_pml4.start_address() == pml4_phys {
             log::error!(
-                "refusing to free active address space PML4 at {:#x}",
+                "refusing to free active address space pml4 at {:#x}",
                 pml4_phys.as_u64()
             );
             return;
@@ -463,7 +463,7 @@ impl Drop for AddressSpace {
 
         if KERNEL_SPACE.lock().as_ref().unwrap().cr3() == pml4_phys.as_u64() {
             log::error!(
-                "refusing to free kernel address space PML4 at {:#x}",
+                "refusing to free kernel address space pml4 at {:#x}",
                 pml4_phys.as_u64()
             );
             return;
@@ -475,7 +475,7 @@ impl Drop for AddressSpace {
         memory::pmm::free(pml4_phys.as_u64());
 
         log::trace!(
-            "dropped address space and freed PML4 at {:#x}",
+            "dropped address space and freed pml4 at {:#x}",
             pml4_phys.as_u64()
         );
     }

@@ -78,10 +78,10 @@ pub fn install() {
         DS::set_reg(GDT.1.kernel_data);
         ES::set_reg(GDT.1.kernel_data);
         SS::set_reg(GDT.1.kernel_data);
-        log::info!("GDT loaded.");
+        log::info!("gdt loaded.");
 
         load_tss(GDT.1.tss);
-        log::info!("TSS loaded.")
+        log::info!("tss loaded.")
     }
 }
 

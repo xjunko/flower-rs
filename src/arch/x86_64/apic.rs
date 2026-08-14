@@ -150,7 +150,7 @@ pub fn install() {
         // check for x2apic
         if finfo.has_x2apic() {
             log::error!(
-                "x2apic is supported, but kernel doesn't know what to do with it yet, going with APIC"
+                "x2apic is supported, but kernel doesn't know what to do with it yet, going with apic"
             );
         }
 

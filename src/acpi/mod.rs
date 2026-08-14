@@ -31,9 +31,9 @@ pub static ACPI_TABLES: Once<KernelAcpiTables> = Once::new();
 pub fn install() {
     let mut tables = KernelAcpiTables::default();
 
-    log::debug!("ACPI: searching for RSDP...");
+    log::debug!("acpi: searching for rsdp...");
     if let Some(rsdp) = RSDP_REQUEST.get_response() {
-        log::debug!("ACPI: RSDP found at {:#x}", rsdp.address());
+        log::debug!("acpi: rsdp found at {:#x}", rsdp.address());
 
         unsafe {
             if let Ok(acpi) =
@@ -45,7 +45,7 @@ pub fn install() {
             }
         }
     } else {
-        panic!("ACPI: RSDP not found");
+        panic!("acpi: rsdp not found");
     }
 
     ACPI_TABLES.call_once(|| tables);

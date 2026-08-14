@@ -132,7 +132,7 @@ impl Ac97 {
 
                 assert!(
                     !address_space.is_mapped(vaddr),
-                    "AC97 buffer virt collision at {:#x}",
+                    "ac97 buffer virt collision at {:#x}",
                     vaddr.as_u64()
                 );
 
@@ -236,12 +236,12 @@ pub fn install(pci: &PciBus) {
         let nam = ac97.bars[0].unwrap().unwrap_io() as u16;
         let nabm = ac97.bars[1].unwrap().unwrap_io() as u16;
 
-        log::debug!("AC97 found, NAM={:#x}, NABM={:#x}", nam, nabm);
+        log::debug!("ac97 found, NAM={:#x}, NABM={:#x}", nam, nabm);
 
         let bdl_virt_addr = VirtAddr::new(AC97_BDL_VIRT_BASE);
         assert!(
             !address_space.is_mapped(bdl_virt_addr),
-            "AC97 BDL virt collision at {:#x}",
+            "ac97 bdl virt collision at {:#x}",
             bdl_virt_addr.as_u64()
         );
 
@@ -266,67 +266,67 @@ pub fn install(pci: &PciBus) {
         };
 
         unsafe {
-            log::debug!("AC97::MASTERING");
+            log::debug!("ac97::MASTERING");
             let pci_io = PciIO;
             let mut cmd = pci_io.read(ac97.addr, 0x04);
             cmd |= 1 << 0;
             cmd |= 1 << 2;
             pci_io.write(ac97.addr, 0x04, cmd);
 
-            log::debug!("AC97::INIT");
+            log::debug!("ac97::INIT");
             driver.nabm_write(0x2C, 1 << 1);
 
-            log::debug!("AC97::RESET");
+            log::debug!("ac97::RESET");
             driver.nam_write(0x00, 1);
 
-            log::debug!("AC97::CAPABILITIES");
+            log::debug!("ac97::CAPABILITIES");
             driver.nam_write(0x2C, 48000);
             driver.nam_write(0x2E, 48000);
             driver.nam_write(0x30, 48000);
             driver.nam_write(0x32, 48000);
 
-            log::debug!("AC97::VOLUME");
+            log::debug!("ac97::VOLUME");
             driver.set_volume(50);
 
-            log::debug!("AC97::PLAY_RESET");
+            log::debug!("ac97::PLAY_RESET");
             driver.nam_write(0x02, 0);
             driver.nam_write(0x04, 0);
 
-            log::debug!("AC97::RESET_BIT");
+            log::debug!("ac97::RESET_BIT");
             driver.nabm_write(
                 0x10 + 0xB,
                 driver.nabm_read(0x10 + 0xB) | (1 << 1),
             );
 
-            log::debug!("AC97::WAITING");
+            log::debug!("ac97::WAITING");
             let mut control = Port::<u8>::new(nabm + 0x10 + 0xB);
             while control.read() & (1 << 0) != 0 {
                 core::hint::spin_loop();
             }
 
-            log::debug!("AC97::BUFFER");
+            log::debug!("ac97::BUFFER");
             {
                 driver.setup_buffers();
             }
 
-            log::debug!("AC97::BDL_ADDR");
+            log::debug!("ac97::BDL_ADDR");
             {
                 let mut port = Port::<u32>::new(driver.nabm + 0x10);
                 port.write(bdl_phys.as_u64() as u32);
             }
 
-            log::debug!("AC97::START");
+            log::debug!("ac97::START");
             driver.nabm_write(
                 0x10 + 0xB,
                 driver.nabm_read(0x10 + 0xB) | (1 << 0),
             );
 
-            log::info!("AC97 initialized successfully.");
+            log::info!("ac97 initialized successfully.");
 
             AC97_INITIALIZED.store(true, Ordering::SeqCst);
             *AC97_DRIVER.lock() = Some(driver);
         }
     } else {
-        log::error!("AC97 device not found");
+        log::error!("ac97 device not found");
     }
 }

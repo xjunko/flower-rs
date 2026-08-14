@@ -122,7 +122,7 @@ pub extern "x86-interrupt" fn page_fault_handler(
 
     // shit hits the fan, panic out.
     log::error!("page fault triggered, in process: {}", system::proc::name());
-    println!("CR2:        {:#x}", fault_addr);
+    println!("cr2:        {:#x}", fault_addr);
     println!("error code: {:#x}", error_code);
     print_stack_frame(stack_frame);
 

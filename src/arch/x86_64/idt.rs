@@ -55,7 +55,7 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
 
 pub fn install() {
     IDT.load();
-    log::info!("IDT loaded.");
+    log::info!("idt loaded.");
 }
 
 pub fn print_stack_frame(frame: InterruptStackFrame) {
@@ -70,7 +70,7 @@ extern "x86-interrupt" fn gpf_handler(
     stack_frame: InterruptStackFrame,
     error_code: u64,
 ) {
-    log::error!("general Protection Fault triggered!");
+    log::error!("general protection fault triggered!");
     println!("error code: {:#x}", error_code);
     print_stack_frame(stack_frame);
     panic!("");

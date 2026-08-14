@@ -104,7 +104,7 @@ impl PciBus {
             }
         }
 
-        log::info!("PCI found {} devices.", self.devices.len());
+        log::info!("pci found {} devices.", self.devices.len());
     }
 
     /// finds the first device matching the given class and subclass. returns None if no such device exists.

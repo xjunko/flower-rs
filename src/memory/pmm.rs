@@ -86,7 +86,7 @@ impl BitmapAllocator {
 fn page_to_mb(page: usize) -> usize { (page * PAGE_SIZE) / (1024 * 1024) }
 
 pub fn install() {
-    log::debug!("Installing PMM");
+    log::debug!("Installing pmm");
 
     let (hhdm, mmap) = {
         (
@@ -102,7 +102,7 @@ pub fn install() {
                 .entries(),
         )
     };
-    log::debug!("HHDM={:#x}", hhdm.as_u64());
+    log::debug!("hhdm={:#x}", hhdm.as_u64());
 
     let mut highest_addr: u64 = 0;
 
@@ -115,7 +115,7 @@ pub fn install() {
         }
     }
 
-    log::debug!("Highest Memory Address: {:#x}", highest_addr);
+    log::debug!("highest memory address: {:#x}", highest_addr);
 
     let total_pages = (highest_addr as usize + PAGE_SIZE - 1) / PAGE_SIZE;
     let bitmap_size = (total_pages + 7) / 8;
@@ -135,7 +135,7 @@ pub fn install() {
     let bitmap_ptr = (bitmap_addr + hhdm.as_u64()) as *mut u8;
 
     log::debug!(
-        "Bitmap address: {:#x}, size: {} bytes",
+        "bitmap address: {:#x}, size: {} bytes",
         bitmap_addr,
         bitmap_size
     );
@@ -178,9 +178,9 @@ pub fn install() {
 
     allocator.usable_pages = allocator.free_pages;
 
-    log::info!("PMM installed.");
+    log::info!("pmm installed.");
     log::info!(
-        "PMM: total pages: {}MiB, usable pages: {}MiB, free pages: {}MiB.",
+        "pmm: total pages: {}mib, usable pages: {}mib, free pages: {}mib.",
         page_to_mb(total_pages),
         page_to_mb(allocator.usable_pages),
         page_to_mb(allocator.free_pages)

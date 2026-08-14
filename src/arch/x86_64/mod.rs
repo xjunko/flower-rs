@@ -30,10 +30,10 @@ use x86_64::registers::control::{Cr0, Cr0Flags, Cr4, Cr4Flags};
 pub fn install_cpu_features() {
     let cpuid = CpuId::new();
     if let Some(finfo) = cpuid.get_feature_info() {
-        assert!(finfo.has_fxsave_fxstor(), "FXSAVE/FXSTOR not supported");
-        assert!(finfo.has_mmx(), "MMX not supported");
-        assert!(finfo.has_sse(), "SSE not supported");
-        assert!(finfo.has_fpu(), "FPU not supported");
+        assert!(finfo.has_fxsave_fxstor(), "fxsave/fxstor not supported");
+        assert!(finfo.has_mmx(), "mmx not supported");
+        assert!(finfo.has_sse(), "sse not supported");
+        assert!(finfo.has_fpu(), "fpu not supported");
 
         unsafe {
             Cr0::update(|flags| {
@@ -47,7 +47,7 @@ pub fn install_cpu_features() {
                 flags.insert(Cr4Flags::OSFXSR | Cr4Flags::OSXMMEXCPT_ENABLE);
             });
         }
-        log::debug!("SSE enabled");
+        log::debug!("sse enabled");
     }
 }
 

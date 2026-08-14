@@ -22,7 +22,7 @@ use crate::arch;
 use crate::boot::limine::SMP_REQUEST;
 
 unsafe extern "C" fn __smp_entry(ap: &Cpu) -> ! {
-    log::info!("SMP: core {} started.", ap.lapic_id);
+    log::info!("smp: core {} started.", ap.lapic_id);
     arch::x86_64::interrupts::disable();
     arch::x86_64::halt();
 }
@@ -32,7 +32,7 @@ pub fn install() {
         let cpus = smp.cpus();
 
         log::info!(
-            "SMP: found {} cores, BSP is {}.",
+            "smp: found {} cores, bsp is {}.",
             cpus.len(),
             smp.bsp_lapic_id()
         );
@@ -44,6 +44,6 @@ pub fn install() {
             cpu.goto_address.write(__smp_entry);
         }
     } else {
-        log::error!("SMP: not supported, not good.");
+        log::error!("smp: not supported, not good.");
     }
 }

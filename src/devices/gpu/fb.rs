@@ -51,7 +51,7 @@ impl LimineFramebuffer {
             };
 
             log::debug!(
-                "Framebuffer: Addr={:#x} Res={}x{} Col={}bpp",
+                "fb: addr={:#x} res={}x{} col={}bpp",
                 fb.addr.as_u64() as usize,
                 fb.width,
                 fb.height,
