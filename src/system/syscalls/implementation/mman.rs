@@ -30,7 +30,7 @@ use crate::memory::{self};
 use crate::system::ToSyscallError;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
-use crate::system::vfs::{FdKind, VFSError};
+use crate::system::vfs2::error::VfsError;
 use crate::{arch, system};
 
 #[allow(clippy::manual_is_multiple_of)]
@@ -106,16 +106,12 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 
     if fd != -1 && flags & MAP_ANONYMOUS == 0 {
-        let result =
-            proc.with_fd_table(|table| match table.get(fd as usize)? {
-                FdKind::File(file) => file.mmap(
-                    size as usize,
-                    prot as c_int,
-                    flags as c_int,
-                    offset,
-                ),
-                _ => Err(VFSError::Unsupported),
-            });
+        let result = proc.with_fd_table(|table| match table.get(fd as usize) {
+            Ok(file) => {
+                file.mmap(size as usize, prot as c_int, flags as c_int, offset)
+            },
+            Err(_) => Err(VfsError::Unsupported),
+        });
 
         if let Ok(data) = result {
             log::debug!(

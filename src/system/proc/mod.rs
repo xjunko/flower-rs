@@ -34,7 +34,8 @@ use x86_64::instructions::interrupts;
 pub use self::exit::exit;
 pub use self::sleep::sleep;
 use crate::system::proc::scheduler::Scheduler;
-use crate::system::vfs::{FdTable, VFSError, VFSResult};
+use crate::system::vfs2::error::{VfsError, VfsResult};
+use crate::system::vfs2::fd::FdTable;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -71,11 +72,11 @@ pub fn spawn(name: &str, entry: fn()) {
 }
 
 /// loops over the file descriptors of the current process
-pub fn with_fd_table<F, R>(f: F) -> VFSResult<R>
-where F: FnOnce(&mut FdTable) -> VFSResult<R> {
+pub fn with_fd_table<F, R>(f: F) -> VfsResult<R>
+where F: FnOnce(&mut FdTable) -> VfsResult<R> {
     let mut guard = SCHEDULER.lock();
-    let sched = guard.as_mut().ok_or(VFSError::IOError)?;
-    let task = sched.current().ok_or(VFSError::IOError)?;
+    let sched = guard.as_mut().ok_or(VfsError::IOError)?;
+    let task = sched.current().ok_or(VfsError::IOError)?;
     task.lock().with_fd_table(f)
 }
 

@@ -28,7 +28,8 @@ use crate::arch::x86_64::layout::PROCESS_STACK_SIZE;
 use crate::memory::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
-use crate::system::vfs::{FdTable, VFSResult};
+use crate::system::vfs2::error::VfsResult;
+use crate::system::vfs2::fd::FdTable;
 use crate::{arch, system};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -142,8 +143,8 @@ impl Process {
         self.user.heap_max = max;
     }
 
-    pub fn with_fd_table<F, R>(&mut self, f: F) -> VFSResult<R>
-    where F: FnOnce(&mut FdTable) -> VFSResult<R> {
+    pub fn with_fd_table<F, R>(&mut self, f: F) -> VfsResult<R>
+    where F: FnOnce(&mut FdTable) -> VfsResult<R> {
         f(&mut self.fds)
     }
 }
@@ -209,7 +210,7 @@ impl Process {
             address_space: None,
             parent_id: None,
             exit_status: None,
-            fds: FdTable::new(),
+            fds: FdTable::new(128),
 
             cr3: pml4_frame.start_address().as_u64(),
 
@@ -274,7 +275,7 @@ impl Process {
 
             parent_id: None,
             exit_status: None,
-            fds: FdTable::new(),
+            fds: FdTable::new(128),
             cr3,
 
             stack_ptr,
@@ -394,7 +395,7 @@ pub fn null_process() -> Process {
         address_space: None,
         parent_id: None,
         exit_status: None,
-        fds: FdTable::new(),
+        fds: FdTable::new(128),
 
         cr3: pml4_frame.start_address().as_u64(),
 

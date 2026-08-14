@@ -17,17 +17,16 @@
  */
 
 use crate::system::syscalls::SyscallError;
-use crate::system::vfs::VFSError;
+use crate::system::vfs2::error::VfsError;
 
 pub mod elf;
-
 pub mod proc;
 pub mod smp;
 pub mod syscalls;
-pub mod vfs;
+pub mod vfs2;
 
 pub enum KernelError {
-    FileSystem(VFSError),
+    FileSystem(VfsError),
 }
 
 pub type KernelResult<T> = Result<T, KernelError>;

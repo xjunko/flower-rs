@@ -25,8 +25,9 @@ use os_terminal::{DrawTarget, Terminal};
 use spin::Once;
 use spinning_top::Spinlock;
 
-use crate::system::vfs::VFSFilelike::File;
-use crate::system::vfs::{self};
+use crate::system::vfs2;
+use crate::system::vfs2::file::OpenFlags;
+use crate::system::vfs2::perm::Credentials;
 
 type WrappedTerminal = Terminal<FramebufferTerminal>;
 static TERMINAL: Once<Spinlock<WrappedTerminal>> = Once::new();
@@ -66,36 +67,20 @@ impl FramebufferTerminal {
     fn new() -> Option<WrappedTerminal> {
         let mut term = FramebufferTerminal { fb_info: None, fb_addr: None };
 
-        if let Ok(fb_info) = vfs::open("/dev/fb0/info", 0) {
-            match fb_info {
-                File(f) => {
-                    let mut buf = [0u8; fb_info::SIZE];
+        if let Ok(fb_file) = vfs2::open(
+            "/dev/fb0",
+            OpenFlags::from_bits(OpenFlags::RDONLY),
+            Credentials::ROOT,
+        ) {
+            let mut buf = [0u8; fb_info::SIZE];
+            let fb_info_file = fb_file.clone();
+            fb_info_file.read(&mut buf).expect("/dev/fb0 failed to read");
+            let info = fb_info::from_bytes(&buf).expect("invalid fb_info data");
+            term.fb_info = Some(info);
 
-                    if let Ok(read_bytes) = f.read(&mut buf)
-                        && read_bytes == buf.len()
-                        && let Some(info) = fb_info::from_bytes(&buf)
-                    {
-                        term.fb_info = Some(info);
-                    }
-                },
-
-                _ => {
-                    unreachable!()
-                },
-            }
-        }
-
-        if let Ok(fb_file) = vfs::open("/dev/fb0", 0) {
-            match fb_file {
-                File(f) => {
-                    let addr = f.mmap(0, 0, 0, 0).ok()?;
-                    term.fb_addr = Some(addr);
-                },
-
-                _ => {
-                    unreachable!()
-                },
-            }
+            let addr =
+                fb_file.mmap(0, 0, 0, 0).expect("/dev/fb0 failed to mmap");
+            term.fb_addr = Some(addr);
         }
 
         let mut terminal = Terminal::new(term, Box::new(BitmapFont));

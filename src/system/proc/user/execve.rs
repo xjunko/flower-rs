@@ -24,9 +24,11 @@ use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::PhysFrame;
 
 use crate::arch::x86_64::layout::{PAGE_SIZE, USER_STACK_TOP_PAGE};
+use crate::system;
 use crate::system::proc::ProcessLevel;
 use crate::system::syscalls::SyscallFrame;
-use crate::system::{self, vfs};
+use crate::system::vfs2::file::OpenFlags;
+use crate::system::vfs2::perm::Credentials;
 
 fn process_name_from_path(path: &str) -> String {
     path.rsplit('/').find(|part| !part.is_empty()).unwrap_or(path).to_string()
@@ -38,7 +40,24 @@ pub fn execve(
     argv: &[String],
     frame: &mut SyscallFrame,
 ) -> Result<(), &'static str> {
-    let elf_data = vfs::__read(path)?;
+    let elf_data;
+
+    if let Ok(elf_file) = system::vfs2::open(
+        path,
+        OpenFlags::from_bits(OpenFlags::RDONLY),
+        Credentials::ROOT,
+    ) {
+        let metadata =
+            elf_file.metadata().map_err(|_| "failed to get metadata")?;
+        let mut buffer = alloc::vec![0u8; metadata.size];
+        elf_file
+            .read(buffer.as_mut_slice())
+            .map_err(|_| "failed to read file")?;
+        elf_data = buffer;
+    } else {
+        return Err("failed to open file");
+    }
+
     let name = process_name_from_path(path);
 
     let argv_storage: Vec<String> =

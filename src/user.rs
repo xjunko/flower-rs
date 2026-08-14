@@ -16,24 +16,22 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::system::vfs::VFSFilelike;
+use crate::system::vfs2::file::OpenFlags;
+use crate::system::vfs2::perm::Credentials;
 use crate::system::{self};
 
 const SHELL_PATH: &str = "/bin/shell";
 pub fn entry() {
-    if let Ok(file) = system::vfs::open(SHELL_PATH, 0) {
-        match file {
-            VFSFilelike::File(f) => {
-                let metadata = f.metadata().expect("invalid metadata");
-                let mut buffer = alloc::vec![0u8; metadata.size ];
-                f.read(buffer.as_mut_slice()).expect("failed to read file");
-                system::proc::user::spawn_elf("shell", buffer.as_mut_slice())
-                    .expect("failed to spawn shell process");
-            },
-            _ => {
-                log::error!("{} is not a regular file", SHELL_PATH);
-            },
-        }
+    if let Ok(file) = system::vfs2::open(
+        SHELL_PATH,
+        OpenFlags::from_bits(OpenFlags::RDONLY),
+        Credentials::ROOT,
+    ) {
+        let metadata = file.metadata().expect("invalid metadata");
+        let mut buffer = alloc::vec![0u8; metadata.size ];
+        file.read(buffer.as_mut_slice()).expect("failed to read file");
+        system::proc::user::spawn_elf("shell", buffer.as_mut_slice())
+            .expect("failed to spawn shell process");
     } else {
         log::error!("failed to open file {}", SHELL_PATH);
     }

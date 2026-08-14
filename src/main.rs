@@ -64,7 +64,7 @@ fn kernel_init() {
     system::smp::install();
 
     // past this point, the kernel can now do dynamic allocation
-    system::vfs::install();
+    system::vfs2::install();
     devices::tty::terminal::install();
     memory::self_test();
 }
