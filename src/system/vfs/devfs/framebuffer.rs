@@ -19,7 +19,7 @@
 use alloc::string::ToString;
 use core::ffi::c_int;
 
-use flower_mono::kapi::framebuffer::{fb_draw_pixel, fb_info};
+use flower_mono::kapi::framebuffer::fb_info;
 
 use crate::devices;
 use crate::system::vfs::devfs::{DevFS, DevFile};
@@ -64,24 +64,6 @@ fn framebuffer_info(_offset: usize, buf: &mut [u8]) -> usize {
     fb_info::SIZE
 }
 
-fn framebuffer_draw_pixel(buf: &[u8]) -> usize {
-    if buf.len() < fb_draw_pixel::SIZE {
-        return 0;
-    }
-
-    if let Some(draw) = fb_draw_pixel::from_bytes(buf)
-        && let Some(fb) = devices::gpu::fb::get()
-    {
-        fb.draw_pixel(
-            draw.x as usize,
-            draw.y as usize,
-            (draw.r, draw.g, draw.b),
-        );
-    }
-
-    0
-}
-
 pub fn install(dev: &mut DevFS) {
     dev.bind(DevFile::new(
         "/fb0".to_string(),
@@ -94,13 +76,6 @@ pub fn install(dev: &mut DevFS) {
         "/fb0/info".to_string(),
         Some(framebuffer_info),
         None,
-        None,
-    ));
-
-    dev.bind(DevFile::new(
-        "/fb0/draw".to_string(),
-        None,
-        Some(framebuffer_draw_pixel),
         None,
     ));
 }

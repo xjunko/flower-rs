@@ -19,68 +19,44 @@
 use alloc::boxed::Box;
 use core::fmt::Write;
 
-use flower_mono::kapi::framebuffer::{fb_draw_pixel, fb_info};
+use flower_mono::kapi::framebuffer::fb_info;
 use os_terminal::font::BitmapFont;
 use os_terminal::{DrawTarget, Terminal};
 use spin::Once;
 use spinning_top::Spinlock;
 
 use crate::system::vfs::VFSFilelike::File;
-use crate::system::vfs::{self, VFSFilelike};
+use crate::system::vfs::{self};
 
 type WrappedTerminal = Terminal<FramebufferTerminal>;
 static TERMINAL: Once<Spinlock<WrappedTerminal>> = Once::new();
 
+unsafe impl Send for FramebufferTerminal {}
+
 pub struct FramebufferTerminal {
-    info_file: Option<VFSFilelike>,
-    draw_file: Option<VFSFilelike>,
+    fb_addr: Option<*mut u8>,
+    fb_info: Option<fb_info>,
 }
 
 impl DrawTarget for FramebufferTerminal {
     fn size(&self) -> (usize, usize) {
-        if let Some(ref fb_file) = self.info_file {
-            match fb_file {
-                File(f) => {
-                    let mut buf = [0u8; fb_info::SIZE];
-
-                    if let Ok(read_bytes) = f.read(&mut buf)
-                        && read_bytes == buf.len()
-                        && let Some(info) = fb_info::from_bytes(&buf)
-                    {
-                        return (info.width as usize, info.height as usize);
-                    }
-
-                    return (0, 0);
-                },
-
-                _ => {
-                    unreachable!()
-                },
-            }
+        if let Some(info) = self.fb_info {
+            (info.width as usize, info.height as usize)
+        } else {
+            (0, 0)
         }
-        (0, 0)
     }
 
     #[inline(always)]
     fn draw_pixel(&mut self, x: usize, y: usize, rgb: os_terminal::Rgb) {
-        if let Some(ref fb_info) = self.draw_file {
-            match fb_info {
-                File(f) => {
-                    let draw = fb_draw_pixel {
-                        x: x as u32,
-                        y: y as u32,
-                        r: rgb.0,
-                        g: rgb.1,
-                        b: rgb.2,
-                    };
-
-                    if f.write(draw.to_bytes().as_mut_slice()).is_err() {
-                        log::error!("failed to write to framebuffer");
-                    }
-                },
-                _ => {
-                    unreachable!()
-                },
+        if let Some(fb_addr) = self.fb_addr {
+            let offset = (y * self.size().0 + x) * 4;
+            unsafe {
+                let pixel_ptr = fb_addr.add(offset);
+                *pixel_ptr = rgb.2;
+                *pixel_ptr.add(1) = rgb.1;
+                *pixel_ptr.add(2) = rgb.0;
+                *pixel_ptr.add(3) = 0;
             }
         }
     }
@@ -88,14 +64,38 @@ impl DrawTarget for FramebufferTerminal {
 
 impl FramebufferTerminal {
     fn new() -> Option<WrappedTerminal> {
-        let mut term = FramebufferTerminal { info_file: None, draw_file: None };
+        let mut term = FramebufferTerminal { fb_info: None, fb_addr: None };
 
         if let Ok(fb_info) = vfs::open("/dev/fb0/info", 0) {
-            term.info_file = Some(fb_info);
+            match fb_info {
+                File(f) => {
+                    let mut buf = [0u8; fb_info::SIZE];
+
+                    if let Ok(read_bytes) = f.read(&mut buf)
+                        && read_bytes == buf.len()
+                        && let Some(info) = fb_info::from_bytes(&buf)
+                    {
+                        term.fb_info = Some(info);
+                    }
+                },
+
+                _ => {
+                    unreachable!()
+                },
+            }
         }
 
-        if let Ok(fb_draw) = vfs::open("/dev/fb0/draw", 0) {
-            term.draw_file = Some(fb_draw);
+        if let Ok(fb_file) = vfs::open("/dev/fb0", 0) {
+            match fb_file {
+                File(f) => {
+                    let addr = f.mmap(0, 0, 0, 0).ok()?;
+                    term.fb_addr = Some(addr);
+                },
+
+                _ => {
+                    unreachable!()
+                },
+            }
         }
 
         let mut terminal = Terminal::new(term, Box::new(BitmapFont));
@@ -110,6 +110,8 @@ pub fn install() {
         TERMINAL.call_once(|| Spinlock::new(term));
     }
 }
+
+pub fn uninstall() { todo!() }
 
 fn get() -> &'static Spinlock<WrappedTerminal> {
     TERMINAL.get().expect("terminal not installed")
