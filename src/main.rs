@@ -49,6 +49,8 @@ fn kernel_init() {
     memory::vmm::install();
     memory::heap::install().expect("failed to install heap");
 
+    memory::self_test();
+
     acpi::install();
     arch::x86_64::apic::install();
 
@@ -56,17 +58,15 @@ fn kernel_init() {
     devices::pci::install();
     devices::gpu::install();
 
+    system::smp::install(); // doesn't do much for now..
+
     system::syscalls::install();
+    system::vfs::install();
     system::proc::install();
     arch::x86_64::interrupts::enable();
 
-    // start other cores too
-    system::smp::install();
-
     // past this point, the kernel can now do dynamic allocation
-    system::vfs::install();
     devices::tty::terminal::install();
-    memory::self_test();
 }
 
 #[unsafe(no_mangle)]

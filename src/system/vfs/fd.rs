@@ -19,10 +19,12 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use crate::system;
 use crate::system::vfs::error::{VfsError, VfsResult};
-use crate::system::vfs::file::File;
+use crate::system::vfs::file::{File, OpenFlags};
+use crate::system::vfs::perm::Credentials;
 
-pub const MAX_FDS: usize = 128;
+pub const DEFAULT_MAX_FDS: usize = 128;
 
 pub struct FdTable {
     fds: Vec<Option<Arc<File>>>,
@@ -30,7 +32,39 @@ pub struct FdTable {
 }
 
 impl FdTable {
-    pub fn new(limit: usize) -> Self { Self { fds: Vec::new(), limit } }
+    pub fn new(limit: usize) -> Self {
+        let mut fds: Vec<Option<Arc<File>>> =
+            Vec::with_capacity(limit.min(DEFAULT_MAX_FDS));
+
+        fds.push(Some(
+            system::vfs::open(
+                "/dev/stdin",
+                OpenFlags::RDONLY,
+                Credentials::ROOT,
+            )
+            .expect("failed to open /dev/stdin"),
+        ));
+
+        fds.push(Some(
+            system::vfs::open(
+                "/dev/stdout",
+                OpenFlags::WRONLY,
+                Credentials::ROOT,
+            )
+            .expect("failed to open /dev/stdout"),
+        ));
+
+        fds.push(Some(
+            system::vfs::open(
+                "/dev/stderr",
+                OpenFlags::WRONLY,
+                Credentials::ROOT,
+            )
+            .expect("failed to open /dev/stderr"),
+        ));
+
+        Self { fds, limit: limit.min(DEFAULT_MAX_FDS) }
+    }
 
     pub fn install(&mut self, file: Arc<File>) -> VfsResult<usize> {
         if let Some(idx) = self.fds.iter().position(|slot| slot.is_none()) {
@@ -47,7 +81,7 @@ impl FdTable {
     }
 
     pub fn install_at(&mut self, fd: usize, file: Arc<File>) -> VfsResult<()> {
-        if fd > self.limit {
+        if fd >= self.limit {
             return Err(VfsError::NoSpace);
         }
 
@@ -82,6 +116,7 @@ impl FdTable {
         if slot.is_none() {
             return Err(VfsError::NotFound);
         }
+        *slot = None;
         Ok(())
     }
 }

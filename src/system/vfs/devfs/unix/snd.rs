@@ -86,7 +86,7 @@ fn audio_write(buf: &[u8]) -> VfsResult<usize> {
     }
 }
 
-pub fn bind(dev: &mut DevFs) {
+pub(crate) fn bind(dev: &mut DevFs) {
     dev.bind(DevFile::new(
         "/audio".to_string(),
         Some(audio_read),

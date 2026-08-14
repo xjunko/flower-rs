@@ -16,54 +16,25 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::boxed::Box;
-use alloc::collections::VecDeque;
 use alloc::string::ToString;
 
-use spin::Mutex;
-
-use crate::devices::ps2::keyboard::{KEYBOARD, KeyEvent, KeyboardSubscriber};
+use crate::print;
 use crate::system::vfs::devfs::{DevFile, DevFs};
 use crate::system::vfs::error::VfsResult;
 
-static KB_BUFFER: Mutex<VecDeque<u8>> = Mutex::new(VecDeque::new());
-
-struct DevFSKeyboard;
-
-impl KeyboardSubscriber for DevFSKeyboard {
-    fn on_key_event(&mut self, event: KeyEvent) {
-        if let KeyEvent::Ascii(byte) = event {
-            KB_BUFFER.lock().push_back(byte);
-        }
+fn stderr_write(buf: &[u8]) -> VfsResult<usize> {
+    // hack: just print to stdout for now
+    for &byte in buf {
+        print!("{}", byte as char);
     }
+    Ok(buf.len())
 }
-
-fn kb_read(_offset: usize, buf: &mut [u8]) -> VfsResult<usize> {
-    let mut queue = KB_BUFFER.lock();
-    let mut read = 0;
-
-    for out in buf.iter_mut() {
-        let Some(byte) = queue.pop_front() else {
-            break;
-        };
-
-        *out = byte;
-        read += 1;
-    }
-
-    Ok(read)
-}
-
-fn kb_write(_buf: &[u8]) -> VfsResult<usize> { Ok(0) }
 
 pub(crate) fn bind(dev: &mut DevFs) {
-    let subscriber = Box::leak(Box::new(DevFSKeyboard));
-    KEYBOARD.lock().subscribe(subscriber);
-
     dev.bind(DevFile::new(
-        "/stdin".to_string(),
-        Some(kb_read),
-        Some(kb_write),
+        "/stderr".to_string(),
+        None,
+        Some(stderr_write),
         None,
     ));
 }

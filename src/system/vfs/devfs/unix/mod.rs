@@ -18,7 +18,9 @@
 
 mod fb;
 mod snd;
+mod stderr;
 mod stdin;
+mod stdout;
 
 use crate::system::vfs::devfs::DevFs;
 
@@ -27,7 +29,9 @@ pub fn create() -> DevFs {
 
     fb::bind(&mut mnt);
     snd::bind(&mut mnt);
-    stdin::install(&mut mnt);
+    stdin::bind(&mut mnt);
+    stdout::bind(&mut mnt);
+    stderr::bind(&mut mnt);
 
     mnt
 }
