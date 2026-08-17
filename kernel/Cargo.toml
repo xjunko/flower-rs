@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+
+[package]
+name = "kernel"
+build = "build.rs"
+version = "0.0.1"
+edition = "2024"
+
+[[bin]]
+name = "kernel"
+test = false
+bench = false
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[dependencies]
+flower-mono = { path = "../mono" }
+acpi = "6.1.0"
+limine = "0.6.5"
+linked_list_allocator = "0.10.5"
+log = "0.4.29"
+os-terminal = "0.7.3"
+owo-colors = "4.3.0"
+pci_types = "0.10.1"
+raw-cpuid = "11.6.0"
+spin = "0.12.2"
+spinning_top = "0.3.0"
+uart_16550 = "0.8.0"
+x86_64 = "0.15.4"
+xmas-elf = "0.10.0"

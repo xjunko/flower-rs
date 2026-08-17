@@ -8,6 +8,12 @@ target/
 /flower-boot/initramfs/*
 /flower-boot/*.tar
 
+# crates artifacts
+mono/target/*
+libc/target/*
+programs/target/*
+kernel/target/*
+
 # tooling and other misc hack stuff
 flower-apps/lethe/*
 flower-tooling/*

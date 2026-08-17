@@ -1,0 +1,14 @@
+language = "C"
+
+[parse]
+parse_deps = true
+
+[export]
+include = [
+    # kapi
+    "fb_info",
+    # uapi
+    "utsname",
+    # common
+    "FileStat",
+]
