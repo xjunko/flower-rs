@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use limine::memory_map::EntryType;
+use limine::memmap::MEMMAP_USABLE;
 use spin::Mutex;
 use x86_64::{VirtAddr, align_up};
 
@@ -91,13 +91,10 @@ pub fn install() {
     let (hhdm, mmap) = {
         (
             VirtAddr::new(
-                boot::limine::HHDM_REQUEST
-                    .get_response()
-                    .expect("no hhdm")
-                    .offset(),
+                boot::limine::HHDM_REQUEST.response().expect("no hhdm").offset,
             ),
             boot::limine::MEMORY_MAP_REQUEST
-                .get_response()
+                .response()
                 .expect("no mmap")
                 .entries(),
         )
@@ -107,7 +104,7 @@ pub fn install() {
     let mut highest_addr: u64 = 0;
 
     for entry in mmap {
-        if entry.entry_type == EntryType::USABLE {
+        if entry.type_ == MEMMAP_USABLE {
             let end = entry.base + entry.length;
             if end > highest_addr {
                 highest_addr = end;
@@ -123,7 +120,7 @@ pub fn install() {
     let mut bitmap_addr: Option<u64> = None;
     for entry in mmap {
         let aligned_base = align_up(entry.base, PAGE_SIZE as u64);
-        if entry.entry_type == EntryType::USABLE
+        if entry.type_ == MEMMAP_USABLE
             && entry.length >= (aligned_base - entry.base) + bitmap_size as u64
         {
             bitmap_addr = Some(aligned_base);
@@ -154,7 +151,7 @@ pub fn install() {
     };
 
     for entry in mmap {
-        if entry.entry_type == EntryType::USABLE {
+        if entry.type_ == MEMMAP_USABLE {
             let start_page = (entry.base as usize + PAGE_SIZE - 1) / PAGE_SIZE;
             let end_page = (entry.base + entry.length) as usize / PAGE_SIZE;
 
@@ -210,12 +207,12 @@ pub fn is_usable_address(addr: u64) -> bool {
         return false;
     }
 
-    let Some(response) = boot::limine::MEMORY_MAP_REQUEST.get_response() else {
+    let Some(response) = boot::limine::MEMORY_MAP_REQUEST.response() else {
         return false;
     };
 
     for entry in response.entries() {
-        if entry.entry_type != EntryType::USABLE {
+        if entry.type_ != MEMMAP_USABLE {
             continue;
         }
 

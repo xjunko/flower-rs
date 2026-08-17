@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use spin::Lazy;
+use spin::LazyLock;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 use crate::arch::x86_64::gdt::DOUBLE_FAULT_IST_INDEX;
@@ -26,7 +26,7 @@ use crate::arch::x86_64::interrupts::{
 use crate::devices::ps2::keyboard;
 use crate::{memory, println};
 
-static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
+static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| {
     let mut idt = InterruptDescriptorTable::new();
 
     idt.general_protection_fault.set_handler_fn(gpf_handler);

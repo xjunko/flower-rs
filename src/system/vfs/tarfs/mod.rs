@@ -41,9 +41,9 @@ impl TarFs {
         let mut next_inode = 1;
         let mut probable_ramfs: Option<&&limine::file::File> = None;
 
-        if let Some(resp) = MODULE_REQUESTS.get_response() {
+        if let Some(resp) = MODULE_REQUESTS.response() {
             for module in resp.modules() {
-                if module.path().to_str().unwrap().eq("/boot/initramfs.tar") {
+                if module.path().to_string().eq("/boot/initramfs.tar") {
                     probable_ramfs = Some(module);
                     break;
                 }
@@ -58,11 +58,11 @@ impl TarFs {
         }
 
         if let Some(file) = probable_ramfs {
-            let size = file.size() as usize;
+            let size = file.data().len();
             let mut data = alloc::vec![0u8; size];
             unsafe {
                 core::ptr::copy_nonoverlapping(
-                    file.addr(),
+                    file.data().as_ptr(),
                     data.as_mut_ptr(),
                     size,
                 );

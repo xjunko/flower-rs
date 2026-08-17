@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use spin::Lazy;
+use spin::LazyLock;
 use x86_64::VirtAddr;
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::segmentation::{CS, DS, ES, SS, Segment};
@@ -36,7 +36,7 @@ pub struct GDTSegments {
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 pub const PAGE_FAULT_IST_INDEX: u16 = 1;
 
-static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
+static TSS: LazyLock<TaskStateSegment> = LazyLock::new(|| {
     let mut tss = TaskStateSegment::new();
 
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
@@ -56,19 +56,23 @@ static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
     tss
 });
 
-static GDT: Lazy<(GlobalDescriptorTable, GDTSegments)> = Lazy::new(|| {
-    let mut gdt = GlobalDescriptorTable::new();
+static GDT: LazyLock<(GlobalDescriptorTable, GDTSegments)> =
+    LazyLock::new(|| {
+        let mut gdt = GlobalDescriptorTable::new();
 
-    let kernel_code = gdt.append(Descriptor::kernel_code_segment());
-    let kernel_data = gdt.append(Descriptor::kernel_data_segment());
+        let kernel_code = gdt.append(Descriptor::kernel_code_segment());
+        let kernel_data = gdt.append(Descriptor::kernel_data_segment());
 
-    let user_data = gdt.append(Descriptor::user_data_segment());
-    let user_code = gdt.append(Descriptor::user_code_segment());
+        let user_data = gdt.append(Descriptor::user_data_segment());
+        let user_code = gdt.append(Descriptor::user_code_segment());
 
-    let tss = gdt.append(Descriptor::tss_segment(&TSS));
+        let tss = gdt.append(Descriptor::tss_segment(&TSS));
 
-    (gdt, GDTSegments { kernel_code, kernel_data, user_data, user_code, tss })
-});
+        (
+            gdt,
+            GDTSegments { kernel_code, kernel_data, user_data, user_code, tss },
+        )
+    });
 
 pub fn install() {
     GDT.0.load();

@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use spin::{Lazy, Mutex};
+use spin::{LazyLock, Mutex};
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -68,10 +68,11 @@ impl KeyboardPublisher {
         }
     }
 }
-pub static KEYBOARD: Lazy<Mutex<KeyboardPublisher>> =
-    Lazy::new(|| Mutex::new(KeyboardPublisher::new()));
+pub static KEYBOARD: LazyLock<Mutex<KeyboardPublisher>> =
+    LazyLock::new(|| Mutex::new(KeyboardPublisher::new()));
 
-static SHIFT_PRESSED: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
+static SHIFT_PRESSED: LazyLock<Mutex<bool>> =
+    LazyLock::new(|| Mutex::new(false));
 
 pub extern "x86-interrupt" fn keyboard_interrupt_handler(
     _frame: InterruptStackFrame,

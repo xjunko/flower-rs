@@ -38,8 +38,7 @@ unsafe impl FrameAllocator<Size4KiB> for PMMFrameAllocator {
 }
 
 pub fn install() {
-    *HHDM.lock() =
-        Some(boot::limine::HHDM_REQUEST.get_response().unwrap().offset());
+    *HHDM.lock() = Some(boot::limine::HHDM_REQUEST.response().unwrap().offset);
 
     let (pml4_frame, _) = Cr3::read();
     KERNEL_SPACE.lock().replace(AddressSpace::wrap(pml4_frame.start_address()));
@@ -130,12 +129,6 @@ impl AddressSpace {
         {
             return Some(PhysAddr::new(virt.as_u64() - hhdm));
         }
-
-        log::error!(
-            "virt_to_phys: address {:#x} is below hhdm {:#x}, translation needed",
-            virt.as_u64(),
-            hhdm
-        );
 
         Self::current().translate(virt)
     }

@@ -69,6 +69,7 @@ pub fn install() {
     if finfo.has_x2apic() {
         log::warn!("x2apic supported but unused, falling back to xapic");
     }
+
     if !finfo.has_apic() {
         panic!("cpu does not support apic");
     }

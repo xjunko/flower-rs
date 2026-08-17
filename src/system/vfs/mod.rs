@@ -22,7 +22,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use spin::{Lazy, Mutex};
+use spin::{LazyLock, Mutex};
 
 use crate::system::vfs::error::{VfsError, VfsResult};
 use crate::system::vfs::file::{File, OpenFlags};
@@ -225,7 +225,8 @@ impl Vfs {
 }
 
 // public
-static ROOT_VFS: Lazy<Mutex<Vfs>> = Lazy::new(|| Mutex::new(Vfs::new()));
+static ROOT_VFS: LazyLock<Mutex<Vfs>> =
+    LazyLock::new(|| Mutex::new(Vfs::new()));
 
 pub fn install() {
     let mut vfs = ROOT_VFS.lock();

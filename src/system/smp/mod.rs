@@ -16,32 +16,32 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use limine::mp::Cpu;
+use limine::mp::MpInfo;
 
 use crate::arch;
 use crate::boot::limine::SMP_REQUEST;
 
-unsafe extern "C" fn __smp_entry(ap: &Cpu) -> ! {
+unsafe extern "C" fn __smp_entry(ap: &MpInfo) -> ! {
     log::info!("smp: core {} started.", ap.lapic_id);
     arch::x86_64::interrupts::disable();
     arch::x86_64::halt();
 }
 
 pub fn install() {
-    if let Some(smp) = SMP_REQUEST.get_response() {
+    if let Some(smp) = SMP_REQUEST.response() {
         let cpus = smp.cpus();
 
         log::info!(
             "smp: found {} cores, bsp is {}.",
             cpus.len(),
-            smp.bsp_lapic_id()
+            smp.bsp_lapic_id
         );
 
         for cpu in cpus {
-            if cpu.lapic_id == smp.bsp_lapic_id() {
+            if cpu.lapic_id == smp.bsp_lapic_id {
                 continue; // dont want to mess with this one
             }
-            cpu.goto_address.write(__smp_entry);
+            cpu.bootstrap(__smp_entry, 0);
         }
     } else {
         log::error!("smp: not supported, not good.");

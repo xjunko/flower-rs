@@ -37,17 +37,17 @@ pub struct LimineFramebuffer {
 impl LimineFramebuffer {
     fn new() -> Option<LimineFramebuffer> {
         if let Some(framebuffer) = FRAMEBUFFER_REQUEST
-            .get_response()
+            .response()
             .expect("no framebuffer")
             .framebuffers()
-            .next()
+            .first()
         {
             let fb = LimineFramebuffer {
-                addr: VirtAddr::new(framebuffer.addr() as u64),
-                width: framebuffer.width() as usize,
-                height: framebuffer.height() as usize,
-                bpp: framebuffer.bpp() as usize,
-                pitch: framebuffer.pitch() as usize,
+                addr: VirtAddr::new(framebuffer.address() as u64),
+                width: framebuffer.width as usize,
+                height: framebuffer.height as usize,
+                bpp: framebuffer.bpp as usize,
+                pitch: framebuffer.pitch as usize,
             };
 
             log::debug!(
