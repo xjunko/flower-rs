@@ -33,6 +33,7 @@ pub enum FileType {
     Symlink,
     Fifo,
     Socket,
+    Unknown,
 }
 
 #[derive(Debug, Clone)]

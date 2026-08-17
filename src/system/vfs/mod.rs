@@ -42,6 +42,7 @@ pub mod perm;
 
 // impls
 mod devfs;
+mod tarfs;
 
 const MAX_SYMLINK_DEPTH: usize = 8;
 
@@ -234,6 +235,9 @@ pub fn install() {
 
     vfs.mount("/proc", Box::new(devfs::proc::create()))
         .expect("failed to mount procfs");
+
+    vfs.mount("/init/", Box::new(tarfs::TarFs::new()))
+        .expect("failed to mount tarfs");
 
     log::info!("mounted {} filesystem", vfs.mounts.len());
 }
