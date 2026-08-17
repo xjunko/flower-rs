@@ -28,6 +28,7 @@ use x86_64::instructions::port::Port;
 use crate::arch::x86_64::apic::ioapic::IoApic;
 use crate::arch::x86_64::apic::lapic::LocalApic;
 use crate::arch::x86_64::interrupts::InterruptIndex;
+use crate::arch::x86_64::layout::{IOAPIC_VIRT, LAPIC_VIRT};
 use crate::memory::vmm::AddressSpace;
 
 // legacy pic
@@ -49,10 +50,6 @@ fn pic_disable() {
     })
 }
 
-// lapic/ioapic
-const LAPIC_VIRT: u64 = 0xFFFF_FFFF_FEE0_0000;
-const IOAPIC_VIRT: u64 = 0xFFFF_FFFF_FEC0_0000;
-
 pub struct Apic {
     pub lapic: LocalApic,
     pub ioapic: IoApic,
@@ -70,7 +67,7 @@ pub fn install() {
         cpuid.get_feature_info().expect("cpuid feature info unavailable");
 
     if finfo.has_x2apic() {
-        log::error!("x2apic supported but unused, falling back to xapic");
+        log::warn!("x2apic supported but unused, falling back to xapic");
     }
     if !finfo.has_apic() {
         panic!("cpu does not support apic");
