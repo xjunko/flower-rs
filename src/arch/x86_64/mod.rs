@@ -21,6 +21,7 @@ pub mod gdt;
 pub mod idt;
 pub mod interrupts;
 pub mod layout;
+pub mod timer;
 
 use core::arch::asm;
 
@@ -50,8 +51,6 @@ pub fn install_cpu_features() {
         log::debug!("sse enabled");
     }
 }
-
-pub fn ticks() -> u64 { interrupts::get_ticks() }
 
 pub fn halt() -> ! {
     loop {

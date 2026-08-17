@@ -52,6 +52,7 @@ fn kernel_init() {
     memory::self_test();
 
     acpi::install();
+    arch::x86_64::timer::install();
     arch::x86_64::apic::install();
 
     devices::ps2::install();

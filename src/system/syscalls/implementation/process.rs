@@ -21,7 +21,6 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
-use crate::arch;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::{self};
 
@@ -32,7 +31,7 @@ pub fn exit(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
 pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let ms = frame.rdi;
-    system::proc::sleep(ms);
+    system::proc::sleep(ms * 1_000_000); // HACK
     Ok(0)
 }
 
@@ -42,7 +41,7 @@ pub fn mtime(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
     unsafe {
-        core::ptr::write_volatile(time_ptr, arch::x86_64::ticks());
+        core::ptr::write_volatile(time_ptr, 0); // HACK
     }
     Ok(0)
 }

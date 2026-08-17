@@ -19,8 +19,9 @@
 use alloc::vec::Vec;
 
 use acpi::AcpiTables;
+use acpi::sdt::fadt::Fadt;
 use acpi::sdt::madt::{Madt, MadtEntry};
-use x86_64::VirtAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
 use crate::acpi::parser::KernelAcpiReader;
 
@@ -42,6 +43,8 @@ pub struct KernelAcpiTables {
     pub lapic_base: VirtAddr,
     pub lapics: Vec<LapicInfo>,
     pub ioapics: Vec<IoApicInfo>,
+
+    pub pm_timer_block_addr: Option<PhysAddr>,
 }
 
 impl Default for KernelAcpiTables {
@@ -50,6 +53,7 @@ impl Default for KernelAcpiTables {
             lapic_base: VirtAddr::new(0),
             lapics: Vec::new(),
             ioapics: Vec::new(),
+            pm_timer_block_addr: None,
         }
     }
 }
@@ -78,6 +82,21 @@ impl KernelAcpiTables {
                     _ => {},
                 }
             }
+        }
+    }
+
+    pub fn parse_fadt(&mut self, acpi: &AcpiTables<KernelAcpiReader>) {
+        for fadt in acpi.find_tables::<Fadt>() {
+            if let Some(pm_timer) = fadt.pm_timer_block().unwrap() {
+                self.pm_timer_block_addr =
+                    Some(PhysAddr::new(pm_timer.address));
+
+                log::info!("acpi: pm timer found at: {:#x}", pm_timer.address);
+            }
+        }
+
+        if self.pm_timer_block_addr.is_none() {
+            panic!("acpi: fadt does not contain pm timer block address");
         }
     }
 }

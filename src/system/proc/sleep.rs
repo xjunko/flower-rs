@@ -22,9 +22,9 @@ use crate::arch;
 use crate::system::proc::{ProcessState, SCHEDULER, schedule};
 use crate::system::{self};
 
-/// sleeps the current process for the given number of milliseconds.
-pub fn sleep(millis: u64) {
-    let wake_at = arch::x86_64::ticks() + millis;
+/// sleeps the current process for the given number of nanoseconds.
+pub fn sleep(nanos: u64) {
+    let wake_at = arch::x86_64::timer::get_ns() + nanos;
 
     interrupts::without_interrupts(|| {
         system::syscalls::write_cpu_context();

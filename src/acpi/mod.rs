@@ -40,6 +40,7 @@ pub fn install() {
                 AcpiTables::from_rsdp(KernelAcpiReader, rsdp.address())
             {
                 tables.parse_madt(&acpi);
+                tables.parse_fadt(&acpi);
             } else {
                 panic!("failed to parse acpi tables");
             }

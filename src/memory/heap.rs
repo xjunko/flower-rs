@@ -19,7 +19,7 @@
 use core::alloc::GlobalAlloc;
 
 use linked_list_allocator::Heap;
-use spin::Mutex;
+use spin::mutex::SpinMutex;
 use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
@@ -38,8 +38,8 @@ struct AllocStateInner {
     heap_size: usize,
 }
 
-static ALLOC_STATE: Mutex<AllocStateInner> =
-    Mutex::new(AllocStateInner { heap: None, heap_size: 0 });
+static ALLOC_STATE: SpinMutex<AllocStateInner> =
+    SpinMutex::new(AllocStateInner { heap: None, heap_size: 0 });
 
 fn map_chunk(
     addr: VirtAddr,

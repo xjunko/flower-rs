@@ -89,18 +89,18 @@ impl Scheduler {
 
     /// awakens any sleeping processes whose wake time has passed, setting them to ready.
     pub fn awaken(&mut self) {
-        let ticks = arch::x86_64::ticks();
+        let cur_ns = arch::x86_64::timer::get_ns();
         for proc in self.processes.iter_mut() {
             let mut proc = proc.lock();
 
             match proc.state {
                 ProcessState::Sleeping(wake_at) => {
-                    if ticks > wake_at {
+                    if cur_ns > wake_at {
                         log::trace!(
                             "awakening process {} (woke at {}, current ticks {})",
                             proc.name,
                             wake_at,
-                            ticks
+                            cur_ns
                         );
                         proc.state = ProcessState::Ready;
                     }
