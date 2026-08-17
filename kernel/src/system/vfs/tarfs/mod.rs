@@ -87,6 +87,7 @@ impl TarFs {
                 let file_name = String::from_utf8_lossy(&header[..100])
                     .trim_matches(char::from(0))
                     .to_string();
+
                 let file_mode = oct_to_bin(&header[100..100 + 8]);
                 let file_owner_id = oct_to_bin(&header[108..108 + 8]);
                 let file_group_id = oct_to_bin(&header[116..116 + 8]);
@@ -194,18 +195,18 @@ impl TarFs {
                             linkname: file_linkname,
                         }),
                     );
-
-                    let next = (((file_size + 511) / 512) + 1) * 512;
-                    offset = match offset.checked_add(next) {
-                        Some(value) => value,
-                        None => {
-                            log::error!(
-                                "tarfs: archive offset overflow, stopping..."
-                            );
-                            break;
-                        },
-                    };
                 }
+
+                let next = (((file_size + 511) / 512) + 1) * 512;
+                offset = match offset.checked_add(next) {
+                    Some(value) => value,
+                    None => {
+                        log::error!(
+                            "tarfs: archive offset overflow, stopping..."
+                        );
+                        break;
+                    },
+                };
             }
         }
 
@@ -229,7 +230,7 @@ impl FileSystem for TarFs {
 }
 
 impl Default for TarFs {
-    fn default() -> Self { Self::create("/boot/initramfs.tar") }
+    fn default() -> Self { Self::create("/boot/init.tar") }
 }
 
 fn normalize_tar_path(name: &str) -> String {

@@ -27,6 +27,9 @@ kernel:
 	mkdir -p $(TMP)/iso_root/boot/limine
 	cp    limine.conf $(TMP)/iso_root/boot/limine/
 
+	# initramfs
+	cp    ../init.tar $(TMP)/iso_root/boot/init.tar
+
 	# limine binaries
 	mkdir -p $(TMP)/iso_root/EFI/BOOT
 
@@ -53,7 +56,7 @@ clean:
 # running
 .PHONY: run
 run: ../$(IMG_NAME).iso
-	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 16M \
+	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 128M \
                        -device e1000 -vga std -d guest_errors,int \
 		               -serial stdio -no-reboot -no-shutdown \
 					   -audio driver=sdl,model=ac97,id=0 \

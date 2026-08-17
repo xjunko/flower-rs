@@ -34,7 +34,7 @@ const BUFFER_SIZE: usize = 64;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> i32 {
-    tools::exec::run_quiet("/init/bin/fetch");
+    tools::exec::run_quiet("/init/usr/bin/fetch");
 
     let mut buf = [0u8; BUFFER_SIZE];
     loop {
@@ -46,8 +46,11 @@ pub extern "C" fn main() -> i32 {
         }
         buf[len..BUFFER_SIZE].fill(0);
 
-        let buf_nulled =
-            buf.iter().copied().take_while(|&b| b != 0).collect::<Vec<u8>>();
+        let buf_nulled = buf
+            .iter()
+            .copied()
+            .take_while(|&b| b != 0)
+            .collect::<Vec<u8>>();
         let input = String::from_utf8(buf_nulled).unwrap_or_default();
         exec(input);
     }
@@ -82,7 +85,7 @@ fn exec(input: String) {
         "exec" => tools::exec::run(&args),
         "exit" => process::exit(0),
         _ => {
-            let mut path = format!("/init/bin/{}", cmd);
+            let mut path = format!("/init/usr/bin/{}", cmd);
             let file = File::open(path.clone());
             if file.is_ok() {
                 drop(file);
@@ -92,6 +95,6 @@ fn exec(input: String) {
             } else {
                 println!("unknown command: {}", cmd);
             }
-        },
+        }
     };
 }

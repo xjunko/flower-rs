@@ -20,7 +20,7 @@ use crate::system::vfs::file::OpenFlags;
 use crate::system::vfs::perm::Credentials;
 use crate::system::{self};
 
-const SHELL_PATH: &str = "/init/bin/shell";
+const SHELL_PATH: &str = "/init/usr/bin/shell";
 pub fn entry() {
     if let Ok(file) =
         system::vfs::open(SHELL_PATH, OpenFlags::RDONLY, Credentials::ROOT)

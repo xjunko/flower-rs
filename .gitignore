@@ -14,6 +14,11 @@ libc/target/*
 programs/target/*
 kernel/target/*
 
+/base/usr/bin/*
+!/base/usr/bin/.gitkeep
+
 # tooling and other misc hack stuff
 flower-apps/lethe/*
 flower-tooling/*
+
+*.tar
