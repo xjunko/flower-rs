@@ -24,6 +24,9 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr, VirtAddr};
 
+use crate::arch::x86_64::layout::{
+    KERNEL_VALLOC_END, KERNEL_VALLOC_START, PAGE_SIZE,
+};
 use crate::{boot, memory};
 
 static HHDM: Mutex<Option<u64>> = Mutex::new(None);
@@ -203,6 +206,49 @@ impl AddressSpace {
         Ok(phys)
     }
 
+    /// maps a range of virtual addresses to newly allocated physical pages with the specified flags
+    pub fn map_range_alloc(
+        &self,
+        virt: VirtAddr,
+        size: usize,
+        flags: PageTableFlags,
+    ) -> Result<(), &'static str> {
+        if size == 0 {
+            return Err("invalid size");
+        }
+
+        let start_page: Page<Size4KiB> = Page::containing_address(virt);
+        let end_virt = VirtAddr::new(virt.as_u64() + (size as u64 - 1));
+        let end_page: Page<Size4KiB> = Page::containing_address(end_virt);
+
+        for page in Page::range_inclusive(start_page, end_page) {
+            if let Err(e) = self.map_page_alloc(page.start_address(), flags) {
+                log::error!(
+                    "map_range_alloc failed at {:#x} (start={:#x}, size={:#x}): {}, rolling back",
+                    page.start_address().as_u64(),
+                    virt.as_u64(),
+                    size,
+                    e
+                );
+
+                // we attempt to unmap all the previous pages
+                for mapped in Page::range_inclusive(start_page, page) {
+                    if mapped == page {
+                        break;
+                    }
+
+                    if let Ok(phys) = self.unmap_page(mapped.start_address()) {
+                        memory::pmm::free(phys.as_u64());
+                    }
+                }
+
+                return Err("failed to map range in address space");
+            }
+        }
+
+        Ok(())
+    }
+
     /// unmaps the page at the given virtual address and returns the physical address that was mapped there
     pub fn unmap_page(&self, virt: VirtAddr) -> Result<PhysAddr, &'static str> {
         let page: Page<Size4KiB> = Page::containing_address(virt);
@@ -215,6 +261,28 @@ impl AddressSpace {
             flush.flush();
             Ok(frame.start_address())
         }
+    }
+
+    /// unmaps a range of virtual addresses and frees the physical pages that were mapped there
+    pub fn unmap_range(
+        &self,
+        virt: VirtAddr,
+        size: usize,
+    ) -> Result<(), &'static str> {
+        if size == 0 {
+            return Err("cannot unmap zero-sized range");
+        }
+
+        let start_page: Page<Size4KiB> = Page::containing_address(virt);
+        let end_virt = VirtAddr::new(virt.as_u64() + (size as u64 - 1));
+        let end_page: Page<Size4KiB> = Page::containing_address(end_virt);
+
+        for page in Page::range_inclusive(start_page, end_page) {
+            let phys = self.unmap_page(page.start_address())?;
+            memory::pmm::free(phys.as_u64());
+        }
+
+        Ok(())
     }
 
     /// returns the page table flags for the given virtual address, or an error if it's not mapped
@@ -256,6 +324,67 @@ impl AddressSpace {
     }
 }
 
+// vmem alloc
+static KERNEL_VALLOC_NEXT: Mutex<u64> = Mutex::new(KERNEL_VALLOC_START);
+
+impl AddressSpace {
+    /// reserves a range of virtual addresses in the kernel address space, returns an error if the range is exhausted
+    pub fn reserve_virt(size: usize) -> Result<VirtAddr, &'static str> {
+        let pages = size.div_ceil(PAGE_SIZE) as u64;
+        let bytes = pages * PAGE_SIZE as u64;
+
+        let mut next = KERNEL_VALLOC_NEXT.lock();
+
+        let start = *next;
+        let end = start.checked_add(bytes).ok_or("valloc size overflow")?;
+        if end > KERNEL_VALLOC_END {
+            return Err("valloc space exhausted");
+        }
+        *next = end;
+        Ok(VirtAddr::new(start))
+    }
+
+    /// allocates `size` bytes of memories and return a virtual address
+    pub fn alloc_virt(
+        &self,
+        size: usize,
+        flags: PageTableFlags,
+    ) -> Result<VirtAddr, &'static str> {
+        if size == 0 {
+            return Err("invalid size");
+        }
+
+        let virt = Self::reserve_virt(size)?;
+        if let Err(e) = self.map_range_alloc(virt, size, flags) {
+            log::error!(
+                "failed to map range virt={:#x}, size={:#x}, flags={:?}: {}",
+                virt.as_u64(),
+                size,
+                flags,
+                e
+            );
+
+            return Err(e);
+        }
+
+        Ok(virt)
+    }
+
+    /// frees a range of virtual addresses, used along alloc_virt
+    pub fn free_virt(
+        &self,
+        virt: VirtAddr,
+        size: usize,
+    ) -> Result<(), &'static str> {
+        if size == 0 {
+            return Err("invalid size");
+        }
+
+        self.unmap_range(virt, size)
+    }
+}
+
+// utils
 impl AddressSpace {
     /// returns the OffsetPageTable for this address space.
     unsafe fn table(&self) -> OffsetPageTable<'static> {
