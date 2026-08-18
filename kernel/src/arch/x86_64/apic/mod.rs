@@ -21,14 +21,12 @@ pub mod lapic;
 
 use raw_cpuid::CpuId;
 use spin::Once;
-use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 
 use crate::arch::x86_64::apic::ioapic::IoApic;
 use crate::arch::x86_64::apic::lapic::LocalApic;
 use crate::arch::x86_64::interrupts::InterruptIndex;
-use crate::arch::x86_64::layout::{IOAPIC_VIRT, LAPIC_VIRT};
 use crate::memory::vmm::AddressSpace;
 
 // legacy pic
@@ -63,23 +61,22 @@ pub fn install() {
     let cpuid = CpuId::new();
     let address_space = AddressSpace::current();
 
-    let finfo =
-        cpuid.get_feature_info().expect("cpuid feature info unavailable");
+    if let Some(features) = cpuid.get_feature_info() {
+        if !features.has_apic() {
+            panic!("cpu does not support apic");
+        }
 
-    if finfo.has_x2apic() {
-        log::warn!("x2apic supported but unused, falling back to xapic");
+        if features.has_x2apic() {
+            log::warn!("x2apic supported but unused, falling back to xapic");
+        }
     }
 
-    if !finfo.has_apic() {
-        panic!("cpu does not support apic");
-    }
+    let lapic = LocalApic::init(&address_space);
+    let ioapic = IoApic::init(&address_space);
 
-    let lapic = LocalApic::init(&address_space, VirtAddr::new(LAPIC_VIRT));
-    let ioapic = IoApic::init(&address_space, VirtAddr::new(IOAPIC_VIRT));
-
-    lapic.enable_spurious(InterruptIndex::Spurious as u8);
     lapic.calibrate();
-    lapic.start_periodic_timer(InterruptIndex::LapicTimer as u8);
+    lapic.enable_spurious_at(InterruptIndex::Spurious as u8);
+    lapic.enable_periodic_timer_at(InterruptIndex::LapicTimer as u8);
 
     ioapic.set_redirection(1, InterruptIndex::Keyboard as u8, lapic.id());
     ioapic.set_redirection(12, InterruptIndex::Mouse as u8, lapic.id());

@@ -22,6 +22,7 @@ use x86_64::VirtAddr;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::x86_64::layout::PAGE_SIZE;
 use crate::arch::x86_64::timer::acpi_pmt;
 use crate::memory::vmm::AddressSpace;
 
@@ -41,7 +42,14 @@ pub struct LocalApic {
 }
 
 impl LocalApic {
-    pub fn init(address_space: &AddressSpace, virt: VirtAddr) -> Self {
+    pub fn init(address_space: &AddressSpace) -> Self {
+        let flags = PageTableFlags::PRESENT
+            | PageTableFlags::WRITABLE
+            | PageTableFlags::NO_CACHE;
+
+        let virt = AddressSpace::reserve_virt(PAGE_SIZE)
+            .expect("failed to reserve virt for lapic");
+
         let (apic_base, apic_flags) = ApicBase::read();
         log::debug!("apic addr: {:#x}", apic_base.start_address().as_u64());
 
@@ -57,9 +65,6 @@ impl LocalApic {
             log::debug!("lapic already enabled");
         }
 
-        let flags = PageTableFlags::PRESENT
-            | PageTableFlags::WRITABLE
-            | PageTableFlags::NO_CACHE;
         address_space
             .map_page(virt, apic_base.start_address(), flags)
             .expect("failed to map lapic");
@@ -104,11 +109,11 @@ impl LocalApic {
 }
 
 impl LocalApic {
-    pub fn enable_spurious(&self, vector: u8) {
+    pub fn enable_spurious_at(&self, vector: u8) {
         unsafe { self.write(LAPIC_SPURIOUS, 0x100 | vector as u32) };
     }
 
-    pub fn start_periodic_timer(&self, vector: u8) {
+    pub fn enable_periodic_timer_at(&self, vector: u8) {
         let ticks_ms = self.ticks_per_ms.load(Ordering::Relaxed);
         unsafe {
             self.write(LAPIC_TIMER_DIV, 0x3);

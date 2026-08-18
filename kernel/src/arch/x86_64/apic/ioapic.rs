@@ -20,6 +20,7 @@ use x86_64::structures::paging::PageTableFlags;
 use x86_64::{PhysAddr, VirtAddr};
 
 use crate::acpi;
+use crate::arch::x86_64::layout::PAGE_SIZE;
 use crate::memory::vmm::AddressSpace;
 
 const IOAPIC_REG_DATA: u64 = 0x10;
@@ -30,7 +31,10 @@ pub struct IoApic {
 }
 
 impl IoApic {
-    pub fn init(address_space: &AddressSpace, virt: VirtAddr) -> Self {
+    pub fn init(address_space: &AddressSpace) -> Self {
+        let virt = AddressSpace::reserve_virt(PAGE_SIZE)
+            .expect("failed to reserve virt for ioapic");
+
         let acpi_tables = acpi::get();
         if acpi_tables.ioapics.is_empty() {
             panic!("no ioapic found in acpi tables");
