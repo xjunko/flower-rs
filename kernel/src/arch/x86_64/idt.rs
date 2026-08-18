@@ -20,10 +20,9 @@ use spin::LazyLock;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 use crate::arch::x86_64::gdt::DOUBLE_FAULT_IST_INDEX;
-use crate::arch::x86_64::interrupts::{
-    InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
-};
-use crate::devices::ps2::keyboard;
+use crate::arch::x86_64::interrupts::{self, InterruptIndex};
+use crate::devices::ps2::keyboard::{self};
+use crate::devices::ps2::mouse;
 use crate::{memory, println};
 
 static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| {
@@ -41,14 +40,18 @@ static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| {
             .set_stack_index(DOUBLE_FAULT_IST_INDEX);
     }
 
-    // ps2/keyboard
+    // ps/2 handling
     idt[InterruptIndex::Keyboard.as_u8()]
-        .set_handler_fn(keyboard::keyboard_interrupt_handler);
+        .set_handler_fn(keyboard::handler::keyboard_interrupt_handler);
 
-    // spurious
-    idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
+    idt[InterruptIndex::Mouse.as_u8()]
+        .set_handler_fn(mouse::handler::mouse_interrupt_handler);
+
+    // we used these for scheduling
+    idt[InterruptIndex::LapicTimer.as_u8()]
+        .set_handler_fn(interrupts::lapic_timer_handler);
     idt[InterruptIndex::Spurious.as_u8()]
-        .set_handler_fn(spurious_interrupt_handler);
+        .set_handler_fn(interrupts::spurious_interrupt_handler);
 
     idt
 });

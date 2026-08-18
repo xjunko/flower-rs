@@ -62,7 +62,7 @@ pub fn install() {
     TIMER_FREQ.call_once(|| freq);
     TIMER_TICKS_INIT.call_once(self::get_ticks);
 
-    log::info!("timer type: {:?}, frequency: {}hz", typ, freq);
+    log::debug!("timer type: {:?}, frequency: {}hz", typ, freq);
 }
 
 pub fn get_ticks() -> u64 {

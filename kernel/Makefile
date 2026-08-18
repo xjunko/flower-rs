@@ -60,4 +60,4 @@ run: ../$(IMG_NAME).iso
                        -device e1000 -vga std -d guest_errors,int \
 		               -serial stdio -no-reboot -no-shutdown \
 					   -audio driver=sdl,model=ac97,id=0 \
-					   -cdrom ../$(IMG_NAME).iso -d int
+					   -cdrom ../$(IMG_NAME).iso 

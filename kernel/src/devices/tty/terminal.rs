@@ -87,7 +87,7 @@ impl FramebufferTerminal {
         }
 
         let mut terminal = Terminal::new(term, Box::new(BitmapFont));
-        terminal.set_color_scheme(0);
+        terminal.set_color_scheme(7);
 
         Some(terminal)
     }

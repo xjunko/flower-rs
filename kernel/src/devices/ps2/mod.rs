@@ -17,6 +17,9 @@
  */
 
 pub mod keyboard;
-mod keyboard_defs;
+pub mod mouse;
 
-pub fn install() { keyboard::install(); }
+pub fn install() {
+    keyboard::install();
+    mouse::install();
+}

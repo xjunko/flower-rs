@@ -25,8 +25,9 @@ use crate::system::proc;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum InterruptIndex {
-    Timer = 32,
+    LapicTimer = 32,
     Keyboard = 33,
+    Mouse = 44,
     Spurious = 255,
 }
 
@@ -40,7 +41,7 @@ pub fn enable() { interrupts::enable(); }
 
 pub fn disable() { interrupts::disable(); }
 
-pub extern "x86-interrupt" fn timer_interrupt_handler(
+pub extern "x86-interrupt" fn lapic_timer_handler(
     _stack_frame: InterruptStackFrame,
 ) {
     apic::eoi();
@@ -50,4 +51,5 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(
 pub extern "x86-interrupt" fn spurious_interrupt_handler(
     _stack_frame: InterruptStackFrame,
 ) {
+    todo!("ive never encountered this yet")
 }

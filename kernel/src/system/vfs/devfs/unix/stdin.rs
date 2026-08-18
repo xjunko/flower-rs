@@ -22,7 +22,8 @@ use alloc::string::ToString;
 
 use spin::Mutex;
 
-use crate::devices::ps2::keyboard::{KEYBOARD, KeyEvent, KeyboardSubscriber};
+use crate::devices::ps2::keyboard::handler::KEYBOARD_SUB;
+use crate::devices::ps2::keyboard::publisher::{KeyEvent, KeyboardSubscriber};
 use crate::system::vfs::devfs::{DevFile, DevFs};
 use crate::system::vfs::error::VfsResult;
 
@@ -58,7 +59,7 @@ fn kb_write(_buf: &[u8]) -> VfsResult<usize> { Ok(0) }
 
 pub(crate) fn bind(dev: &mut DevFs) {
     let subscriber = Box::leak(Box::new(DevFSKeyboard));
-    KEYBOARD.lock().subscribe(subscriber);
+    KEYBOARD_SUB.lock().subscribe(subscriber);
 
     dev.bind(DevFile::new(
         "/stdin".to_string(),

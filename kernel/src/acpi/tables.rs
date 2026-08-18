@@ -91,7 +91,7 @@ impl KernelAcpiTables {
                 self.pm_timer_block_addr =
                     Some(PhysAddr::new(pm_timer.address));
 
-                log::info!("acpi: pm timer found at: {:#x}", pm_timer.address);
+                log::debug!("acpi: pm timer found at: {:#x}", pm_timer.address);
             }
         }
 

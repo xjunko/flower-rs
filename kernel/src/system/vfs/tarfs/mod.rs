@@ -157,7 +157,7 @@ impl TarFs {
                         break;
                     }
 
-                    log::info!(
+                    log::debug!(
                         "tarfs: loaded type={:?} {} ({} bytes)",
                         file_type,
                         path,

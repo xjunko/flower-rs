@@ -79,9 +79,10 @@ pub fn install() {
 
     lapic.enable_spurious(InterruptIndex::Spurious as u8);
     lapic.calibrate();
-    lapic.start_periodic_timer(InterruptIndex::Timer as u8);
+    lapic.start_periodic_timer(InterruptIndex::LapicTimer as u8);
 
     ioapic.set_redirection(1, InterruptIndex::Keyboard as u8, lapic.id());
+    ioapic.set_redirection(12, InterruptIndex::Mouse as u8, lapic.id());
 
     APIC.call_once(|| Apic { lapic, ioapic });
 }

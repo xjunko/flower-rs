@@ -16,24 +16,28 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-mod fb;
-mod mouse;
-mod snd;
-mod stderr;
-mod stdin;
-mod stdout;
+use x86_64::instructions::port::Port;
 
-use crate::system::vfs::devfs::DevFs;
+mod defs;
+pub mod handler;
+pub mod publisher;
 
-pub fn create() -> DevFs {
-    let mut mnt = DevFs::new();
+const KB_DEVICE: u16 = 0x60;
+const KB_PENDING: u16 = 0x64;
 
-    fb::bind(&mut mnt);
-    snd::bind(&mut mnt);
-    stdin::bind(&mut mnt);
-    stdout::bind(&mut mnt);
-    stderr::bind(&mut mnt);
-    mouse::bind(&mut mnt);
+const MAX_DRAIN: usize = 32;
 
-    mnt
+pub fn install() {
+    let mut pending_port: Port<u8> = Port::new(KB_PENDING);
+    let mut data_port: Port<u8> = Port::new(KB_DEVICE);
+
+    // optimally this should get all the
+    // pending scancodes cleared out.
+    for _ in 0..MAX_DRAIN {
+        if unsafe { pending_port.read() } & 0x1 == 0 {
+            break;
+        }
+        let _ = unsafe { data_port.read() };
+    }
+    log::debug!("ps2::keyboard installed!");
 }
