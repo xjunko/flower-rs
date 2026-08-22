@@ -21,6 +21,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
+use crate::arch::x86_64::timer::get_ns;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::{self};
 
@@ -41,7 +42,7 @@ pub fn mtime(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
     unsafe {
-        core::ptr::write_volatile(time_ptr, 0); // HACK
+        core::ptr::write_volatile(time_ptr, get_ns());
     }
     Ok(0)
 }
