@@ -22,11 +22,12 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 
 use flower_libc::file::File;
+use flower_libc::sys::fs::bits::FS_RDONLY;
 use flower_libc::println;
 
 pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
     let (kernel_name, kernel_version) = {
-        if let Ok(file) = File::open("/proc/version".to_string()) {
+        if let Ok(file) = File::open("/proc/version".to_string(), FS_RDONLY) {
             let mut buf = vec![0u8; 1024];
             if let Err(e) = file.read(&mut buf) {
                 println!("failed to read /proc/version: {}", e);
@@ -51,7 +52,7 @@ pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
     };
 
     let memory_info = {
-        if let Ok(file) = File::open("/proc/meminfo".to_string()) {
+        if let Ok(file) = File::open("/proc/meminfo".to_string(), FS_RDONLY) {
             let mut buf = vec![0u8; 1024];
             if let Err(e) = file.read(&mut buf) {
                 println!("failed to read /proc/meminfo: {}", e);

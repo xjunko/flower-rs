@@ -21,6 +21,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use flower_libc::file::File;
+use flower_libc::sys::fs::bits::FS_RDONLY;
 use flower_libc::{env, print, println};
 
 extern crate alloc;
@@ -43,7 +44,7 @@ fn cat(args: &str) -> i32 {
         return 1;
     }
 
-    if let Ok(file) = File::open(args.to_string()) {
+    if let Ok(file) = File::open(args.to_string(), FS_RDONLY) {
         let mut buffer = [0u8; 1024];
         loop {
             let read_bytes = file.read(&mut buffer).unwrap_or(0);
@@ -52,8 +53,7 @@ fn cat(args: &str) -> i32 {
             }
             print!(
                 "{}",
-                core::str::from_utf8(&buffer[..read_bytes])
-                    .unwrap_or("<invalid utf-8>")
+                core::str::from_utf8(&buffer[..read_bytes]).unwrap_or("<invalid utf-8>")
             );
         }
     } else {

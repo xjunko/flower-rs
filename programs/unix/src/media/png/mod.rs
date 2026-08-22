@@ -23,6 +23,7 @@ use core::cmp::min;
 
 use flower_libc::file::File;
 use flower_libc::println;
+use flower_libc::sys::fs::bits::{FS_RDONLY, FS_RDWR};
 use flower_libc::sys::kernel;
 
 const FB_WIDTH: usize = 1280;
@@ -42,7 +43,7 @@ pub fn start() -> Result<i32, Box<dyn core::error::Error>> {
         None => {
             println!("failed to get filename argument");
             return Ok(1);
-        },
+        }
     };
 
     Ok(cat(file_path))
@@ -55,7 +56,7 @@ fn cat(filename: &str) -> i32 {
     }
 
     // parse a png
-    if let Ok(file) = File::open(filename.to_string()) {
+    if let Ok(file) = File::open(filename.to_string(), FS_RDONLY) {
         let mut buf = vec![0u8; 1024 * 1024]; // 1mb for now...
         file.read(&mut buf).expect("failed to read full image");
 
@@ -64,7 +65,7 @@ fn cat(filename: &str) -> i32 {
         println!("Image data length: {}", image_data.len());
 
         // get the framebuffer
-        if let Ok(framebuffer) = File::open("/dev/fb0".to_string()) {
+        if let Ok(framebuffer) = File::open("/dev/fb0".to_string(), FS_RDWR) {
             let fb_addr = framebuffer.mmap(FB_PITCH * FB_HEIGHT);
             if fb_addr.is_err() {
                 println!("failed to mmap /dev/fb0");
@@ -143,8 +144,7 @@ fn draw_rgba_to_framebuffer(
                     blend_channel(src_b, dst_b, src_a)
                 };
 
-                *pixel =
-                    (out_r as u32) << 16 | (out_g as u32) << 8 | out_b as u32;
+                *pixel = (out_r as u32) << 16 | (out_g as u32) << 8 | out_b as u32;
             }
         }
     }

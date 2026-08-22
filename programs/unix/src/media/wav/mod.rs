@@ -24,6 +24,7 @@ use alloc::string::ToString;
 use alloc::vec;
 
 use flower_libc::file::File;
+use flower_libc::sys::fs::bits::{FS_RDONLY, FS_RDWR};
 use flower_libc::thread::{self};
 use flower_libc::time::SystemTime;
 use flower_libc::{env, println};
@@ -58,8 +59,9 @@ fn play(args: &str) -> i32 {
         return 1;
     }
 
-    let music_file = File::open(args.to_string()).expect("failed to open music file");
-    let driver_file = File::open("/dev/snd".to_string()).expect("failed to open driver file");
+    let music_file = File::open(args.to_string(), FS_RDONLY).expect("failed to open music file");
+    let driver_file =
+        File::open("/dev/snd".to_string(), FS_RDWR).expect("failed to open driver file");
 
     let music_metadata = music_file
         .metadata()
