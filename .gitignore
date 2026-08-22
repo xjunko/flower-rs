@@ -17,6 +17,9 @@ kernel/target/*
 /base/usr/bin/*
 !/base/usr/bin/.gitkeep
 
+/base/usr/include/*
+!/base/usr/include/.gitkeep
+
 # tooling and other misc hack stuff
 flower-apps/lethe/*
 flower-tooling/*
