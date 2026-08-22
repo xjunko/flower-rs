@@ -63,8 +63,8 @@ pub struct File {
 impl File {
     pub fn fd(&self) -> u64 { self.fd }
 
-    pub fn open(path: String) -> Result<Self, FileError> {
-        let fd = fs::open(path.as_ptr(), path.len(), 0, 0);
+    pub fn open(path: String, flags: u32) -> Result<Self, FileError> {
+        let fd = fs::open(path.as_ptr(), path.len(), flags as u64, 0);
         if fd < 0 {
             Err(FileError::FileNotFound)
         } else {

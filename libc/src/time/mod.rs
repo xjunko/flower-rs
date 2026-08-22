@@ -21,32 +21,38 @@ use flower_mono::syscalls::SYS_MTIME;
 use crate::sys::kernel::syscall1;
 
 pub struct Duration {
-    millis: u64,
+    nanos: u64,
 }
 
 impl Duration {
-    pub fn as_millis(&self) -> u64 { self.millis }
+    pub fn as_nanos(&self) -> u64 { self.nanos }
 
-    pub fn as_secs(&self) -> u64 { self.millis / 1000 }
+    pub fn as_millis(&self) -> u64 { self.nanos / 1_000_000 }
+
+    pub fn as_secs(&self) -> u64 { self.nanos / 1_000_000_000 }
 }
 
 pub struct SystemTime {
-    millis: u64,
+    nanos: u64,
 }
 
 impl SystemTime {
-    pub fn now() -> Self { SystemTime { millis: __sys_get_time_ms() } }
+    pub fn now() -> Self { SystemTime { nanos: __sys_get_time_ns() } }
 
     pub fn elapsed(&self) -> Duration {
-        Duration { millis: self.elapsed_millis() }
+        Duration { nanos: self.elapsed_nanos() }
     }
 
-    pub fn elapsed_millis(&self) -> u64 { __sys_get_time_ms() - self.millis }
+    pub fn elapsed_nanos(&self) -> u64 { __sys_get_time_ns() - self.nanos }
 
-    pub fn as_millis(&self) -> u64 { self.millis }
+    pub fn as_nanos(&self) -> u64 { self.nanos }
+
+    pub fn as_millis(&self) -> u64 { self.nanos / 1_000_000 }
+
+    pub fn as_secs(&self) -> u64 { self.nanos / 1_000_000_000 }
 }
 
-fn __sys_get_time_ms() -> u64 {
+fn __sys_get_time_ns() -> u64 {
     let mut time: u64 = 0;
     syscall1(SYS_MTIME, &mut time as *mut u64 as u64);
     time
