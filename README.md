@@ -71,9 +71,9 @@ make clean run
   - fat would be nice to have
   - pipe would be nice to have
 - smp
-  - only single core is supported
+  - smp is "supported" in the sense that we can handle but currently it's not used.
 - stability
-  - sometime it got stuck on boot, so not that stable.
+  - during boot, pressing key might trigger a halt, no clue yet why, maybe some silly ps/2 issue?
   
 ### userspace
 - process

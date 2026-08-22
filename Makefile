@@ -73,8 +73,7 @@ $(IMG_NAME).iso: $(LIMINE)/limine kernel base
 .PHONY: clean
 clean:
 	rm -rf $(TMP)
-	cargo clean
-
+	make -C kernel clean
 
 .PHONY: run
 run: $(IMG_NAME).iso
