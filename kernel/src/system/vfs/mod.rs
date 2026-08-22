@@ -237,7 +237,7 @@ pub fn install() {
     vfs.mount("/proc", Box::new(devfs::proc::create()))
         .expect("failed to mount procfs");
 
-    vfs.mount("/init/", Box::new(tarfs::TarFs::create("/boot/init.tar")))
+    vfs.mount("/init/", Box::new(tarfs::TarFs::create("/boot/initrd.tar")))
         .expect("failed to mount tarfs");
 
     log::info!("mounted {} filesystem", vfs.mounts.len());

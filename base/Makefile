@@ -1,11 +1,8 @@
-SRCS := $(filter-out Makefile %.gitkeep,$(wildcard *))
+SRCS  := $(filter-out Makefile %.gitkeep,$(wildcard *))
+WHERE ?= /tmp/flower-initrd.tar
 
 .PHONY: sync
 sync:
-	tar --blocking-factor 1 -cf ../init.tar $(SRCS)
-
-.PHONY: clean
-clean:
-	rm -f ../init.tar
+	tar --blocking-factor 1 -cf $(WHERE) $(SRCS)
 
 all: sync
