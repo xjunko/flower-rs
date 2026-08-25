@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "flower-apps-fwm"
+version = "0.0.1"
+edition = "2024"
+
+[[bin]]
+bench = false
+name = "flower-apps-fwm"
+test = false
+
+[dependencies]
+flower-libc = { path = "../../flower-libc" }

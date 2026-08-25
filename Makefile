@@ -3,25 +3,25 @@
 # kernel doesnt rely on anything, it can be built by itself
 .PHONY: kernel
 kernel:
-	$(MAKE) -C kernel
+	$(MAKE) -C flower-core
 
 # libc, while independent of the kernel, has a header generation step
 # which is unused atm, but we'll keep install it under base anyway.
 .PHONY: libc
 libc:
-	$(MAKE) -C libc
+	$(MAKE) -C flower-libc
 
 # programs will be installed under base
 .PHONY: programs
 programs:
-	$(MAKE) -C programs
+	$(MAKE) -C flower-user
 
 # base needs programs
 override INITRD := /tmp/flower-initrd.tar
 
 .PHONY: base
 base: programs libc
-	$(MAKE) -C base WHERE=$(INITRD)
+	$(MAKE) -C initrd WHERE=$(INITRD)
 
 ##### image generation #####
 override IMG_NAME := flower
@@ -43,11 +43,11 @@ $(IMG_NAME).iso: $(LIMINE)/limine kernel base
 	mkdir -p  $(TMP)/iso_root/boot
 
 	# kernel elf
-	cp -v kernel/target/x86_64-riria/release/kernel $(TMP)/iso_root/boot/kernel
+	cp -v flower-core/target/x86_64-riria/release/kernel $(TMP)/iso_root/boot/kernel
 
 	# limine
 	mkdir -p $(TMP)/iso_root/boot/limine
-	cp    kernel/limine.conf $(TMP)/iso_root/boot/limine/
+	cp    flower-core/limine.conf $(TMP)/iso_root/boot/limine/
 
 	# initramfs
 	cp    $(INITRD) $(TMP)/iso_root/boot/initrd.tar
@@ -73,7 +73,7 @@ $(IMG_NAME).iso: $(LIMINE)/limine kernel base
 .PHONY: clean
 clean:
 	rm -rf $(TMP)
-	make -C kernel clean
+	make -C flower-core clean
 
 .PHONY: run
 run: $(IMG_NAME).iso

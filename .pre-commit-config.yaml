@@ -3,23 +3,23 @@ repos:
     hooks:
       - id: fmt-kernel
         name: fmt (kernel)
-        entry: bash -c 'cd kernel && cargo fmt --check'
+        entry: bash -c 'cd flower-core && cargo fmt --check'
         language: system
-        files: '^kernel/.*\.rs$'
+        files: '^flower-core/.*\.rs$'
         pass_filenames: false
 
       - id: fmt-libc
         name: fmt (libc)
-        entry: bash -c 'cd libc && cargo fmt --check'
+        entry: bash -c 'cd flower-libc && cargo fmt --check'
         language: system
-        files: '^libc/.*\.rs$'
+        files: '^flower-libc/.*\.rs$'
         pass_filenames: false
 
       - id: fmt-mono
         name: fmt (mono)
-        entry: bash -c 'cd mono && cargo fmt --check'
+        entry: bash -c 'cd flower-uapi && cargo fmt --check'
         language: system
-        files: '^mono/.*\.rs$'
+        files: '^flower-uapi/.*\.rs$'
         pass_filenames: false
 
   - repo: https://github.com/bnjbvr/cargo-machete
