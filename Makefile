@@ -1,5 +1,12 @@
 ##### compilation targets #####
 
+.PHONY: default
+default:
+	@echo "available targets:"
+	@echo "  - kernel // compiles the kernel"
+	@echo "  - run    // compiles the kernel and runs in qemu w/ kvm"
+	@echo "  - clean  // deletes build artifacts"
+
 # kernel doesnt rely on anything, it can be built by itself
 .PHONY: kernel
 kernel:
