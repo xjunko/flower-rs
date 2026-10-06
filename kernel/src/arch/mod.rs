@@ -44,6 +44,21 @@ pub trait Arch: Paging {
     fn interrupts_enable();
     fn interrupts_disable();
     fn interrupts_ack();
+
+    fn interrupts_enabled() -> bool;
+
+    fn interrupts_without<F, R>(f: F) -> R
+    where F: FnOnce() -> R {
+        let enabled = Self::interrupts_enabled();
+        if enabled {
+            Self::interrupts_disable();
+        }
+        let result = f();
+        if enabled {
+            Self::interrupts_enable();
+        }
+        result
+    }
 }
 
 pub trait Paging {

@@ -20,7 +20,6 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use x86_64::VirtAddr;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
-use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::MapFlags;
 use crate::arch::x86_64::layout::PAGE_SIZE;

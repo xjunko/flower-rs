@@ -66,4 +66,8 @@ impl Arch for Processor {
     fn interrupts_disable() { x86_64::instructions::interrupts::disable() }
 
     fn interrupts_ack() { apic::eoi() }
+
+    fn interrupts_enabled() -> bool {
+        x86_64::instructions::interrupts::are_enabled()
+    }
 }

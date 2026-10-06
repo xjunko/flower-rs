@@ -21,13 +21,11 @@ use core::alloc::GlobalAlloc;
 use linked_list_allocator::Heap;
 use spin::mutex::SpinMutex;
 use x86_64::VirtAddr;
-use x86_64::instructions::interrupts;
-use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::MapFlags;
 use crate::arch::x86_64::layout::{
     KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE,
 };
+use crate::arch::{Arch, MapFlags, Processor};
 use crate::memory::vmm::AddressSpace;
 
 struct Allocator;
@@ -59,7 +57,7 @@ fn map_chunk(
 
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
-        interrupts::without_interrupts(|| {
+        Processor::interrupts_without(|| {
             let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
             let mut state = ALLOC_STATE.lock();
@@ -106,7 +104,7 @@ unsafe impl GlobalAlloc for Allocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-        interrupts::without_interrupts(|| {
+        Processor::interrupts_without(|| {
             let mut state = ALLOC_STATE.lock();
             if let Some(heap) = state.heap.as_mut() {
                 unsafe {
@@ -123,28 +121,28 @@ unsafe impl GlobalAlloc for Allocator {
 pub fn install() -> Result<(), &'static str> { Ok(()) }
 
 pub fn free_memory() -> usize {
-    interrupts::without_interrupts(|| {
+    Processor::interrupts_without(|| {
         let state = ALLOC_STATE.lock();
         state.heap.as_ref().map_or(0, |heap| heap.free())
     })
 }
 
 pub fn heap_capacity() -> usize {
-    interrupts::without_interrupts(|| {
+    Processor::interrupts_without(|| {
         let state = ALLOC_STATE.lock();
         state.heap_size
     })
 }
 
 pub fn used_memory() -> usize {
-    interrupts::without_interrupts(|| {
+    Processor::interrupts_without(|| {
         let state = ALLOC_STATE.lock();
         state.heap.as_ref().map_or(0, |heap| heap.used())
     })
 }
 
 pub fn working() -> bool {
-    interrupts::without_interrupts(|| {
+    Processor::interrupts_without(|| {
         let state = ALLOC_STATE.lock();
         state.heap.is_some()
     })

@@ -16,8 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use x86_64::structures::paging::PageTableFlags;
-use x86_64::{PhysAddr, VirtAddr};
+use x86_64::VirtAddr;
 
 use crate::acpi;
 use crate::arch::{MapFlags, Paging, Processor};
