@@ -20,6 +20,7 @@ panic = "abort"
 
 [dependencies]
 acpi = "6.1.0"
+bitflags = "2.13.2"
 limine = "0.6.5"
 linked_list_allocator = "0.10.5"
 log = "0.4.29"

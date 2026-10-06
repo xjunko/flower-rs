@@ -29,7 +29,7 @@ use raw_cpuid::CpuId;
 use x86_64::VirtAddr;
 use x86_64::registers::control::{Cr0, Cr0Flags, Cr4, Cr4Flags};
 
-use crate::arch::{Arch, Processor};
+use crate::arch::{Arch, Paging, Processor};
 
 fn install_cpu_features() {
     let cpuid = CpuId::new();
@@ -56,8 +56,6 @@ fn install_cpu_features() {
 }
 
 impl Arch for Processor {
-    const PAGE_SIZE: usize = 0x1000;
-
     fn bsp_install() {
         self::install_cpu_features();
         self::gdt::install();
@@ -92,4 +90,59 @@ impl Arch for Processor {
     fn interrupts_disable() { x86_64::instructions::interrupts::disable() }
 
     fn interrupts_ack() { apic::eoi() }
+}
+
+impl Paging for Processor {
+    type Root = u64;
+
+    const KERNEL_HALF_START: u64 = 0xffff_8000_0000_0000;
+    const PAGE_SIZE: usize = 0x1000;
+
+    fn hhdm_offset() -> u64 { todo!() }
+
+    fn active_root() -> Self::Root { todo!() }
+
+    fn set_active_root(root: Self::Root) { todo!() }
+
+    fn root_new() -> Result<Self::Root, &'static str> { todo!() }
+
+    fn root_free(root: Self::Root) { todo!() }
+
+    fn root_phys(root: Self::Root) -> u64 { todo!() }
+
+    fn map(
+        root: Self::Root,
+        virt: u64,
+        phys: u64,
+        flags: super::MapFlags,
+    ) -> Result<(), &'static str> {
+        todo!()
+    }
+
+    fn unmap(root: Self::Root, virt: u64) -> Result<u64, &'static str> {
+        todo!()
+    }
+
+    fn protect(
+        root: Self::Root,
+        virt: u64,
+        flags: super::MapFlags,
+    ) -> Result<(), &'static str> {
+        todo!()
+    }
+
+    fn translate(
+        root: Self::Root,
+        virt: u64,
+    ) -> Option<(u64, super::MapFlags)> {
+        todo!()
+    }
+
+    fn tlb_flush(virt: u64) { todo!() }
+
+    fn tlb_flush_all() { todo!() }
+
+    fn clone_user(root: Self::Root) -> Result<Self::Root, &'static str> {
+        todo!()
+    }
 }

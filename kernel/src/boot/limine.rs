@@ -22,7 +22,7 @@ use limine::request::{
 };
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
 
-use crate::arch::{Arch, Processor};
+use crate::arch::{Arch, Paging, Processor};
 
 #[used]
 #[unsafe(link_section = ".limine_requests_start")]

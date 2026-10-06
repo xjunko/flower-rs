@@ -27,7 +27,7 @@ use x86_64::{PhysAddr, VirtAddr};
 use crate::arch::x86_64::layout::{
     KERNEL_VALLOC_END, KERNEL_VALLOC_START, PAGE_SIZE,
 };
-use crate::arch::{Arch, Processor};
+use crate::arch::{Arch, Paging, Processor};
 use crate::{boot, memory};
 
 static HHDM: Once<Option<u64>> = Once::new();

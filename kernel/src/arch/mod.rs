@@ -19,9 +19,19 @@
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
 
-pub trait Arch {
-    const PAGE_SIZE: usize;
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct MapFlags: u32 {
+        const READ      = 1 << 0;
+        const WRITE     = 1 << 1;
+        const EXEC      = 1 << 2;
+        const USER      = 1 << 3;
+        const NO_CACHE  = 1 << 4;
+        const WRITE_THROUGH = 1 << 5;
+    }
+}
 
+pub trait Arch: Paging {
     // cpu
     fn bsp_install();
     fn ap_install();
@@ -43,6 +53,46 @@ pub trait Arch {
     fn interrupts_enable();
     fn interrupts_disable();
     fn interrupts_ack();
+}
+
+pub trait Paging {
+    /// opaque handle to a root table (pml4 on x86)
+    type Root: Copy + Eq;
+
+    const PAGE_SIZE: usize;
+    const KERNEL_HALF_START: u64;
+
+    // setup
+    fn hhdm_offset() -> u64;
+    fn active_root() -> Self::Root;
+    fn set_active_root(root: Self::Root);
+
+    // root lifecycle
+    fn root_new() -> Result<Self::Root, &'static str>;
+    fn root_free(root: Self::Root);
+    fn root_phys(root: Self::Root) -> u64;
+
+    // mapping
+    fn map(
+        root: Self::Root,
+        virt: u64,
+        phys: u64,
+        flags: MapFlags,
+    ) -> Result<(), &'static str>;
+    fn unmap(root: Self::Root, virt: u64) -> Result<u64, &'static str>;
+    fn protect(
+        root: Self::Root,
+        virt: u64,
+        flags: MapFlags,
+    ) -> Result<(), &'static str>;
+    fn translate(root: Self::Root, virt: u64) -> Option<(u64, MapFlags)>;
+
+    // tlb
+    fn tlb_flush(virt: u64);
+    fn tlb_flush_all();
+
+    // fork support
+    fn clone_user(root: Self::Root) -> Result<Self::Root, &'static str>;
 }
 
 pub struct Processor {}

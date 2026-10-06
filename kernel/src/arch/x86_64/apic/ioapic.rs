@@ -20,7 +20,7 @@ use x86_64::structures::paging::PageTableFlags;
 use x86_64::{PhysAddr, VirtAddr};
 
 use crate::acpi;
-use crate::arch::{Arch, Processor};
+use crate::arch::{Paging, Processor};
 use crate::memory::vmm::AddressSpace;
 
 const IOAPIC_REDIR_TABLE: u32 = 0x10;
