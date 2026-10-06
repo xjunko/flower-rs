@@ -18,10 +18,8 @@
 
 #![no_std]
 #![no_main]
-#![feature(const_trait_impl)]
-#![feature(abi_x86_interrupt)]
 #![allow(dead_code)]
-#![allow(clippy::manual_div_ceil)]
+#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
 
 extern crate alloc;
 

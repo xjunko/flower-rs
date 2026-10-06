@@ -24,7 +24,6 @@ use spin::Once;
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 
-use crate::acpi;
 use crate::arch::x86_64::apic::ioapic::IoApic;
 use crate::arch::x86_64::apic::lapic::LocalApic;
 use crate::arch::x86_64::interrupts::InterruptIndex;

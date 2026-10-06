@@ -16,7 +16,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use log::info;
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::InterruptStackFrame;
 
