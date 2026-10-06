@@ -63,7 +63,8 @@ clean:
 
 .PHONY: run
 run: $(IMG_NAME).iso
-	qemu-system-x86_64 -cpu host -machine q35,accel=kvm -smp 1 -m 128M \
+	qemu-system-x86_64 -machine q35,accel=kvm,smm=on -s -smp 1 -m 128M \
+					   -cpu host,-x2apic,+invtsc,-pdpe1gb \
                        -device e1000 -vga std -d guest_errors,int \
 		               -serial stdio -no-reboot -no-shutdown \
 					   -audio driver=sdl,model=ac97,id=0 \
