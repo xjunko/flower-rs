@@ -44,8 +44,6 @@ fn _kernel_init() {
     memory::vmm::install();
     memory::heap::install().expect("failed to install heap");
 
-    memory::self_test();
-
     acpi::install();
     Processor::timer_install();
     Processor::interrupts_enable();

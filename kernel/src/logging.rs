@@ -23,9 +23,6 @@ use owo_colors::OwoColorize;
 
 use crate::devices;
 
-static TTY: SerialTty = SerialTty;
-const TTY_LEVEL: LevelFilter = LevelFilter::Info;
-
 struct SerialTty;
 
 impl log::Log for SerialTty {
@@ -84,6 +81,9 @@ impl log::Log for SerialTty {
 
     fn flush(&self) {}
 }
+
+static TTY: SerialTty = SerialTty;
+const TTY_LEVEL: LevelFilter = LevelFilter::Info;
 
 pub fn install() {
     log::set_logger(&TTY).unwrap();
