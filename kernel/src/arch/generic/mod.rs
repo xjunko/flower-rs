@@ -16,6 +16,8 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+pub mod addr;
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct MapFlags: u32 {
@@ -25,5 +27,26 @@ bitflags::bitflags! {
         const USER      = 1 << 3;
         const NO_CACHE  = 1 << 4;
         const WRITE_THROUGH = 1 << 5;
+    }
+}
+
+#[inline]
+pub const fn align_down(addr: u64, align: u64) -> u64 {
+    assert!(align.is_power_of_two(), "`align` must be a power of two");
+    addr & !(align - 1)
+}
+
+#[inline]
+pub const fn align_up(addr: u64, align: u64) -> u64 {
+    assert!(align.is_power_of_two(), "`align` must be a power of two");
+    let align_mask = align - 1;
+    if addr & align_mask == 0 {
+        addr
+    } else {
+        if let Some(aligned) = (addr | align_mask).checked_add(1) {
+            aligned
+        } else {
+            panic!("attempt to add with overflow")
+        }
     }
 }

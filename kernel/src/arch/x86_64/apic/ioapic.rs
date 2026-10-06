@@ -16,9 +16,8 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use x86_64::VirtAddr;
-
 use crate::acpi;
+use crate::arch::addr::VirtAddr;
 use crate::arch::{MapFlags, Paging, Processor};
 use crate::memory::vmm::AddressSpace;
 

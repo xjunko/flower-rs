@@ -27,8 +27,6 @@ mod timer;
 
 use core::arch::asm;
 
-use x86_64::VirtAddr;
-
 use crate::arch::{Arch, Processor};
 
 impl Arch for Processor {
@@ -59,7 +57,7 @@ impl Arch for Processor {
 
     fn read<T>(_p: u32) -> T { todo!() }
 
-    fn set_kernel_stack(v: u64) { gdt::set_kernel_stack(VirtAddr::new(v)) }
+    fn set_kernel_stack(v: u64) { gdt::set_kernel_stack(v) }
 
     fn interrupts_enable() { x86_64::instructions::interrupts::enable() }
 

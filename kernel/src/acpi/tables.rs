@@ -21,9 +21,9 @@ use alloc::vec::Vec;
 use acpi::AcpiTables;
 use acpi::sdt::fadt::Fadt;
 use acpi::sdt::madt::{Madt, MadtEntry};
-use x86_64::{PhysAddr, VirtAddr};
 
 use crate::acpi::parser::KernelAcpiReader;
+use crate::arch::addr::{PhysAddr, VirtAddr};
 
 #[derive(Debug)]
 pub struct LapicInfo {

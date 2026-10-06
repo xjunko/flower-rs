@@ -18,10 +18,10 @@
 
 use acpi::AcpiTables;
 use spin::once::Once;
-use x86_64::VirtAddr;
 
 use crate::acpi::parser::KernelAcpiReader;
 use crate::acpi::tables::KernelAcpiTables;
+use crate::arch::addr::VirtAddr;
 use crate::boot::limine::RSDP_REQUEST;
 use crate::memory::vmm::AddressSpace;
 

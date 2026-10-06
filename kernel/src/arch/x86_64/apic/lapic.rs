@@ -18,10 +18,10 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use x86_64::VirtAddr;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 
 use crate::arch::MapFlags;
+use crate::arch::addr::VirtAddr;
 use crate::arch::x86_64::layout::PAGE_SIZE;
 use crate::arch::x86_64::timer::acpi_pmt;
 use crate::memory::vmm::AddressSpace;

@@ -20,8 +20,8 @@ use core::alloc::GlobalAlloc;
 
 use linked_list_allocator::Heap;
 use spin::mutex::SpinMutex;
-use x86_64::VirtAddr;
 
+use crate::arch::addr::VirtAddr;
 use crate::arch::x86_64::layout::{
     KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE,
 };

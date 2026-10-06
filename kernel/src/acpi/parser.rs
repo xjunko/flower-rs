@@ -19,9 +19,9 @@
 use core::ptr::NonNull;
 
 use acpi::PhysicalMapping;
-use x86_64::PhysAddr;
 
 use crate::arch::MapFlags;
+use crate::arch::addr::PhysAddr;
 use crate::memory::vmm::AddressSpace;
 
 #[derive(Clone, Debug)]
