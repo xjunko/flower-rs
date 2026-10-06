@@ -42,7 +42,7 @@ pub struct LocalApic {
 }
 
 impl LocalApic {
-    pub fn init(address_space: &AddressSpace) -> Self {
+    pub fn install(address_space: &AddressSpace) -> Self {
         let flags = PageTableFlags::PRESENT
             | PageTableFlags::WRITABLE
             | PageTableFlags::NO_CACHE;

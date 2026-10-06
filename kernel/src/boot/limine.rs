@@ -22,7 +22,7 @@ use limine::request::{
 };
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
 
-use crate::arch::x86_64::layout::KERNEL_STACK_SIZE;
+use crate::arch::{Arch, Processor};
 
 #[used]
 #[unsafe(link_section = ".limine_requests_start")]
@@ -59,7 +59,7 @@ pub static RSDP_REQUEST: RsdpRequest = RsdpRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static STACK_SIZE_REQUEST: StackSizeRequest =
-    StackSizeRequest::new(KERNEL_STACK_SIZE as u64);
+    StackSizeRequest::new(Processor::PAGE_SIZE as u64);
 
 #[used]
 #[unsafe(link_section = ".limine_requests_end")]

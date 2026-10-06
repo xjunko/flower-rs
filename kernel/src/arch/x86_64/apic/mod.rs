@@ -24,6 +24,7 @@ use spin::Once;
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 
+use crate::acpi;
 use crate::arch::x86_64::apic::ioapic::IoApic;
 use crate::arch::x86_64::apic::lapic::LocalApic;
 use crate::arch::x86_64::interrupts::InterruptIndex;
@@ -71,16 +72,26 @@ pub fn install() {
         }
     }
 
-    let lapic = LocalApic::init(&address_space);
-    let ioapic = IoApic::init(&address_space);
+    let lapic = LocalApic::install(&address_space);
+    let ioapic = IoApic::install(&address_space);
 
     lapic.calibrate();
     lapic.enable_spurious_at(InterruptIndex::Spurious as u8);
     lapic.enable_periodic_timer_at(InterruptIndex::LapicTimer as u8);
 
     // TODO: add back PS/2
-    // ioapic.set_redirection(1, InterruptIndex::Keyboard as u8, lapic.id());
-    // ioapic.set_redirection(12, InterruptIndex::Mouse as u8, lapic.id());
+    // let acpi_tables = acpi::get();
+    // ioapic.set_redirection(
+    //     acpi_tables.irq_to_gsi(1),
+    //     InterruptIndex::Keyboard as u8,
+    //     lapic.id(),
+    // );
+
+    // ioapic.set_redirection(
+    //     acpi_tables.irq_to_gsi(12),
+    //     InterruptIndex::Mouse as u8,
+    //     lapic.id(),
+    // );
 
     APIC.call_once(|| Apic { lapic, ioapic });
 }

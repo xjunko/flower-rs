@@ -21,6 +21,7 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::arch::x86_64::apic;
+use crate::print;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -45,7 +46,7 @@ pub extern "x86-interrupt" fn lapic_timer_handler(
     _stack_frame: InterruptStackFrame,
 ) {
     apic::eoi();
-    info!("timer!");
+    print!(".");
 }
 
 pub extern "x86-interrupt" fn spurious_interrupt_handler(
