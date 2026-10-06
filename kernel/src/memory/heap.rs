@@ -24,6 +24,7 @@ use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::MapFlags;
 use crate::arch::x86_64::layout::{
     KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE,
 };
@@ -44,13 +45,13 @@ static ALLOC_STATE: SpinMutex<AllocStateInner> =
 fn map_chunk(
     addr: VirtAddr,
     size: usize,
-    flags: PageTableFlags,
+    flags: MapFlags,
 ) -> Result<(), &'static str> {
     let address_space = AddressSpace::current();
     let pages = size.div_ceil(PAGE_SIZE);
     for i in 0..pages {
         let page_addr = addr + (i * PAGE_SIZE) as u64;
-        address_space.map_page_alloc(page_addr, flags)?;
+        address_space.map_page_alloc(page_addr.as_u64(), flags)?;
     }
 
     Ok(())
@@ -59,9 +60,7 @@ fn map_chunk(
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         interrupts::without_interrupts(|| {
-            let flags = PageTableFlags::PRESENT
-                | PageTableFlags::WRITABLE
-                | PageTableFlags::NO_EXECUTE;
+            let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
             let mut state = ALLOC_STATE.lock();
 

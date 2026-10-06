@@ -45,6 +45,7 @@ fn __has_invariant_tsc() -> bool {
 }
 
 fn __shutup_clippy() -> bool { false }
+
 pub fn install() {
     let mut freq = 0u64;
     let mut typ = TimerType::Undefined;

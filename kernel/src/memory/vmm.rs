@@ -16,186 +16,99 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use spin::{Mutex, Once};
-use x86_64::registers::control::Cr3;
-use x86_64::structures::paging::{
-    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags,
-    PhysFrame, Size4KiB, Translate,
-};
-use x86_64::{PhysAddr, VirtAddr};
+//! Architecture independent virtual memory manager.
+//!
+//! Everything arch specific (page table walking, flag encoding, TLB
+//! maintenance, hhdm discovery) lives behind the `Paging` trait.
 
-use crate::arch::x86_64::layout::{
-    KERNEL_VALLOC_END, KERNEL_VALLOC_START, PAGE_SIZE,
-};
-use crate::arch::{Arch, Paging, Processor};
-use crate::{boot, memory};
+use spin::Mutex;
 
-static HHDM: Once<Option<u64>> = Once::new();
+use crate::arch::x86_64::layout::{KERNEL_VALLOC_END, KERNEL_VALLOC_START};
+use crate::arch::{Arch, MapFlags, Paging, Processor};
+use crate::memory;
+
+type Root = <Processor as Paging>::Root;
+
+const PAGE_SIZE: usize = <Processor as Paging>::PAGE_SIZE;
+const PAGE_MASK: u64 = PAGE_SIZE as u64 - 1;
+
 static KERNEL_SPACE: Mutex<Option<AddressSpace>> = Mutex::new(None);
 
-pub struct PMMFrameAllocator;
-unsafe impl FrameAllocator<Size4KiB> for PMMFrameAllocator {
-    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        let addr = memory::pmm::alloc()?;
-        Some(PhysFrame::containing_address(PhysAddr::new(addr)))
-    }
-}
-
 pub fn install() {
-    HHDM.call_once(|| {
-        Some(boot::limine::HHDM_REQUEST.response().expect("no hhdm").offset)
-    });
+    debug_assert!(
+        KERNEL_VALLOC_START >= Processor::KERNEL_HALF_START,
+        "kernel valloc range must live in the kernel half"
+    );
 
-    let (pml4_frame, _) = Cr3::read();
-    KERNEL_SPACE.lock().replace(AddressSpace::wrap(pml4_frame.start_address()));
+    Processor::paging_install();
 
-    {
-        log::debug!(
-            "pre-populating kernel address space with existing mappings"
-        );
-        let first_idx =
-            usize::from(VirtAddr::new(KERNEL_VALLOC_START).p4_index());
-        let last_idx = usize::from(VirtAddr::new(KERNEL_VALLOC_END).p4_index());
-        debug_assert!(
-            first_idx >= 256,
-            "kernel address space should start at 0xFFFF800000000000"
-        );
-
-        let pml4 = unsafe {
-            &mut *AddressSpace::phys_to_virt(pml4_frame.start_address())
-                .as_mut_ptr::<PageTable>()
-        };
-
-        let mut created = 0;
-        for i in first_idx..=last_idx {
-            if !pml4[i].is_unused() {
-                continue;
-            }
-
-            let phys = PhysAddr::new(
-                memory::pmm::alloc()
-                    .expect("oom while trying to populate kernel pml4"),
-            );
-
-            unsafe {
-                core::ptr::write_bytes(
-                    AddressSpace::phys_to_virt(phys).as_mut_ptr::<u8>(),
-                    0,
-                    Processor::PAGE_SIZE,
-                );
-            }
-
-            pml4[i].set_addr(
-                phys,
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-            );
-            created += 1;
-        }
-
-        log::debug!(
-            "kernel pml4: slots {}..={} ready ({} newly created)",
-            first_idx,
-            last_idx,
-            created
-        );
-    }
+    let root = Processor::active_root();
+    KERNEL_SPACE.lock().replace(AddressSpace::wrap(root));
 
     log::info!("vmm installed.");
-    log::info!("pml4 physical address: {:#x}.", pml4_frame.start_address());
-}
-
-fn hhdm() -> u64 {
-    HHDM.get().expect("vmm not installed").expect("hhdm not set")
+    log::info!(
+        "root table physical address: {:#x}.",
+        Processor::root_phys(root)
+    );
 }
 
 pub struct AddressSpace {
-    pml4_phys: PhysAddr,
+    root: Root,
     owned: bool,
 }
 
 impl AddressSpace {
+    /// creates a new address space. the kernel half is shared with the
+    /// kernel address space by `Paging::root_new`.
     pub fn new() -> Result<Self, &'static str> {
-        let pml4_phys_addr = memory::pmm::alloc().ok_or("oom")?;
-        let pml4_phys = PhysAddr::new(pml4_phys_addr);
-
-        unsafe {
-            let pml4_virt = Self::phys_to_virt(pml4_phys).as_mut_ptr::<u8>();
-            core::ptr::write_bytes(pml4_virt, 0, 4096); // zero out the new page table
-        }
-
-        let kernel_pml4_phys = PhysAddr::new(
-            KERNEL_SPACE.lock().as_ref().ok_or("vmm not initialized")?.cr3(),
-        );
-
-        unsafe {
-            let kernel_pml4 =
-                Self::phys_to_virt(kernel_pml4_phys).as_ptr::<u64>();
-            let new_pml4 = Self::phys_to_virt(pml4_phys).as_mut_ptr::<u64>();
-
-            // copy kernel mappings
-            for i in 256..512 {
-                let entry = kernel_pml4.add(i).read();
-                new_pml4.add(i).write(entry);
-            }
-        }
-
-        Ok(Self { pml4_phys, owned: true })
+        let root = Processor::root_new()?;
+        Ok(Self { root, owned: true })
     }
 
-    /// wraps existing pml4 into an AddressSpace
-    pub fn wrap(pml4_phys: PhysAddr) -> Self {
-        Self { pml4_phys, owned: false }
-    }
+    /// wraps an existing root table into an AddressSpace (does not own it)
+    pub fn wrap(root: Root) -> Self { Self { root, owned: false } }
 
     /// returns the currently active address space
-    pub fn current() -> Self {
-        let (pml4_frame, _) = Cr3::read();
-        Self::wrap(pml4_frame.start_address())
-    }
+    pub fn current() -> Self { Self::wrap(Processor::active_root()) }
 
     /// returns the kernel address space
     pub fn kernel() -> Self {
         let kernel_space = KERNEL_SPACE.lock();
-        let kernel_space = kernel_space.as_ref().expect("vmm not initialized");
-        Self::wrap(PhysAddr::new(kernel_space.cr3()))
+        let kernel_space = kernel_space.as_ref().expect("vmm not installed");
+        Self::wrap(kernel_space.root)
     }
 
-    /// returns the phys addr of the cr3
-    pub fn cr3(&self) -> u64 { self.pml4_phys.as_u64() }
+    /// returns the physical address of the root table (cr3 on x86_64)
+    pub fn root_phys(&self) -> u64 { Processor::root_phys(self.root) }
 
     /// translates a virtual address to a physical address, if it's mapped
-    pub fn translate(&self, virt: VirtAddr) -> Option<PhysAddr> {
-        unsafe {
-            let mapper = self.table();
-            mapper.translate_addr(virt)
-        }
+    pub fn translate(&self, virt: u64) -> Option<u64> {
+        Processor::translate(self.root, virt).map(|(phys, _)| phys)
     }
 
     /// returns true if the given virtual address is mapped in this address space
-    pub fn is_mapped(&self, virt: VirtAddr) -> bool {
+    pub fn is_mapped(&self, virt: u64) -> bool {
         self.translate(virt).is_some()
     }
 
-    /// returns the physical address of the page table for the given virtual address, if it's mapped
-    pub fn virt_to_phys(virt: VirtAddr) -> Option<PhysAddr> {
-        let hhdm = hhdm();
+    /// translates a virtual address of the currently active address space to a physical one
+    pub fn virt_to_phys(virt: u64) -> Option<u64> {
+        let hhdm = Processor::hhdm_offset();
 
         // can safely short circuit here
         if let Some(max_phys) = memory::pmm::max_phys_address()
             && let Some(hhdm_end) = hhdm.checked_add(max_phys)
-            && virt.as_u64() >= hhdm
-            && virt.as_u64() < hhdm_end
+            && virt >= hhdm
+            && virt < hhdm_end
         {
-            return Some(PhysAddr::new(virt.as_u64() - hhdm));
+            return Some(virt - hhdm);
         }
 
         Self::current().translate(virt)
     }
 
     /// returns a virtual address for the given physical address in the HHDM
-    pub fn phys_to_virt(phys: PhysAddr) -> VirtAddr {
-        VirtAddr::new(phys.as_u64() + hhdm())
-    }
+    pub fn phys_to_virt(phys: u64) -> u64 { phys + Processor::hhdm_offset() }
 }
 
 // mapping/unmapping
@@ -203,59 +116,48 @@ impl AddressSpace {
     /// maps a single page at the given virtual address to the given physical address with the specified flags
     pub fn map_page(
         &self,
-        virt: VirtAddr,
-        phys: PhysAddr,
-        flags: PageTableFlags,
+        virt: u64,
+        phys: u64,
+        flags: MapFlags,
     ) -> Result<(), &'static str> {
-        let page: Page<Size4KiB> = Page::containing_address(virt);
-        let frame = PhysFrame::containing_address(phys);
+        let virt = virt & !PAGE_MASK;
+        let phys = phys & !PAGE_MASK;
 
-        unsafe {
-            let mut mapper = self.table();
-            let mut allocator = PMMFrameAllocator;
+        Processor::map(self.root, virt, phys, flags).inspect_err(|e| {
+            log::error!("map failed virt={:#x} phys={:#x}: {}", virt, phys, e);
+        })?;
 
-            match mapper.map_to(page, frame, flags, &mut allocator) {
-                Ok(flush) => {
-                    flush.ignore();
-                },
-                Err(e) => {
-                    log::error!(
-                        "map_to failed virt={:#x} phys={:#x}: {:?}",
-                        virt.as_u64(),
-                        phys.as_u64(),
-                        e
-                    );
-                    return Err("failed to map page in address space");
-                },
-            }
-        }
-
+        // a fresh mapping needs no flush on x86, but other archs (or
+        // replacing a not-present entry that was cached) may.
+        self.flush(virt);
         Ok(())
     }
 
-    /// maps a single page at the given virtual address to a newly allocated physical page with the specified flags
+    /// maps a single page at the given virtual address to a newly allocated, zeroed physical page
     pub fn map_page_alloc(
         &self,
-        virt: VirtAddr,
-        flags: PageTableFlags,
-    ) -> Result<PhysAddr, &'static str> {
-        let phys_addr = memory::pmm::alloc().ok_or("oom")?;
-        let phys = PhysAddr::new(phys_addr);
+        virt: u64,
+        flags: MapFlags,
+    ) -> Result<u64, &'static str> {
+        let phys = memory::pmm::alloc().ok_or("oom")?;
 
         unsafe {
-            let virt_ptr = Self::phys_to_virt(phys).as_mut_ptr::<u8>();
-            core::ptr::write_bytes(virt_ptr, 0, 4096);
+            core::ptr::write_bytes(
+                Self::phys_to_virt(phys) as *mut u8,
+                0,
+                PAGE_SIZE,
+            );
         }
 
         if let Err(e) = self.map_page(virt, phys, flags) {
             log::error!(
                 "failed to map page virt={:#x}, phys={:#x}, flags={:?}: {}",
-                virt.as_u64(),
-                phys.as_u64(),
+                virt,
+                phys,
                 flags,
                 e
             );
-            memory::pmm::free(phys.as_u64());
+            memory::pmm::free(phys);
             return Err(e);
         }
 
@@ -265,117 +167,90 @@ impl AddressSpace {
     /// maps a range of virtual addresses to newly allocated physical pages with the specified flags
     pub fn map_range_alloc(
         &self,
-        virt: VirtAddr,
+        virt: u64,
         size: usize,
-        flags: PageTableFlags,
+        flags: MapFlags,
     ) -> Result<(), &'static str> {
-        if size == 0 {
-            return Err("invalid size");
-        }
+        let (start, end) = Self::page_span(virt, size)?;
 
-        let start_page: Page<Size4KiB> = Page::containing_address(virt);
-        let end_virt = VirtAddr::new(virt.as_u64() + (size as u64 - 1));
-        let end_page: Page<Size4KiB> = Page::containing_address(end_virt);
-
-        for page in Page::range_inclusive(start_page, end_page) {
-            if let Err(e) = self.map_page_alloc(page.start_address(), flags) {
+        let mut page = start;
+        loop {
+            if let Err(e) = self.map_page_alloc(page, flags) {
                 log::error!(
                     "map_range_alloc failed at {:#x} (start={:#x}, size={:#x}): {}, rolling back",
-                    page.start_address().as_u64(),
-                    virt.as_u64(),
+                    page,
+                    virt,
                     size,
                     e
                 );
 
-                // we attempt to unmap all the previous pages
-                for mapped in Page::range_inclusive(start_page, page) {
-                    if mapped == page {
-                        break;
+                // unmap everything we mapped before the failing page
+                let mut done = start;
+                while done < page {
+                    if let Ok(phys) = self.unmap_page(done) {
+                        memory::pmm::free(phys);
                     }
-
-                    if let Ok(phys) = self.unmap_page(mapped.start_address()) {
-                        memory::pmm::free(phys.as_u64());
-                    }
+                    done += PAGE_SIZE as u64;
                 }
 
                 return Err("failed to map range in address space");
             }
+
+            if page == end {
+                break;
+            }
+            page += PAGE_SIZE as u64;
         }
 
         Ok(())
     }
 
     /// unmaps the page at the given virtual address and returns the physical address that was mapped there
-    pub fn unmap_page(&self, virt: VirtAddr) -> Result<PhysAddr, &'static str> {
-        let page: Page<Size4KiB> = Page::containing_address(virt);
-
-        unsafe {
-            let mut mapper = self.table();
-            let (frame, flush) = mapper
-                .unmap(page)
-                .map_err(|_| "failed to unmap page in address space")?;
-            flush.flush();
-            Ok(frame.start_address())
-        }
+    pub fn unmap_page(&self, virt: u64) -> Result<u64, &'static str> {
+        let virt = virt & !PAGE_MASK;
+        let phys = Processor::unmap(self.root, virt)?;
+        self.flush(virt);
+        Ok(phys)
     }
 
     /// unmaps a range of virtual addresses and frees the physical pages that were mapped there
     pub fn unmap_range(
         &self,
-        virt: VirtAddr,
+        virt: u64,
         size: usize,
     ) -> Result<(), &'static str> {
-        if size == 0 {
-            return Err("cannot unmap zero-sized range");
-        }
+        let (start, end) = Self::page_span(virt, size)?;
 
-        let start_page: Page<Size4KiB> = Page::containing_address(virt);
-        let end_virt = VirtAddr::new(virt.as_u64() + (size as u64 - 1));
-        let end_page: Page<Size4KiB> = Page::containing_address(end_virt);
+        let mut page = start;
+        loop {
+            let phys = self.unmap_page(page)?;
+            memory::pmm::free(phys);
 
-        for page in Page::range_inclusive(start_page, end_page) {
-            let phys = self.unmap_page(page.start_address())?;
-            memory::pmm::free(phys.as_u64());
+            if page == end {
+                break;
+            }
+            page += PAGE_SIZE as u64;
         }
 
         Ok(())
     }
 
-    /// returns the page table flags for the given virtual address, or an error if it's not mapped
-    pub fn page_flags(
-        &self,
-        virt: VirtAddr,
-    ) -> Result<PageTableFlags, &'static str> {
-        let page: Page<Size4KiB> = Page::containing_address(virt);
-
-        unsafe {
-            let mapper = self.table();
-            match mapper.translate(page.start_address()) {
-                x86_64::structures::paging::mapper::TranslateResult::Mapped {
-                    flags,
-                    ..
-                } => Ok(flags),
-                _ => Err("page not mapped"),
-            }
-        }
+    /// returns the page flags for the given virtual address, or an error if it's not mapped
+    pub fn page_flags(&self, virt: u64) -> Result<MapFlags, &'static str> {
+        Processor::translate(self.root, virt & !PAGE_MASK)
+            .map(|(_, flags)| flags)
+            .ok_or("page not mapped")
     }
 
-    /// updates the page table flags for the given virtual address, returns an error if it's not mapped or if the update fails
+    /// updates the page flags for the given virtual address, returns an error if it's not mapped or if the update fails
     pub fn update_page_flags(
         &self,
-        virt: VirtAddr,
-        flags: PageTableFlags,
+        virt: u64,
+        flags: MapFlags,
     ) -> Result<(), &'static str> {
-        let page: Page<Size4KiB> = Page::containing_address(virt);
-
-        unsafe {
-            let mut mapper = self.table();
-            mapper
-                .update_flags(page, flags)
-                .map_err(|_| "failed to update page flags in address space")?
-                .flush();
-        }
-
+        let virt = virt & !PAGE_MASK;
+        Processor::protect(self.root, virt, flags)?;
+        self.flush(virt);
         Ok(())
     }
 }
@@ -385,7 +260,7 @@ static KERNEL_VALLOC_NEXT: Mutex<u64> = Mutex::new(KERNEL_VALLOC_START);
 
 impl AddressSpace {
     /// reserves a range of virtual addresses in the kernel address space, returns an error if the range is exhausted
-    pub fn reserve_virt(size: usize) -> Result<VirtAddr, &'static str> {
+    pub fn reserve_virt(size: usize) -> Result<u64, &'static str> {
         let pages = size.div_ceil(PAGE_SIZE) as u64;
         let bytes = pages * PAGE_SIZE as u64;
 
@@ -397,15 +272,15 @@ impl AddressSpace {
             return Err("valloc space exhausted");
         }
         *next = end;
-        Ok(VirtAddr::new(start))
+        Ok(start)
     }
 
-    /// allocates `size` bytes of memories and return a virtual address
+    /// allocates `size` bytes of memory and returns a virtual address
     pub fn alloc_virt(
         &self,
         size: usize,
-        flags: PageTableFlags,
-    ) -> Result<VirtAddr, &'static str> {
+        flags: MapFlags,
+    ) -> Result<u64, &'static str> {
         if size == 0 {
             return Err("invalid size");
         }
@@ -414,7 +289,7 @@ impl AddressSpace {
         if let Err(e) = self.map_range_alloc(virt, size, flags) {
             log::error!(
                 "failed to map range virt={:#x}, size={:#x}, flags={:?}: {}",
-                virt.as_u64(),
+                virt,
                 size,
                 flags,
                 e
@@ -429,82 +304,65 @@ impl AddressSpace {
     /// frees a range of virtual addresses, used along alloc_virt
     pub fn free_virt(
         &self,
-        virt: VirtAddr,
+        virt: u64,
         size: usize,
     ) -> Result<(), &'static str> {
-        if size == 0 {
-            return Err("invalid size");
-        }
-
         self.unmap_range(virt, size)
     }
 }
 
 // utils
 impl AddressSpace {
-    /// returns the OffsetPageTable for this address space.
-    unsafe fn table(&self) -> OffsetPageTable<'static> {
-        let pml4_virt = Self::phys_to_virt(self.pml4_phys);
-        let pml4: &'static mut PageTable =
-            unsafe { &mut *pml4_virt.as_mut_ptr() };
-        unsafe { OffsetPageTable::new(pml4, VirtAddr::new(hhdm())) }
+    /// returns the first and last page (inclusive) touched by `[virt, virt + size)`
+    fn page_span(virt: u64, size: usize) -> Result<(u64, u64), &'static str> {
+        if size == 0 {
+            return Err("invalid size");
+        }
+
+        let last = virt
+            .checked_add(size as u64 - 1)
+            .ok_or("address range overflow")?;
+        Ok((virt & !PAGE_MASK, last & !PAGE_MASK))
     }
 
-    unsafe fn free_table(table_phys: PhysAddr, level: u8) {
-        log::trace!(
-            "freeing page table at {:#x} (level {})",
-            table_phys.as_u64(),
-            level
-        );
-
-        let table = unsafe {
-            &mut *Self::phys_to_virt(table_phys).as_mut_ptr::<PageTable>()
-        };
-        let entry_limit = if level == 4 { 256 } else { 512 };
-
-        for index in 0..entry_limit {
-            let entry = &mut table[index];
-            let flags = entry.flags();
-
-            if !flags.contains(PageTableFlags::PRESENT) {
-                continue;
-            }
-
-            if let Ok(frame) = entry.frame() {
-                if level > 1 && !flags.contains(PageTableFlags::HUGE_PAGE) {
-                    let child_phys = frame.start_address();
-                    unsafe { Self::free_table(child_phys, level - 1) };
-                    memory::pmm::free(child_phys.as_u64());
-                } else if level == 1 {
-                    memory::pmm::free(frame.start_address().as_u64());
-                }
-            }
-
-            entry.set_unused();
+    /// flushes the tlb entry for `virt` if this address space can be cached on this cpu.
+    /// the kernel half is shared between every address space, so it is always flushed.
+    fn flush(&self, virt: u64) {
+        if virt >= Processor::KERNEL_HALF_START
+            || self.root == Processor::active_root()
+        {
+            Processor::tlb_flush(virt);
         }
+    }
+
+    /// translates a (possibly unaligned) virtual address to its physical address
+    fn phys_of(&self, virt: u64) -> Result<u64, &'static str> {
+        let (phys, _) = Processor::translate(self.root, virt & !PAGE_MASK)
+            .ok_or("page not mapped")?;
+        Ok(phys + (virt & PAGE_MASK))
     }
 }
 
 // copying/zero
 impl AddressSpace {
     /// zeros the given range of virtual addresses, returns an error if any page in the range is not mapped
-    pub fn zero(&self, virt: VirtAddr, len: usize) -> Result<(), &'static str> {
+    pub fn zero(&self, virt: u64, len: usize) -> Result<(), &'static str> {
         let mut offset = 0;
 
         while offset < len {
-            let current_virt = VirtAddr::new(virt.as_u64() + offset as u64);
-            let page_offset = (current_virt.as_u64() & 0xFFF) as usize;
+            let current = virt + offset as u64;
+            let page_offset = (current & PAGE_MASK) as usize;
             let bytes_in_page =
-                core::cmp::min(4096 - page_offset, len - offset);
+                core::cmp::min(PAGE_SIZE - page_offset, len - offset);
 
-            let phys = unsafe {
-                let mapper = self.table();
-                mapper.translate_addr(current_virt).ok_or("page not mapped")?
-            };
+            let phys = self.phys_of(current)?;
 
             unsafe {
-                let dest = Self::phys_to_virt(phys).as_mut_ptr::<u8>();
-                core::ptr::write_bytes(dest, 0, bytes_in_page);
+                core::ptr::write_bytes(
+                    Self::phys_to_virt(phys) as *mut u8,
+                    0,
+                    bytes_in_page,
+                );
             }
 
             offset += bytes_in_page;
@@ -514,29 +372,21 @@ impl AddressSpace {
     }
 
     /// writes the given data to the given virtual address, returns an error if any page in the range is not mapped
-    pub fn write(
-        &self,
-        virt: VirtAddr,
-        data: &[u8],
-    ) -> Result<(), &'static str> {
+    pub fn write(&self, virt: u64, data: &[u8]) -> Result<(), &'static str> {
         let mut offset = 0;
 
         while offset < data.len() {
-            let current_virt = VirtAddr::new(virt.as_u64() + offset as u64);
-            let page_offset = (current_virt.as_u64() & 0xFFF) as usize;
+            let current = virt + offset as u64;
+            let page_offset = (current & PAGE_MASK) as usize;
             let bytes_in_page =
-                core::cmp::min(4096 - page_offset, data.len() - offset);
+                core::cmp::min(PAGE_SIZE - page_offset, data.len() - offset);
 
-            let phys = unsafe {
-                let mapper = self.table();
-                mapper.translate_addr(current_virt).ok_or("page not mapped")?
-            };
+            let phys = self.phys_of(current)?;
 
             unsafe {
-                let dest = Self::phys_to_virt(phys).as_mut_ptr::<u8>();
                 core::ptr::copy_nonoverlapping(
                     data.as_ptr().add(offset),
-                    dest,
+                    Self::phys_to_virt(phys) as *mut u8,
                     bytes_in_page,
                 );
             }
@@ -550,75 +400,10 @@ impl AddressSpace {
 
 // userspace stuff
 impl AddressSpace {
-    fn copy_user_pages_recursive(
-        &self,
-        dst: &AddressSpace,
-        table_phys: PhysAddr,
-        level: u8,
-        base: u64,
-    ) -> Result<(), &'static str> {
-        let table =
-            unsafe { &*Self::phys_to_virt(table_phys).as_ptr::<PageTable>() };
-        let entry_limit = if level == 4 { 256 } else { 512 };
-
-        for index in 0..entry_limit {
-            let entry = &table[index];
-            let flags = entry.flags();
-
-            if !flags.contains(PageTableFlags::PRESENT) {
-                continue;
-            }
-
-            let level_shift = 12 + 9 * ((level as u64).saturating_sub(1));
-            let entry_base = base + ((index as u64) << level_shift);
-
-            if level == 1 {
-                let src_phys =
-                    entry.frame().map_err(|_| "invalid leaf page frame")?;
-
-                let mut map_flags = PageTableFlags::PRESENT;
-                map_flags |= flags
-                    & (PageTableFlags::WRITABLE
-                        | PageTableFlags::USER_ACCESSIBLE
-                        | PageTableFlags::WRITE_THROUGH
-                        | PageTableFlags::NO_CACHE
-                        | PageTableFlags::NO_EXECUTE);
-
-                let dst_phys =
-                    dst.map_page_alloc(VirtAddr::new(entry_base), map_flags)?;
-
-                unsafe {
-                    core::ptr::copy_nonoverlapping(
-                        Self::phys_to_virt(src_phys.start_address())
-                            .as_ptr::<u8>(),
-                        Self::phys_to_virt(dst_phys).as_mut_ptr::<u8>(),
-                        4096,
-                    );
-                }
-            } else {
-                if flags.contains(PageTableFlags::HUGE_PAGE) {
-                    return Err("huge pages are not supported for fork");
-                }
-
-                let next_table =
-                    entry.frame().map_err(|_| "invalid page table frame")?;
-                self.copy_user_pages_recursive(
-                    dst,
-                    next_table.start_address(),
-                    level - 1,
-                    entry_base,
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// creates a new address space with the same mappings as the current one for the user portion
+    /// creates a new address space with a copy of the user half of this one
     pub fn clone_user(&self) -> Result<Self, &'static str> {
-        let dst = AddressSpace::new()?;
-        self.copy_user_pages_recursive(&dst, self.pml4_phys, 4, 0)?;
-        Ok(dst)
+        let root = Processor::clone_user(self.root)?;
+        Ok(Self { root, owned: true })
     }
 }
 
@@ -628,33 +413,31 @@ impl Drop for AddressSpace {
             return;
         }
 
-        let pml4_phys = self.pml4_phys;
-        let (current_pml4, _) = Cr3::read();
-
-        if current_pml4.start_address() == pml4_phys {
+        if self.root == Processor::active_root() {
             log::error!(
-                "refusing to free active address space pml4 at {:#x}",
-                pml4_phys.as_u64()
+                "refusing to free active address space root at {:#x}",
+                Processor::root_phys(self.root)
             );
             return;
         }
 
-        if KERNEL_SPACE.lock().as_ref().unwrap().cr3() == pml4_phys.as_u64() {
+        if KERNEL_SPACE
+            .lock()
+            .as_ref()
+            .is_some_and(|kernel| kernel.root == self.root)
+        {
             log::error!(
-                "refusing to free kernel address space pml4 at {:#x}",
-                pml4_phys.as_u64()
+                "refusing to free kernel address space root at {:#x}",
+                Processor::root_phys(self.root)
             );
             return;
         }
 
-        unsafe {
-            Self::free_table(pml4_phys, 4);
-        }
-        memory::pmm::free(pml4_phys.as_u64());
+        let phys = Processor::root_phys(self.root);
 
-        log::trace!(
-            "dropped address space and freed pml4 at {:#x}",
-            pml4_phys.as_u64()
-        );
+        // frees the user half tables/frames and the root itself
+        Processor::root_free(self.root);
+
+        log::trace!("dropped address space and freed root at {:#x}", phys);
     }
 }
