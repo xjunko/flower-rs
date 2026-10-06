@@ -5,24 +5,6 @@
 kernel:
 	$(MAKE) -C flower-core
 
-# libc, while independent of the kernel, has a header generation step
-# which is unused atm, but we'll keep install it under base anyway.
-.PHONY: libc
-libc:
-	$(MAKE) -C flower-libc
-
-# programs will be installed under base
-.PHONY: programs
-programs:
-	$(MAKE) -C flower-user
-
-# base needs programs
-override INITRD := /tmp/flower-initrd.tar
-
-.PHONY: base
-base: programs libc
-	$(MAKE) -C initrd WHERE=$(INITRD)
-
 ##### image generation #####
 override IMG_NAME := flower
 override TMP := /tmp/$(IMG_NAME)-build
@@ -38,7 +20,7 @@ $(LIMINE)/limine:
 	$(MAKE) -C $(LIMINE)
 
 # compiling the entire thing 
-$(IMG_NAME).iso: $(LIMINE)/limine kernel base
+$(IMG_NAME).iso: $(LIMINE)/limine kernel 
 	rm    -rf $(TMP)/iso_root
 	mkdir -p  $(TMP)/iso_root/boot
 
@@ -48,9 +30,6 @@ $(IMG_NAME).iso: $(LIMINE)/limine kernel base
 	# limine
 	mkdir -p $(TMP)/iso_root/boot/limine
 	cp    flower-core/limine.conf $(TMP)/iso_root/boot/limine/
-
-	# initramfs
-	cp    $(INITRD) $(TMP)/iso_root/boot/initrd.tar
 
 	# limine binaries
 	mkdir -p $(TMP)/iso_root/EFI/BOOT

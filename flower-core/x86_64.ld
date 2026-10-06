@@ -1,4 +1,4 @@
-ENTRY(kmain)
+ENTRY(__kernel_init)
 OUTPUT_FORMAT(elf64-x86-64)
 
 PHDRS

@@ -16,4 +16,33 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#[cfg(target_arch = "x86_64")]
 pub mod x86_64;
+
+pub trait Arch {
+    const PAGE_SIZE: usize;
+
+    // cpu
+    fn bsp_install();
+    fn ap_install();
+    fn paging_install();
+    fn halt() -> !;
+
+    // timers
+    fn timer_install();
+    fn timer_get_ns() -> u64;
+
+    // ports
+    fn write<T>(p: u32, d: T);
+    fn read<T>(p: u32) -> T;
+
+    // stacks
+    fn set_kernel_stack(v: u64);
+
+    // interrupts
+    fn interrupts_enable();
+    fn interrupts_disable();
+    fn interrupts_ack();
+}
+
+pub struct Processor {}

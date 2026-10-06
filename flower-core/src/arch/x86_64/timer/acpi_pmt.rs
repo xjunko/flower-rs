@@ -18,11 +18,11 @@
 
 use x86_64::instructions::port::Port;
 
-use crate::acpi;
-
 pub const ACPI_TIMER_FREQUENCY: u64 = 3579545;
 
 use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+
+use crate::acpi;
 
 static LAST_RAW: AtomicU32 = AtomicU32::new(0);
 static ACCUM: AtomicU64 = AtomicU64::new(0);

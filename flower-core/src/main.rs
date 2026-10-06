@@ -18,7 +18,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(const_index)]
 #![feature(const_trait_impl)]
 #![feature(abi_x86_interrupt)]
 #![allow(dead_code)]
@@ -26,24 +25,20 @@
 
 extern crate alloc;
 
+use crate::arch::{Arch, Processor};
+
 mod acpi;
 mod arch;
 mod boot;
 mod devices;
 mod logging;
 mod memory;
-mod posix;
-mod system;
-mod user;
 
-fn kernel_init() {
-    assert!(boot::limine::BASE_REVISION.is_supported());
+fn _kernel_init() {
     devices::tty::serial::install();
     logging::install();
 
-    arch::x86_64::install_cpu_features();
-    arch::x86_64::gdt::install();
-    arch::x86_64::idt::install();
+    Processor::bsp_install();
 
     memory::pmm::install();
     memory::vmm::install();
@@ -52,33 +47,19 @@ fn kernel_init() {
     memory::self_test();
 
     acpi::install();
-    arch::x86_64::timer::install();
-    arch::x86_64::apic::install();
-
-    devices::ps2::install();
-    devices::pci::install();
-    devices::gpu::install();
-
-    system::smp::install(); // doesn't do much for now..
-
-    system::syscalls::install();
-    system::vfs::install();
-    system::proc::install();
-    arch::x86_64::interrupts::enable();
-
-    // past this point, the kernel can now do dynamic allocation
-    devices::tty::terminal::install();
+    Processor::timer_install();
+    Processor::interrupts_enable();
 }
 
 #[unsafe(no_mangle)]
-unsafe extern "C" fn kmain() -> ! {
-    kernel_init();
-    system::proc::spawn("userland-entry", user::entry);
-    arch::x86_64::halt();
+unsafe extern "C" fn __kernel_init() -> ! {
+    assert!(boot::limine::BASE_REVISION.is_supported());
+    _kernel_init();
+    Processor::halt();
 }
 
 #[panic_handler]
 fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
     log::error!("panic: {}", _info);
-    arch::x86_64::halt()
+    Processor::halt();
 }

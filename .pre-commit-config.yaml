@@ -8,20 +8,6 @@ repos:
         files: '^flower-core/.*\.rs$'
         pass_filenames: false
 
-      - id: fmt-libc
-        name: fmt (libc)
-        entry: bash -c 'cd flower-libc && cargo fmt --check'
-        language: system
-        files: '^flower-libc/.*\.rs$'
-        pass_filenames: false
-
-      - id: fmt-mono
-        name: fmt (mono)
-        entry: bash -c 'cd flower-uapi && cargo fmt --check'
-        language: system
-        files: '^flower-uapi/.*\.rs$'
-        pass_filenames: false
-
   - repo: https://github.com/bnjbvr/cargo-machete
     rev: v0.9.1
     hooks:
@@ -37,5 +23,3 @@ repos:
           - LICENSE
           - --comment-style
           - /*| *| */
-
-        

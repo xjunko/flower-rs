@@ -16,19 +16,22 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-pub mod apic;
+mod apic;
 pub mod gdt;
-pub mod idt;
-pub mod interrupts;
+mod idt;
+mod interrupts;
 pub mod layout;
-pub mod timer;
+mod timer;
 
 use core::arch::asm;
 
 use raw_cpuid::CpuId;
+use x86_64::VirtAddr;
 use x86_64::registers::control::{Cr0, Cr0Flags, Cr4, Cr4Flags};
 
-pub fn install_cpu_features() {
+use crate::arch::{Arch, Processor};
+
+fn install_cpu_features() {
     let cpuid = CpuId::new();
     if let Some(finfo) = cpuid.get_feature_info() {
         assert!(finfo.has_fxsave_fxstor(), "fxsave/fxstor not supported");
@@ -52,10 +55,41 @@ pub fn install_cpu_features() {
     }
 }
 
-pub fn halt() -> ! {
-    loop {
-        unsafe {
-            asm!("hlt");
+impl Arch for Processor {
+    const PAGE_SIZE: usize = 0x1000;
+
+    fn bsp_install() {
+        self::install_cpu_features();
+        self::gdt::install();
+        self::idt::install();
+    }
+
+    fn ap_install() { todo!() }
+
+    fn paging_install() { todo!() }
+
+    fn timer_install() {
+        apic::install();
+        timer::install();
+    }
+
+    fn timer_get_ns() -> u64 { timer::get_ns() }
+
+    fn halt() -> ! {
+        loop {
+            unsafe { asm!("hlt") }
         }
     }
+
+    fn write<T>(_p: u32, _d: T) { todo!() }
+
+    fn read<T>(_p: u32) -> T { todo!() }
+
+    fn set_kernel_stack(v: u64) { gdt::set_kernel_stack(VirtAddr::new(v)) }
+
+    fn interrupts_enable() { x86_64::instructions::interrupts::enable() }
+
+    fn interrupts_disable() { x86_64::instructions::interrupts::disable() }
+
+    fn interrupts_ack() { apic::eoi() }
 }

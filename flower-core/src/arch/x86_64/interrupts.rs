@@ -16,11 +16,11 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+use log::info;
 use x86_64::instructions::interrupts;
 use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::arch::x86_64::apic;
-use crate::system::proc;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -45,7 +45,7 @@ pub extern "x86-interrupt" fn lapic_timer_handler(
     _stack_frame: InterruptStackFrame,
 ) {
     apic::eoi();
-    proc::schedule();
+    info!("timer!");
 }
 
 pub extern "x86-interrupt" fn spurious_interrupt_handler(
