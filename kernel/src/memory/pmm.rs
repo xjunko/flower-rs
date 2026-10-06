@@ -20,7 +20,7 @@ use limine::memmap::MEMMAP_USABLE;
 use spin::Mutex;
 use x86_64::{VirtAddr, align_up};
 
-use crate::arch::x86_64::layout::PAGE_SIZE;
+use crate::arch::{Arch, Processor};
 use crate::boot;
 
 static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);
@@ -68,14 +68,14 @@ impl BitmapAllocator {
             if !self.test_bit(i) {
                 self.set_bit(i);
                 self.free_pages -= 1;
-                return Some((i * PAGE_SIZE) as u64);
+                return Some((i * Processor::PAGE_SIZE) as u64);
             }
         }
         None
     }
 
     fn free_page(&mut self, addr: u64) {
-        let page = (addr as usize) / PAGE_SIZE;
+        let page = (addr as usize) / Processor::PAGE_SIZE;
         if page < self.total_pages && self.test_bit(page) {
             self.clear_bit(page);
             self.free_pages += 1;
@@ -83,7 +83,9 @@ impl BitmapAllocator {
     }
 }
 
-fn page_to_mb(page: usize) -> usize { (page * PAGE_SIZE) / (1024 * 1024) }
+fn page_to_mb(page: usize) -> usize {
+    (page * Processor::PAGE_SIZE) / (1024 * 1024)
+}
 
 pub fn install() {
     log::debug!("Installing pmm");
@@ -114,12 +116,13 @@ pub fn install() {
 
     log::debug!("highest memory address: {:#x}", highest_addr);
 
-    let total_pages = (highest_addr as usize + PAGE_SIZE - 1) / PAGE_SIZE;
+    let total_pages = (highest_addr as usize + Processor::PAGE_SIZE - 1)
+        / Processor::PAGE_SIZE;
     let bitmap_size = (total_pages + 7) / 8;
 
     let mut bitmap_addr: Option<u64> = None;
     for entry in mmap {
-        let aligned_base = align_up(entry.base, PAGE_SIZE as u64);
+        let aligned_base = align_up(entry.base, Processor::PAGE_SIZE as u64);
         if entry.type_ == MEMMAP_USABLE
             && entry.length >= (aligned_base - entry.base) + bitmap_size as u64
         {
@@ -152,8 +155,10 @@ pub fn install() {
 
     for entry in mmap {
         if entry.type_ == MEMMAP_USABLE {
-            let start_page = (entry.base as usize + PAGE_SIZE - 1) / PAGE_SIZE;
-            let end_page = (entry.base + entry.length) as usize / PAGE_SIZE;
+            let start_page = (entry.base as usize + Processor::PAGE_SIZE - 1)
+                / Processor::PAGE_SIZE;
+            let end_page =
+                (entry.base + entry.length) as usize / Processor::PAGE_SIZE;
 
             for page in start_page..end_page {
                 allocator.clear_bit(page);
@@ -162,9 +167,10 @@ pub fn install() {
         }
     }
 
-    let bitmap_start_page = (bitmap_addr as usize) / PAGE_SIZE;
+    let bitmap_start_page = (bitmap_addr as usize) / Processor::PAGE_SIZE;
     let bitmap_end_page =
-        ((bitmap_addr as usize) + bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
+        ((bitmap_addr as usize) + bitmap_size + Processor::PAGE_SIZE - 1)
+            / Processor::PAGE_SIZE;
 
     for page in bitmap_start_page..bitmap_end_page {
         if !allocator.test_bit(page) {
@@ -192,7 +198,7 @@ pub fn alloc() -> Option<u64> {
 
 pub fn free(addr: u64) {
     // if address is not aligned, reject it
-    if !addr.is_multiple_of(PAGE_SIZE as u64) {
+    if !addr.is_multiple_of(Processor::PAGE_SIZE as u64) {
         log::error!("attempted to free unaligned address: {:#x}", addr);
         return;
     }
@@ -203,7 +209,7 @@ pub fn free(addr: u64) {
 }
 
 pub fn is_usable_address(addr: u64) -> bool {
-    if !addr.is_multiple_of(PAGE_SIZE as u64) {
+    if !addr.is_multiple_of(Processor::PAGE_SIZE as u64) {
         return false;
     }
 
@@ -220,7 +226,8 @@ pub fn is_usable_address(addr: u64) -> bool {
             continue;
         };
 
-        let Some(page_end) = addr.checked_add(PAGE_SIZE as u64) else {
+        let Some(page_end) = addr.checked_add(Processor::PAGE_SIZE as u64)
+        else {
             return false;
         };
 
@@ -233,7 +240,9 @@ pub fn is_usable_address(addr: u64) -> bool {
 }
 
 pub fn max_phys_address() -> Option<u64> {
-    PMM.lock().as_ref().map(|pmm| (pmm.total_pages * PAGE_SIZE) as u64)
+    PMM.lock()
+        .as_ref()
+        .map(|pmm| (pmm.total_pages * Processor::PAGE_SIZE) as u64)
 }
 
 pub fn free_pages() -> Option<usize> {

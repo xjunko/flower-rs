@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use spin::Mutex;
+use spin::{Mutex, Once};
 use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::{
     FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags,
@@ -27,9 +27,10 @@ use x86_64::{PhysAddr, VirtAddr};
 use crate::arch::x86_64::layout::{
     KERNEL_VALLOC_END, KERNEL_VALLOC_START, PAGE_SIZE,
 };
+use crate::arch::{Arch, Processor};
 use crate::{boot, memory};
 
-static HHDM: Mutex<Option<u64>> = Mutex::new(None);
+static HHDM: Once<Option<u64>> = Once::new();
 static KERNEL_SPACE: Mutex<Option<AddressSpace>> = Mutex::new(None);
 
 pub struct PMMFrameAllocator;
@@ -41,16 +42,71 @@ unsafe impl FrameAllocator<Size4KiB> for PMMFrameAllocator {
 }
 
 pub fn install() {
-    *HHDM.lock() = Some(boot::limine::HHDM_REQUEST.response().unwrap().offset);
+    HHDM.call_once(|| {
+        Some(boot::limine::HHDM_REQUEST.response().expect("no hhdm").offset)
+    });
 
     let (pml4_frame, _) = Cr3::read();
     KERNEL_SPACE.lock().replace(AddressSpace::wrap(pml4_frame.start_address()));
+
+    {
+        log::debug!(
+            "pre-populating kernel address space with existing mappings"
+        );
+        let first_idx =
+            usize::from(VirtAddr::new(KERNEL_VALLOC_START).p4_index());
+        let last_idx = usize::from(VirtAddr::new(KERNEL_VALLOC_END).p4_index());
+        debug_assert!(
+            first_idx >= 256,
+            "kernel address space should start at 0xFFFF800000000000"
+        );
+
+        let pml4 = unsafe {
+            &mut *AddressSpace::phys_to_virt(pml4_frame.start_address())
+                .as_mut_ptr::<PageTable>()
+        };
+
+        let mut created = 0;
+        for i in first_idx..=last_idx {
+            if !pml4[i].is_unused() {
+                continue;
+            }
+
+            let phys = PhysAddr::new(
+                memory::pmm::alloc()
+                    .expect("oom while trying to populate kernel pml4"),
+            );
+
+            unsafe {
+                core::ptr::write_bytes(
+                    AddressSpace::phys_to_virt(phys).as_mut_ptr::<u8>(),
+                    0,
+                    Processor::PAGE_SIZE,
+                );
+            }
+
+            pml4[i].set_addr(
+                phys,
+                PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+            );
+            created += 1;
+        }
+
+        log::debug!(
+            "kernel pml4: slots {}..={} ready ({} newly created)",
+            first_idx,
+            last_idx,
+            created
+        );
+    }
 
     log::info!("vmm installed.");
     log::info!("pml4 physical address: {:#x}.", pml4_frame.start_address());
 }
 
-fn hhdm() -> u64 { HHDM.lock().expect("no hhdm") }
+fn hhdm() -> u64 {
+    HHDM.get().expect("vmm not installed").expect("hhdm not set")
+}
 
 pub struct AddressSpace {
     pml4_phys: PhysAddr,
