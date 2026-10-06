@@ -16,7 +16,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-pub mod fault;
 pub mod heap;
 pub mod pmm;
 pub mod tests;

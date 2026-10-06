@@ -17,11 +17,14 @@
  */
 
 use spin::LazyLock;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::{
+    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
+};
 
 use crate::arch::x86_64::gdt::DOUBLE_FAULT_IST_INDEX;
 use crate::arch::x86_64::interrupts::{self, InterruptIndex};
-use crate::{memory, println};
+use crate::println;
 
 static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| {
     let mut idt = InterruptDescriptorTable::new();
@@ -30,7 +33,7 @@ static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| {
     idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
     idt.device_not_available.set_handler_fn(device_not_available_handler);
     idt.breakpoint.set_handler_fn(breakpoint_handler);
-    idt.page_fault.set_handler_fn(memory::fault::page_fault_handler);
+    idt.page_fault.set_handler_fn(page_fault_handler);
 
     unsafe {
         idt.double_fault
@@ -97,5 +100,26 @@ extern "x86-interrupt" fn double_fault_handler(
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
     log::warn!("breakpoint triggered!");
+    print_stack_frame(stack_frame);
+}
+
+pub extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
+    let fault_addr = match Cr2::read() {
+        Ok(addr) => addr.as_u64(),
+        Err(addr_err) => {
+            log::error!(
+                "page fault triggered, but CR2 is invalid: {:?}",
+                addr_err
+            );
+            return;
+        },
+    };
+
+    log::error!("page fault triggered");
+    println!("cr2:        {:#x}", fault_addr);
+    println!("error code: {:#x}", error_code);
     print_stack_frame(stack_frame);
 }

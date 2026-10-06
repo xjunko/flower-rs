@@ -3,7 +3,7 @@
 # kernel doesnt rely on anything, it can be built by itself
 .PHONY: kernel
 kernel:
-	$(MAKE) -C flower-core
+	$(MAKE) -C kernel
 
 ##### image generation #####
 override IMG_NAME := flower
@@ -25,11 +25,11 @@ $(IMG_NAME).iso: $(LIMINE)/limine kernel
 	mkdir -p  $(TMP)/iso_root/boot
 
 	# kernel elf
-	cp -v flower-core/target/x86_64-riria/release/kernel $(TMP)/iso_root/boot/kernel
+	cp -v kernel/target/x86_64-flower/release/kernel $(TMP)/iso_root/boot/kernel
 
 	# limine
 	mkdir -p $(TMP)/iso_root/boot/limine
-	cp    flower-core/limine.conf $(TMP)/iso_root/boot/limine/
+	cp    kernel/limine.conf $(TMP)/iso_root/boot/limine/
 
 	# limine binaries
 	mkdir -p $(TMP)/iso_root/EFI/BOOT
@@ -52,7 +52,7 @@ $(IMG_NAME).iso: $(LIMINE)/limine kernel
 .PHONY: clean
 clean:
 	rm -rf $(TMP)
-	make -C flower-core clean
+	make -C kernel clean
 
 .PHONY: run
 run: $(IMG_NAME).iso
