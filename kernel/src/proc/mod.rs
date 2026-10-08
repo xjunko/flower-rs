@@ -37,15 +37,18 @@ pub fn schedule() {
     let context = {
         let mut guard = SCHEDULER.lock();
         if let Some(sched) = guard.as_mut() {
+            sched.reap();
             sched.next_idx().map(|next| sched.switch_to(next))
         } else {
             panic!("scheduler not initialized");
         }
     };
 
-    if let Some((old_sp, new_sp, new_stack_top)) = context {
-        Processor::set_kernel_stack(new_stack_top);
-        Processor::switch_context(old_sp, new_sp, 0);
+    if let Some((old_sp, new_sp, new_stack_top, new_root)) = context {
+        if new_stack_top != 0 {
+            Processor::set_kernel_stack(new_stack_top);
+        }
+        Processor::switch_context(old_sp, new_sp, new_root);
     } else if interrupts_enabled {
         Processor::interrupts_enable();
     }

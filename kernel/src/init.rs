@@ -23,11 +23,7 @@
 
 extern crate alloc;
 
-use alloc::vec;
-
 use crate::arch::{Arch, Processor};
-use crate::vfs::file::OpenFlags;
-use crate::vfs::traits::File;
 
 mod acpi;
 mod arch;
@@ -67,11 +63,20 @@ fn _kernel_init() {
     devices::gpu::fb::install();
     devices::tty::fb::install();
 
-    proc::spawn("init", kernel_main);
+    proc::spawn("kmain1", kernel_main);
+    proc::spawn("kmain2", kernel_main2);
 }
 
 fn kernel_main() {
-    log::info!("hello world!");
+    loop {
+        log::info!("hello world!");
+    }
+}
+
+fn kernel_main2() {
+    loop {
+        log::error!("hello dih!");
+    }
 }
 
 #[panic_handler]

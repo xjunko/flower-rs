@@ -101,9 +101,13 @@ pub trait Paging {
     fn clone_user(root: Self::Root) -> Result<Self::Root, &'static str>;
 }
 
-pub trait Multitasking {
+pub trait Multitasking: Paging {
     fn prepare_stack(stack_top: u64, entry: fn()) -> u64;
-    fn switch_context(old_sp: *mut u64, new_sp: u64, new_root: u64);
+    fn switch_context(
+        old_sp: *mut u64,
+        new_sp: u64,
+        new_root: Option<<Self as Paging>::Root>,
+    );
 }
 
 pub struct Processor {}

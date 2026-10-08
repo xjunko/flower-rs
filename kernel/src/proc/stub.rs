@@ -16,22 +16,9 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::string::String;
-use alloc::vec::Vec;
+use crate::arch::{Arch, Processor};
+use crate::proc::process::Process;
 
-use crate::proc::process::{Process, ProcessLevel, ProcessState};
+fn __idle_forever() { Processor::halt() }
 
-pub(crate) fn null_process() -> Process {
-    Process {
-        id: 40269.into(),
-        name: String::from("null").into(),
-        state: ProcessState::Ready.into(),
-        level: ProcessLevel::Kernel.into(),
-        address_space: None.into(),
-        return_code: None.into(),
-        _stack_top: 0,
-        _stack_bottom: 0,
-        _stack_ptr: 0,
-        _stack_arr: Vec::new().into(),
-    }
-}
+pub(crate) fn null_process() -> Process { Process::new("idle", __idle_forever) }

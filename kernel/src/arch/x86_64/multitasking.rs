@@ -18,7 +18,7 @@
 
 use core::arch::naked_asm;
 
-use crate::arch::{Arch, Multitasking, Processor};
+use crate::arch::{Arch, Multitasking, Paging, Processor};
 use crate::proc;
 
 #[repr(C)]
@@ -98,7 +98,14 @@ impl Multitasking for Processor {
         stack_ptr
     }
 
-    fn switch_context(old_sp: *mut u64, new_sp: u64, new_root: u64) {
+    fn switch_context(
+        old_sp: *mut u64,
+        new_sp: u64,
+        new_root: Option<<Self as Paging>::Root>,
+    ) {
+        let new_root =
+            new_root.map(Self::root_phys).unwrap_or_default();
+
         unsafe {
             self::switch_context(old_sp, new_sp, new_root);
         }

@@ -21,7 +21,11 @@ use alloc::sync::Arc;
 
 use spin::Mutex;
 
+use crate::arch::{Paging, Processor};
+use crate::memory::vmm::AddressSpace;
 use crate::proc::process::{Process, ProcessState};
+
+type Root = <Processor as Paging>::Root;
 
 pub struct Scheduler {
     pub processes: VecDeque<Arc<Mutex<Process>>>,
@@ -29,9 +33,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new() -> Self {
-        Self { processes: VecDeque::new(), current: 0.into() }
-    }
+    pub fn new() -> Self { Self { processes: VecDeque::new(), current: 0.into() } }
 
     pub fn add(&mut self, process: Process) {
         let process_arc = Arc::new(Mutex::new(process));
@@ -59,7 +61,39 @@ impl Scheduler {
         return None;
     }
 
-    pub fn switch_to(&mut self, next_idx: usize) -> (*mut u64, u64, u64) {
+    pub fn reap(&mut self) {
+        let mut i = self.processes.len();
+        let mut current_idx = *self.current.lock();
+        while i > 0 {
+            i -= 1;
+
+            let reapable = {
+                let proc = self.processes[i].lock();
+                let state = proc.state.lock();
+                *state == ProcessState::Dead
+                    || (*state == ProcessState::Zombie
+                        && proc.parent_id.lock().is_none())
+            };
+
+            if i != current_idx && reapable {
+                log::trace!(
+                    "reaping process: {:?}",
+                    self.processes[i].lock().name.lock()
+                );
+                self.processes.remove(i);
+
+                if i < current_idx {
+                    current_idx -= 1;
+                }
+            }
+        }
+        *self.current.lock() = current_idx;
+    }
+
+    pub fn switch_to(
+        &mut self,
+        next_idx: usize,
+    ) -> (*mut u64, u64, u64, Option<Root>) {
         let current = *self.current.lock();
         *self.current.lock() = next_idx;
 
@@ -74,11 +108,31 @@ impl Scheduler {
 
         let old_sp = &mut cur_proc._stack_ptr as *mut u64;
         let new_sp = next_proc._stack_ptr;
+
         let new_stack_top = next_proc._stack_top;
+
+        let root_to_load = {
+            let kernel_root = AddressSpace::kernel().root();
+            let old_root = cur_proc
+                .address_space
+                .lock()
+                .as_ref()
+                .map(AddressSpace::root)
+                .unwrap_or(kernel_root);
+
+            let new_root = next_proc
+                .address_space
+                .lock()
+                .as_ref()
+                .map(AddressSpace::root)
+                .unwrap_or(kernel_root);
+
+            (old_root != new_root).then_some(new_root)
+        };
 
         drop(next_proc);
         drop(cur_proc);
 
-        (old_sp, new_sp, new_stack_top)
+        (old_sp, new_sp, new_stack_top, root_to_load)
     }
 }

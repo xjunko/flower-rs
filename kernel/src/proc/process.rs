@@ -48,6 +48,7 @@ pub struct Process {
     pub(crate) level: Mutex<ProcessLevel>,
     pub(crate) address_space: Mutex<Option<AddressSpace>>,
 
+    pub(crate) parent_id: Mutex<Option<u64>>,
     pub(crate) return_code: Mutex<Option<u64>>,
 
     pub(crate) _stack_arr: Vec<u8>,
@@ -76,6 +77,7 @@ impl Process {
             level: ProcessLevel::Kernel.into(),
             address_space: None.into(),
 
+            parent_id: None.into(),
             return_code: None.into(),
 
             _stack_arr: stack_arr,

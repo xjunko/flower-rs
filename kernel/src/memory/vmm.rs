@@ -81,6 +81,9 @@ impl AddressSpace {
     /// returns the physical address of the root table (cr3 on x86_64)
     pub fn root_phys(&self) -> u64 { Processor::root_phys(self.root) }
 
+    /// returns the architecture-specific root table handle
+    pub fn root(&self) -> Root { self.root }
+
     /// translates a virtual address to a physical address, if it's mapped
     pub fn translate(&self, virt: u64) -> Option<u64> {
         Processor::translate(self.root, virt).map(|(phys, _)| phys)
