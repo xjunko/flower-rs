@@ -54,9 +54,5 @@ pub fn normalize(path: &str) -> String {
         return "/".to_string();
     }
     let trimmed = path.trim_end_matches('/');
-    if trimmed.is_empty() {
-        "/".to_string()
-    } else {
-        trimmed.to_string()
-    }
+    if trimmed.is_empty() { "/".to_string() } else { trimmed.to_string() }
 }
