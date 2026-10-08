@@ -33,7 +33,9 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new() -> Self { Self { processes: VecDeque::new(), current: 0.into() } }
+    pub fn new() -> Self {
+        Self { processes: VecDeque::new(), current: 0.into() }
+    }
 
     pub fn add(&mut self, process: Process) {
         let process_arc = Arc::new(Mutex::new(process));

@@ -45,8 +45,7 @@ impl DrawTarget for FramebufferTerminal {
             let fb_addr = fb_info.addr();
             let offset = (y * self.size().0 + x) * 4;
             unsafe {
-                let pixel_ptr =
-                    fb_addr.add(offset.try_into().unwrap()).as_mut_ptr();
+                let pixel_ptr = fb_addr.add(offset as u64).as_mut_ptr();
                 *pixel_ptr = rgb.2;
                 *pixel_ptr.add(1) = rgb.1;
                 *pixel_ptr.add(2) = rgb.0;

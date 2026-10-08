@@ -103,8 +103,7 @@ impl Multitasking for Processor {
         new_sp: u64,
         new_root: Option<<Self as Paging>::Root>,
     ) {
-        let new_root =
-            new_root.map(Self::root_phys).unwrap_or_default();
+        let new_root = new_root.map(Self::root_phys).unwrap_or_default();
 
         unsafe {
             self::switch_context(old_sp, new_sp, new_root);
