@@ -45,7 +45,6 @@ pub extern "x86-interrupt" fn lapic_timer_handler(
     _stack_frame: InterruptStackFrame,
 ) {
     apic::eoi();
-    print!(".");
 }
 
 pub extern "x86-interrupt" fn spurious_interrupt_handler(
