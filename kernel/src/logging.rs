@@ -94,6 +94,10 @@ pub fn __print(args: fmt::Arguments<'_>) {
     if devices::tty::serial::ready() {
         devices::tty::serial::print(args);
     }
+
+    if devices::tty::fb::ready() {
+        devices::tty::fb::print(args);
+    }
 }
 
 #[macro_export]

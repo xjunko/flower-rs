@@ -16,4 +16,5 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+pub mod fb;
 pub mod serial;
