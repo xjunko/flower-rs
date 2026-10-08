@@ -18,9 +18,9 @@
 
 use limine::memmap::MEMMAP_USABLE;
 use spin::Mutex;
-use x86_64::{VirtAddr, align_up};
 
-use crate::arch::{Paging, Processor};
+use crate::arch::addr::VirtAddr;
+use crate::arch::{Paging, Processor, align_up};
 use crate::boot;
 
 static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);
