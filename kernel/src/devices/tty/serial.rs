@@ -23,6 +23,8 @@ use spinning_top::Spinlock;
 use uart_16550::backend::PioBackend;
 use uart_16550::{Config, Uart16550Tty};
 
+use crate::arch::{Arch, Processor};
+
 type ComPort = Uart16550Tty<PioBackend>;
 static SERIAL: Once<SerialPort> = Once::new();
 
@@ -42,7 +44,9 @@ impl SerialPort {
     }
 
     pub fn write_formatted(&self, args: fmt::Arguments<'_>) {
-        let _ = self.uart.lock().write_fmt(args);
+        Processor::interrupts_without(|| {
+            let _ = self.uart.lock().write_fmt(args);
+        });
     }
 }
 
