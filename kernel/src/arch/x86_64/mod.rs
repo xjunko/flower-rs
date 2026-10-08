@@ -22,6 +22,7 @@ pub mod gdt;
 mod idt;
 mod interrupts;
 pub mod layout;
+mod multitasking;
 mod paging;
 mod timer;
 

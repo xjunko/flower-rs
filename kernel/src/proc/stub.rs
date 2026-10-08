@@ -16,39 +16,22 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use x86_64::instructions::interrupts;
-use x86_64::structures::idt::InterruptStackFrame;
+use alloc::string::String;
+use alloc::vec::Vec;
 
-use crate::arch::x86_64::apic;
+use crate::proc::process::{Process, ProcessLevel, ProcessState};
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum InterruptIndex {
-    LapicTimer = 32,
-    Keyboard = 33,
-    Mouse = 44,
-    Spurious = 255,
-}
-
-impl InterruptIndex {
-    pub fn as_u8(self) -> u8 { self as u8 }
-
-    pub fn as_usize(self) -> usize { usize::from(self.as_u8()) }
-}
-
-pub fn enable() { interrupts::enable(); }
-
-pub fn disable() { interrupts::disable(); }
-
-pub extern "x86-interrupt" fn lapic_timer_handler(
-    _stack_frame: InterruptStackFrame,
-) {
-    apic::eoi();
-    crate::proc::schedule();
-}
-
-pub extern "x86-interrupt" fn spurious_interrupt_handler(
-    _stack_frame: InterruptStackFrame,
-) {
-    todo!("ive never encountered this yet")
+pub(crate) fn null_process() -> Process {
+    Process {
+        id: 40269.into(),
+        name: String::from("null").into(),
+        state: ProcessState::Ready.into(),
+        level: ProcessLevel::Kernel.into(),
+        address_space: None.into(),
+        return_code: None.into(),
+        _stack_top: 0,
+        _stack_bottom: 0,
+        _stack_ptr: 0,
+        _stack_arr: Vec::new().into(),
+    }
 }

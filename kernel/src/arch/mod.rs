@@ -22,7 +22,7 @@ pub use generic::*;
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
 
-pub trait Arch: Paging {
+pub trait Arch: Paging + Multitasking {
     // cpu
     fn bsp_install();
     fn ap_install();
@@ -99,6 +99,11 @@ pub trait Paging {
 
     // fork support
     fn clone_user(root: Self::Root) -> Result<Self::Root, &'static str>;
+}
+
+pub trait Multitasking {
+    fn prepare_stack(stack_top: u64, entry: fn()) -> u64;
+    fn switch_context(old_sp: *mut u64, new_sp: u64, new_root: u64);
 }
 
 pub struct Processor {}
