@@ -23,8 +23,11 @@ use crate::arch::x86_64::timer::acpi_pmt;
 fn __measure_tsc_freq() -> u64 {
     let mut total: u64 = 0;
     for _ in 0..3 {
+        unsafe { core::arch::x86_64::_mm_lfence() }
         let start = unsafe { core::arch::x86_64::_rdtsc() };
         acpi_pmt::wait_ms(10);
+
+        unsafe { core::arch::x86_64::_mm_lfence() }
         let end = unsafe { core::arch::x86_64::_rdtsc() };
         total += (end - start) * 100;
     }
