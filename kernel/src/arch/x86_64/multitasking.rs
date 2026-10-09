@@ -79,6 +79,8 @@ unsafe extern "C" fn switch_context(
 }
 
 impl Multitasking for Processor {
+    const KERNEL_STACK_SIZE: usize = 0x4000;
+
     fn prepare_stack(stack_top: u64, entry: fn()) -> u64 {
         let stack_ptr =
             (stack_top & !0xF) - core::mem::size_of::<Frame>() as u64;
