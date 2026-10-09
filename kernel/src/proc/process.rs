@@ -17,13 +17,11 @@
  */
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 use spin::Mutex;
 
-use crate::arch::x86_64::layout::PROCESS_STACK_SIZE;
-use crate::arch::{Multitasking, Processor};
+use crate::arch::{MapFlags, Multitasking, Paging, Processor};
 use crate::memory::vmm::AddressSpace;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,10 +49,10 @@ pub struct Process {
     pub(crate) parent_id: Mutex<Option<u64>>,
     pub(crate) return_code: Mutex<Option<u64>>,
 
-    pub(crate) _stack_arr: Vec<u8>,
     pub(crate) _stack_ptr: u64,
     pub(crate) _stack_top: u64,
     pub(crate) _stack_bottom: u64,
+    pub(crate) _stack_reservation: u64,
 }
 
 // kernel proc
@@ -63,12 +61,26 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 impl Process {
     pub fn new(name: &str, entry: fn()) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack_arr = alloc::vec![0u8; PROCESS_STACK_SIZE];
 
-        let stack_bottom = stack_arr.as_ptr() as usize;
-        let stack_top = stack_bottom + PROCESS_STACK_SIZE;
+        let stack_size = Processor::KERNEL_STACK_SIZE;
+        let reservation_size = stack_size + Processor::PAGE_SIZE;
 
-        let stack = Processor::prepare_stack(stack_top as u64, entry);
+        let kernel_space = AddressSpace::kernel();
+        let stack_virt = AddressSpace::reserve_virt(reservation_size)
+            .expect("failed to reserve process stack virtual space");
+
+        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
+        let stack_top = stack_bottom + stack_size as u64;
+
+        kernel_space
+            .map_range_alloc(
+                stack_bottom,
+                stack_size,
+                MapFlags::READ | MapFlags::WRITE,
+            )
+            .expect("failed to allocate process stack");
+
+        let stack = Processor::prepare_stack(stack_top, entry);
 
         Self {
             id: id.into(),
@@ -80,10 +92,19 @@ impl Process {
             parent_id: None.into(),
             return_code: None.into(),
 
-            _stack_arr: stack_arr,
             _stack_ptr: stack,
-            _stack_top: stack_top as u64,
-            _stack_bottom: stack_bottom as u64,
+            _stack_top: stack_top,
+            _stack_bottom: stack_bottom,
+            _stack_reservation: stack_virt,
         }
+    }
+}
+
+impl Drop for Process {
+    fn drop(&mut self) {
+        let stack_size = crate::arch::x86_64::layout::PROCESS_STACK_SIZE;
+        AddressSpace::kernel()
+            .unmap_range(self._stack_bottom, stack_size)
+            .expect("failed to free process stack");
     }
 }
