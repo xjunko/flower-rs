@@ -1,12 +1,11 @@
-use x86_64::structures::paging::PageTableFlags;
-use x86_64::{PhysAddr, VirtAddr};
+use x86_64::VirtAddr;
 
-use crate::acpi;
-use crate::arch::layout::PAGE_SIZE;
+use crate::arch::MapFlags;
 use crate::system::mem::vmm::AddressSpace;
+use crate::{acpi, arch};
 
 const IOAPIC_REDIR_TABLE: u32 = 0x10;
-const IOAPIC_SIZE: usize = PAGE_SIZE;
+const IOAPIC_SIZE: usize = arch::layout::PAGE_SIZE;
 
 pub struct IoApic {
     virt_base: VirtAddr,
@@ -34,15 +33,13 @@ impl IoApic {
             ioapic_gsi_base
         );
 
-        let flags = PageTableFlags::PRESENT
-            | PageTableFlags::WRITABLE
-            | PageTableFlags::NO_CACHE;
+        let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
         address_space
-            .map_page(virt, PhysAddr::new(ioapic_addr as u64), flags)
+            .map_page(virt, ioapic_addr as u64, flags)
             .expect("failed to map ioapic");
 
-        Self { virt_base: virt, gsi_base: ioapic_gsi_base }
+        Self { virt_base: VirtAddr::new(virt), gsi_base: ioapic_gsi_base }
     }
 
     unsafe fn read(&self, reg: u32) -> u32 {

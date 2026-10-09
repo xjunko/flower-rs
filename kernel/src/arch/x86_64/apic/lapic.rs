@@ -2,8 +2,8 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use x86_64::VirtAddr;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
-use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::MapFlags;
 use crate::arch::x86_64::layout::PAGE_SIZE;
 use crate::arch::x86_64::timer::acpi_pmt;
 use crate::system::mem::vmm::AddressSpace;
@@ -25,9 +25,7 @@ pub struct LocalApic {
 
 impl LocalApic {
     pub fn install(address_space: &AddressSpace) -> Self {
-        let flags = PageTableFlags::PRESENT
-            | PageTableFlags::WRITABLE
-            | PageTableFlags::NO_CACHE;
+        let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
         let virt = AddressSpace::reserve_virt(PAGE_SIZE)
             .expect("failed to reserve virt for lapic");
@@ -48,10 +46,10 @@ impl LocalApic {
         }
 
         address_space
-            .map_page(virt, apic_base.start_address(), flags)
+            .map_page(virt, apic_base.start_address().as_u64(), flags)
             .expect("failed to map lapic");
 
-        Self { virt_base: virt, ticks_per_ms: AtomicU32::new(0) }
+        Self { virt_base: VirtAddr::new(virt), ticks_per_ms: AtomicU32::new(0) }
     }
 
     unsafe fn read(&self, offset: u64) -> u32 {

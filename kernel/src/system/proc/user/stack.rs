@@ -2,8 +2,8 @@ use alloc::vec::Vec;
 
 use defs::auxv::AuxType;
 use x86_64::VirtAddr;
-use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::MapFlags;
 use crate::arch::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
 };
@@ -47,8 +47,10 @@ impl<'a> StackBuilder<'a> {
         if self.stack_pointer < self.stack_bottom {
             return Err("user stack overflow");
         }
-        self.adress_space
-            .write(VirtAddr::new(self.stack_pointer), &value.to_ne_bytes())?;
+        self.adress_space.write(
+            VirtAddr::new(self.stack_pointer).as_u64(),
+            &value.to_ne_bytes(),
+        )?;
         Ok(self.stack_pointer)
     }
 
@@ -59,7 +61,8 @@ impl<'a> StackBuilder<'a> {
         if self.stack_pointer < self.stack_bottom {
             return Err("user stack overflow");
         }
-        self.adress_space.write(VirtAddr::new(self.stack_pointer), data)?;
+        self.adress_space
+            .write(VirtAddr::new(self.stack_pointer).as_u64(), data)?;
         Ok(self.stack_pointer)
     }
 }
@@ -144,26 +147,24 @@ pub fn build_user_image(
         }
     }
 
-    if !address_space.is_mapped(VirtAddr::new(entry & !0xFFF)) {
+    if !address_space.is_mapped(VirtAddr::new(entry & !0xFFF).as_u64()) {
         return Err("entry point is not mapped");
     }
 
-    let flags = PageTableFlags::PRESENT
-        | PageTableFlags::WRITABLE
-        | PageTableFlags::USER_ACCESSIBLE;
+    let flags = MapFlags::WRITE | MapFlags::USER;
 
     // Allocate initial heap page (will grow on demand)
     let mut user_heap = loaded.end;
     user_heap = (user_heap + PAGE_SIZE - 1) & !0xFFF;
     address_space
-        .map_page_alloc(VirtAddr::new(user_heap), flags)
+        .map_page_alloc(VirtAddr::new(user_heap).as_u64(), flags)
         .expect("failed to allocate initial heap");
     let heap_max = user_heap + (512 * PAGE_SIZE); // Allow heap to grow up to 512 pages (2MB)
 
     // Allocate only the initial stack page (will grow on demand)
     let stack_top_page = USER_STACK_TOP_PAGE;
     address_space
-        .map_page_alloc(VirtAddr::new(stack_top_page), flags)
+        .map_page_alloc(VirtAddr::new(stack_top_page).as_u64(), flags)
         .expect("failed to allocate initial stack");
 
     let stack_low = USER_STACK_TOP_PAGE - (USER_STACK_PAGES * PAGE_SIZE);

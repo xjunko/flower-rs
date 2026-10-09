@@ -243,7 +243,7 @@ impl Process {
             (stack_ptr as *mut u64).write(user_entry);
         }
 
-        let cr3 = address_space.cr3();
+        let cr3 = address_space.root_phys();
 
         Self {
             id,
@@ -328,7 +328,7 @@ impl Process {
             (stack_ptr as *mut u64).write(0);
         }
 
-        let cr3 = address_space.cr3();
+        let cr3 = address_space.root_phys();
 
         Self {
             id,

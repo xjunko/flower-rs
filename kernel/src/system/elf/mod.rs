@@ -1,13 +1,12 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use x86_64::structures::paging::PageTableFlags;
 use x86_64::{VirtAddr, align_down, align_up};
 use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
-use crate::arch;
 use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
+use crate::arch::{self, MapFlags};
 use crate::system::mem::vmm::AddressSpace;
 
 #[derive(Debug)]
@@ -31,30 +30,25 @@ pub enum ELFLoadType {
     Interpreter,
 }
 
-fn merge_page_flags(
-    current: PageTableFlags,
-    requested: PageTableFlags,
-) -> PageTableFlags {
-    let any_exec = !current.contains(PageTableFlags::NO_EXECUTE)
-        || !requested.contains(PageTableFlags::NO_EXECUTE);
-
+fn merge_page_flags(current: MapFlags, requested: MapFlags) -> MapFlags {
+    let remove_exec = !current.contains(MapFlags::EXEC)
+        || !requested.contains(MapFlags::EXEC);
     let mut merged = current | requested;
-    if any_exec {
-        merged.remove(PageTableFlags::NO_EXECUTE);
+    if remove_exec {
+        merged.remove(MapFlags::EXEC);
     }
-
     merged
 }
 
-fn segment_flags(flags: Flags) -> PageTableFlags {
-    let mut result = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+fn segment_flags(flags: Flags) -> MapFlags {
+    let mut result = MapFlags::USER | MapFlags::EXEC;
 
     if flags.is_write() {
-        result |= PageTableFlags::WRITABLE;
+        result |= MapFlags::WRITE;
     }
 
     if !flags.is_execute() {
-        result |= PageTableFlags::NO_EXECUTE;
+        result.remove(MapFlags::EXEC);
     }
 
     result
@@ -120,12 +114,14 @@ pub fn load_into(
                 while addr < end_page {
                     let page = VirtAddr::new(addr);
 
-                    if !address_space.is_mapped(page) {
-                        address_space.map_page_alloc(page, flags)?;
+                    if !address_space.is_mapped(page.as_u64()) {
+                        address_space.map_page_alloc(page.as_u64(), flags)?;
                     } else {
-                        let current = address_space.page_flags(page)?;
+                        let current =
+                            address_space.page_flags(page.as_u64())?;
                         let merged = merge_page_flags(current, flags);
-                        address_space.update_page_flags(page, merged)?;
+                        address_space
+                            .update_page_flags(page.as_u64(), merged)?;
                     }
 
                     addr += arch::layout::PAGE_SIZE as u64;
@@ -142,13 +138,14 @@ pub fn load_into(
                 }
 
                 address_space.write(
-                    VirtAddr::new(vaddr + load_base),
+                    VirtAddr::new(vaddr + load_base).as_u64(),
                     &elf_data[offset..file_end],
                 )?;
 
                 if mem_size > file_size as u64 {
                     address_space.zero(
-                        VirtAddr::new(vaddr + file_size as u64 + load_base),
+                        VirtAddr::new(vaddr + file_size as u64 + load_base)
+                            .as_u64(),
                         (mem_size - file_size as u64) as usize,
                     )?;
                 }
