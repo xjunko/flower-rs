@@ -18,7 +18,6 @@
 
 use alloc::boxed::Box;
 use core::fmt::Write;
-use core::ops::Add;
 
 use os_terminal::font::BitmapFont;
 use os_terminal::{DrawTarget, Terminal};
@@ -37,20 +36,18 @@ pub struct FramebufferTerminal {
 }
 
 impl DrawTarget for FramebufferTerminal {
-    fn size(&self) -> (usize, usize) { (1280, 720) }
+    fn size(&self) -> (usize, usize) {
+        if let Some(fb_info) = self.fb_info.as_ref() {
+            (fb_info.width, fb_info.height)
+        } else {
+            (0, 0)
+        }
+    }
 
     #[inline(always)]
     fn draw_pixel(&mut self, x: usize, y: usize, rgb: os_terminal::Rgb) {
         if let Some(fb_info) = self.fb_info.as_ref() {
-            let fb_addr = fb_info.addr();
-            let offset = (y * self.size().0 + x) * 4;
-            unsafe {
-                let pixel_ptr = fb_addr.add(offset as u64).as_mut_ptr();
-                *pixel_ptr = rgb.2;
-                *pixel_ptr.add(1) = rgb.1;
-                *pixel_ptr.add(2) = rgb.0;
-                *pixel_ptr.add(3) = 0;
-            }
+            fb_info.draw_pixel(x, y, rgb);
         }
     }
 }
