@@ -7,7 +7,7 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE};
-use crate::system::{self};
+use crate::system::mem::vmm::AddressSpace;
 
 struct Allocator;
 #[global_allocator]
@@ -26,12 +26,13 @@ fn map_chunk(
     size: usize,
     flags: PageTableFlags,
 ) -> Result<(), &'static str> {
+    let current_space = AddressSpace::current();
+
     let pages = size.div_ceil(PAGE_SIZE);
 
     for i in 0..pages {
         let page_addr = addr + (i * PAGE_SIZE) as u64;
-
-        system::mem::vmm::page_map_alloc(page_addr, flags)?;
+        current_space.map_page_alloc(page_addr, flags)?;
     }
 
     Ok(())

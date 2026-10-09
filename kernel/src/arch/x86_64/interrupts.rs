@@ -11,8 +11,9 @@ static TICKS: AtomicU64 = AtomicU64::new(0);
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum InterruptIndex {
-    Timer = 32,
+    LapicTimer = 32,
     Keyboard = 33,
+    Mouse = 44,
     Spurious = 255,
 }
 

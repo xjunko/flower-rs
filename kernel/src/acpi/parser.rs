@@ -4,32 +4,43 @@ use acpi::PhysicalMapping;
 use x86_64::PhysAddr;
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::system;
+use crate::system::mem::vmm::AddressSpace;
 
 #[derive(Clone, Debug)]
-pub struct AcpiReader;
+pub struct KernelAcpiReader;
 
-impl acpi::Handler for AcpiReader {
+impl acpi::Handler for KernelAcpiReader {
     unsafe fn map_physical_region<T>(
         &self,
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
-        let virt_addr = system::mem::vmm::phys_to_virt(PhysAddr::new(
-            physical_address as u64,
-        ));
+        let address_space = AddressSpace::kernel();
+        let phys_start = PhysAddr::new(physical_address as u64);
+        let virt_start = AddressSpace::phys_to_virt(phys_start);
 
-        if !system::mem::vmm::page_is_mapped(virt_addr)
-            && let Err(e) = system::mem::vmm::page_map(
-                virt_addr,
-                PhysAddr::new(physical_address as u64),
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-            )
-        {
-            panic!("failed to map physical region: {e}");
+        // we're gonna map the whole region
+        let page_offset = (physical_address as u64 & 0xFFF) as usize;
+        let aligned_phys = physical_address as u64 - page_offset as u64;
+        let total_len = size + page_offset;
+        let page_count = total_len.div_ceil(4096);
+
+        for i in 0..page_count {
+            let page_phys = PhysAddr::new(aligned_phys + (i as u64 * 4096));
+            let page_virt = AddressSpace::phys_to_virt(page_phys);
+
+            if !address_space.is_mapped(page_virt)
+                && let Err(e) = address_space.map_page(
+                    page_virt,
+                    page_phys,
+                    PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+                )
+            {
+                panic!("failed to map physical page: {e}")
+            }
         }
 
-        let virtual_start = NonNull::new(virt_addr.as_mut_ptr::<T>())
+        let virtual_start = NonNull::new(virt_start.as_mut_ptr::<T>())
             .expect("acpi physical mapping translated to null virtual pointer");
 
         PhysicalMapping {

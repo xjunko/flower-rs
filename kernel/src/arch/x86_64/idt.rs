@@ -28,7 +28,8 @@ static IDT: LazyLock<InterruptDescriptorTable> = LazyLock::new(|| {
         .set_handler_fn(keyboard::keyboard_interrupt_handler);
 
     // spurious
-    idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
+    idt[InterruptIndex::LapicTimer.as_u8()]
+        .set_handler_fn(timer_interrupt_handler);
     idt[InterruptIndex::Spurious.as_u8()]
         .set_handler_fn(spurious_interrupt_handler);
 

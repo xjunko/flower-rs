@@ -28,6 +28,7 @@ fn kernel_init() {
     system::mem::heap::install().expect("failed to install heap");
 
     acpi::install();
+    arch::timer::install();
     arch::apic::install();
 
     drivers::ps2::install();
