@@ -54,6 +54,27 @@ pub fn schedule() {
     }
 }
 
+pub fn start() -> ! {
+    Processor::interrupts_disable();
+
+    let mut initial_context_sp = 0u64;
+
+    let first_context = {
+        let mut guard = SCHEDULER.lock();
+        let scheduler = guard.as_mut().expect("scheduler not initialized");
+        let first = scheduler.first_idx().expect("no process to schedule");
+        scheduler.activate(first)
+    };
+
+    Processor::set_kernel_stack(first_context.1);
+    Processor::switch_context(
+        &mut initial_context_sp,
+        first_context.0,
+        first_context.2,
+    );
+    Processor::halt()
+}
+
 pub fn spawn(name: &str, entry: fn()) {
     Processor::interrupts_without(|| {
         let new_process = Process::new(name, entry);

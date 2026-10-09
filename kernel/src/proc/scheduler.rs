@@ -63,6 +63,33 @@ impl Scheduler {
         return None;
     }
 
+    pub fn first_idx(&self) -> Option<usize> {
+        self.processes.iter().position(|process| {
+            *process.lock().state.lock() == ProcessState::Ready
+        })
+    }
+
+    pub fn activate(&mut self, next_idx: usize) -> (u64, u64, Option<Root>) {
+        *self.current.lock() = next_idx;
+
+        let next_proc = self.processes[next_idx].lock();
+        *next_proc.state.lock() = ProcessState::Running;
+
+        let kernel_root = AddressSpace::kernel().root();
+        let new_root = next_proc
+            .address_space
+            .lock()
+            .as_ref()
+            .map(AddressSpace::root)
+            .unwrap_or(kernel_root);
+
+        (
+            next_proc._stack_ptr,
+            next_proc._stack_top,
+            (new_root != kernel_root).then_some(new_root),
+        )
+    }
+
     pub fn reap(&mut self) {
         let mut i = self.processes.len();
         let mut current_idx = *self.current.lock();
