@@ -15,18 +15,9 @@ run: $(IMAGE_NAME).iso
 .PHONY: $(IMAGE_NAME).iso
 all: $(IMAGE_NAME).iso
 
-.PHONY: apps
-apps:
-	make -C flower-apps
-
 .PHONY: kernel
 kernel:
-	make -C flower-kernel
-
-# libc build
-.PHONY: libc
-libc:
-	make -C flower-libc
+	make -C kernel
 
 # limine
 LIMINE_ROOT := $(TEMP)/limine
@@ -35,26 +26,17 @@ $(LIMINE_ROOT)/limine:
 	git clone https://github.com/Limine-Bootloader/Limine --branch=v10.x-binary --depth 1 $(TEMP)/limine
 	$(MAKE) -C $(TEMP)/limine
 
-# initramfs
-INITRAMFS_FILE := flower-boot/initramfs.tar
-.PHONY: $(INITRAMFS_FILE)
-$(INITRAMFS_FILE):
-	make -C flower-boot/initramfs
-
 
 $(IMAGE_NAME).iso: $(LIMINE_ROOT)/limine $(INITRAMFS_FILE) kernel
 	rm -rf $(TEMP)/iso_root
 	mkdir -p $(TEMP)/iso_root/boot
 
 	# copy the kernel
-	cp -v target/x86_64-unknown-none/release/flower-kernel $(TEMP)/iso_root/boot/kernel
-
-	# copy initramfs
-	cp -v $(INITRAMFS_FILE) $(TEMP)/iso_root/boot/
+	cp -v target/x86_64-flower/release/kernel $(TEMP)/iso_root/boot/kernel
 
 	# limine stuff
 	mkdir -p $(TEMP)/iso_root/boot/limine
-	cp flower-boot/limine.conf $(TEMP)/iso_root/boot/limine/
+	cp kernel/limine.conf $(TEMP)/iso_root/boot/limine/
 
 	# limine important stuff
 	mkdir -p $(TEMP)/iso_root/EFI/BOOT

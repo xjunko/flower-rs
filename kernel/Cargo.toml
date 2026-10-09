@@ -1,0 +1,23 @@
+[package]
+name = "kernel"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+bench = false
+name = "kernel"
+test = false
+
+[dependencies]
+defs = { path = "../defs" }
+acpi = "6.1.1"
+linked_list_allocator = "0.10.6"
+log = "0.4.34"
+os-terminal = "0.7.4"
+owo-colors = "4.4.0"
+spin = "0.12.3"
+x86_64 = "0.15.5"
+xmas-elf = "0.10.0"
+pci_types = "0.10.1"
+limine = "0.6.5"
+raw-cpuid = "11.6.0"
