@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+mod acpi;
 mod arch;
 mod boot;
 mod drivers;
@@ -26,7 +27,7 @@ fn kernel_init() {
     system::mem::vmm::install();
     system::mem::heap::install().expect("failed to install heap");
 
-    arch::acpi::install();
+    acpi::install();
     arch::apic::install();
 
     drivers::ps2::install();

@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use acpi::AcpiTables;
 use acpi::sdt::madt::{Madt, MadtEntry};
 
-use crate::arch::acpi::parser::AcpiReader;
+use crate::acpi::parser::AcpiReader;
 
 #[derive(Debug)]
 pub struct LapicInfo {

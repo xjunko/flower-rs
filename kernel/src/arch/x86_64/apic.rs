@@ -7,7 +7,7 @@ use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 use x86_64::structures::paging::PageTableFlags;
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::arch::acpi;
+use crate::acpi;
 use crate::arch::interrupts::InterruptIndex;
 use crate::system::mem::vmm;
 
