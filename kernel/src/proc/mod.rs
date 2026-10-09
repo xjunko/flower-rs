@@ -55,10 +55,10 @@ pub fn schedule() {
 }
 
 pub fn spawn(name: &str, entry: fn()) {
-    let new_process = Process::new(name, entry);
-    log::debug!("spawned process: {:?}", new_process.name.lock());
-
     Processor::interrupts_without(|| {
+        let new_process = Process::new(name, entry);
+        log::debug!("spawned process: {:?}", new_process.name.lock());
+
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             sched.add(new_process);
         }
