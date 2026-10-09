@@ -52,7 +52,7 @@ pub fn install() {
         };
 
         let mut terminal = Terminal::new(term, Box::new(BitmapFont));
-        terminal.set_color_scheme(7);
+        terminal.set_color_scheme(0);
         *CONTEXT.lock() = Some(terminal);
     }
 }

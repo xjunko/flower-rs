@@ -15,16 +15,16 @@ impl log::Log for FlowerLogger {
                 Level::Error => {
                     println!(
                         "{} {}:{} {}",
-                        " Error ".black().bold().on_bright_red(),
+                        " Error ".white().bold().on_bright_red(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
-                        content.red().bold()
+                        content.white().bold().on_bright_red()
                     )
                 },
                 Level::Warn => {
                     println! {
                         "{} {}:{} {}",
-                         " Warn  ".black().bold().on_bright_yellow(),
+                         " Warn  ".white().bold().on_bright_yellow(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
                         content.yellow().bold()
@@ -33,14 +33,14 @@ impl log::Log for FlowerLogger {
                 Level::Info => {
                     println!(
                         "{} {}",
-                        " Info  ".black().bold().on_bright_cyan(),
+                        " Info  ".white().bold().on_bright_cyan(),
                         content
                     )
                 },
                 Level::Debug => {
                     println!(
                         "{} {}:{} {}",
-                        " Debug ".black().bold().on_bright_black(),
+                        " Debug ".white().bold().on_bright_black(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
                         content
@@ -49,10 +49,10 @@ impl log::Log for FlowerLogger {
                 Level::Trace => {
                     println!(
                         "{} {}:{} {}",
-                        " Trace ".black().on_bright_purple(),
+                        " Trace ".white().bold().on_bright_purple(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
-                        content.bright_black(),
+                        content
                     );
                 },
             }
