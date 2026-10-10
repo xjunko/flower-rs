@@ -15,7 +15,6 @@ mod system;
 mod user;
 
 fn kernel_init() {
-    assert!(boot::limine::BASE_REVISION.is_supported());
     drivers::tty::serial::install();
     drivers::tty::logging::install();
 
@@ -49,6 +48,7 @@ fn kernel_init() {
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn kmain() -> ! {
+    assert!(boot::limine::BASE_REVISION.is_supported());
     kernel_init();
     system::proc::spawn("userland-entry", user::entry);
     arch::halt();
