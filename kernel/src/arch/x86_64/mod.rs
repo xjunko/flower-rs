@@ -4,6 +4,7 @@ pub mod idt;
 pub mod interrupts;
 pub mod layout;
 pub mod paging;
+pub mod port;
 pub mod timer;
 
 use core::arch::asm;

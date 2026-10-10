@@ -1,5 +1,4 @@
 use pci_types::ConfigRegionAccess;
-use x86_64::instructions::port::Port;
 
 const CMD_PORT: u16 = 0xCF8;
 const DATA_PORT: u16 = 0xCFC;
@@ -14,13 +13,8 @@ impl ConfigRegionAccess for PciIO {
             | ((address.function() as u32) << 8)
             | ((offset as u32) & 0xFC);
 
-        let mut cmd = Port::<u32>::new(CMD_PORT);
-        let mut data = Port::<u32>::new(DATA_PORT);
-
-        unsafe {
-            cmd.write(addr);
-            data.read()
-        }
+        crate::arch::port::write::<u32>(CMD_PORT, addr);
+        crate::arch::port::read::<u32>(DATA_PORT)
     }
 
     unsafe fn write(&self, address: acpi::PciAddress, offset: u16, value: u32) {
@@ -30,12 +24,7 @@ impl ConfigRegionAccess for PciIO {
             | ((address.function() as u32) << 8)
             | ((offset as u32) & 0xFC);
 
-        let mut cmd = Port::<u32>::new(CMD_PORT);
-        let mut data = Port::<u32>::new(DATA_PORT);
-
-        unsafe {
-            cmd.write(addr);
-            data.write(value)
-        }
+        crate::arch::port::write::<u32>(CMD_PORT, addr);
+        crate::arch::port::write::<u32>(DATA_PORT, value);
     }
 }

@@ -1,3 +1,5 @@
+pub mod addr;
+
 bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct MapFlags: u32 {

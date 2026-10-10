@@ -1,5 +1,4 @@
 use spin::{LazyLock, Mutex};
-use x86_64::instructions::port::Port;
 use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::arch::apic;
@@ -59,16 +58,13 @@ static SHIFT_PRESSED: LazyLock<Mutex<bool>> =
 pub extern "x86-interrupt" fn keyboard_interrupt_handler(
     _frame: InterruptStackFrame,
 ) {
-    let mut pending_port: Port<u8> = Port::new(KB_PENDING);
-    let mut data_port: Port<u8> = Port::new(KB_DEVICE);
-
-    let pending = unsafe { pending_port.read() };
+    let pending = crate::arch::port::read::<u8>(KB_PENDING);
     if pending & 0x1 == 0 {
         apic::eoi();
         return;
     }
 
-    let scancode = unsafe { data_port.read() };
+    let scancode = crate::arch::port::read::<u8>(KB_DEVICE);
 
     let mut shift_pressed = SHIFT_PRESSED.lock();
     if scancode == 0x2A || scancode == 0x36 {
@@ -97,16 +93,13 @@ pub extern "x86-interrupt" fn keyboard_interrupt_handler(
 const MAX_DRAIN: usize = 32;
 
 pub fn install() {
-    let mut pending_port: Port<u8> = Port::new(KB_PENDING);
-    let mut data_port: Port<u8> = Port::new(KB_DEVICE);
-
     // optimally this should get all the
     // pending scancodes cleared out.
     for _ in 0..MAX_DRAIN {
-        if unsafe { pending_port.read() } & 0x1 == 0 {
+        if crate::arch::port::read::<u8>(KB_PENDING) & 0x1 == 0 {
             break;
         }
-        let _ = unsafe { data_port.read() };
+        let _ = crate::arch::port::read::<u8>(KB_DEVICE);
     }
     log::debug!("ps2::keyboard installed!");
 }

@@ -4,7 +4,6 @@ pub mod lapic;
 use raw_cpuid::CpuId;
 use spin::Once;
 use x86_64::instructions::interrupts;
-use x86_64::instructions::port::Port;
 
 use crate::arch::x86_64::apic::ioapic::IoApic;
 use crate::arch::x86_64::apic::lapic::LocalApic;
@@ -20,13 +19,8 @@ fn pic_disable() {
     const PIC2_DATA: u16 = PIC2 + 1;
 
     interrupts::without_interrupts(|| {
-        let mut p1_data: Port<u8> = Port::new(PIC1_DATA);
-        let mut p2_data: Port<u8> = Port::new(PIC2_DATA);
-
-        unsafe {
-            p1_data.write(0xFF);
-            p2_data.write(0xFF);
-        }
+        crate::arch::port::write::<u8>(PIC1_DATA, 0xFF);
+        crate::arch::port::write::<u8>(PIC2_DATA, 0xFF);
     })
 }
 

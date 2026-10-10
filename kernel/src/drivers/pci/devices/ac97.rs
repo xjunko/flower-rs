@@ -3,10 +3,9 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use pci_types::ConfigRegionAccess;
 use spin::MutexGuard;
 use spin::mutex::Mutex;
-use x86_64::VirtAddr;
-use x86_64::instructions::port::Port;
 
 use crate::arch::MapFlags;
+use crate::arch::addr::VirtAddr;
 use crate::drivers::pci::io::PciIO;
 use crate::drivers::pci::parser::PciBus;
 use crate::system::mem::vmm::AddressSpace;
@@ -48,18 +47,15 @@ pub struct Ac97 {
 
 impl Ac97 {
     fn nam_write(&self, reg: u16, val: u16) {
-        let mut port = Port::<u16>::new(self.nam + reg);
-        unsafe { port.write(val) }
+        crate::arch::port::write::<u16>(self.nam + reg, val);
     }
 
     fn nabm_write(&self, reg: u16, val: u8) {
-        let mut port = Port::<u8>::new(self.nabm + reg);
-        unsafe { port.write(val) }
+        crate::arch::port::write::<u8>(self.nabm + reg, val);
     }
 
     fn nabm_read(&self, reg: u16) -> u8 {
-        let mut port = Port::<u8>::new(self.nabm + reg);
-        unsafe { port.read() }
+        crate::arch::port::read::<u8>(self.nabm + reg)
     }
 
     pub fn set_volume(&mut self, vol: usize) {
@@ -256,8 +252,9 @@ pub fn install(pci: &PciBus) {
             );
 
             log::debug!("AC97::WAITING");
-            let mut control = Port::<u8>::new(nabm + 0x10 + 0xB);
-            while control.read() & (1 << 0) != 0 {
+            while (crate::arch::port::read::<u8>(nabm + 0x10 + 0xB)) & (1 << 0)
+                != 0
+            {
                 core::hint::spin_loop();
             }
 
@@ -268,8 +265,10 @@ pub fn install(pci: &PciBus) {
 
             log::debug!("AC97::BDL_ADDR");
             {
-                let mut port = Port::<u32>::new(driver.nabm + 0x10);
-                port.write(bdl_phys as u32);
+                crate::arch::port::write::<u32>(
+                    driver.nabm + 0x10,
+                    bdl_phys as u32,
+                );
             }
 
             log::debug!("AC97::START");

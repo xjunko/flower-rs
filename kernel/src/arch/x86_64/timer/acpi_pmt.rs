@@ -1,10 +1,8 @@
-use x86_64::instructions::port::Port;
-
 pub const ACPI_TIMER_FREQUENCY: u64 = 3579545;
 
 use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
-use crate::acpi;
+use crate::{acpi, arch};
 
 static LAST_RAW: AtomicU32 = AtomicU32::new(0);
 static ACCUM: AtomicU64 = AtomicU64::new(0);
@@ -12,8 +10,7 @@ static ACCUM: AtomicU64 = AtomicU64::new(0);
 fn raw_get_ticks() -> u32 {
     let table = acpi::get();
     if let Some(pm_timer) = table.pm_timer_block_addr {
-        let mut port = Port::<u32>::new(pm_timer.as_u64() as u16);
-        return unsafe { port.read() & 0xFFFFFF };
+        return arch::port::read::<u32>(pm_timer.as_u64() as u16);
     }
     panic!("acpi pm timer block not found");
 }

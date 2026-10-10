@@ -1,6 +1,5 @@
-use x86_64::VirtAddr;
-
 use crate::arch::MapFlags;
+use crate::arch::addr::VirtAddr;
 use crate::system::mem::vmm::AddressSpace;
 use crate::{acpi, arch};
 
