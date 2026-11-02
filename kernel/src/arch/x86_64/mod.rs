@@ -31,6 +31,8 @@ use core::arch::asm;
 
 use crate::arch::{Arch, Port, Processor};
 
+static TIMER_INSTALLED: spin::Once<()> = spin::Once::new();
+
 impl Arch for Processor {
     fn bsp_install() {
         self::features::install();
@@ -45,9 +47,12 @@ impl Arch for Processor {
     fn timer_install() {
         apic::install();
         timer::install();
+        TIMER_INSTALLED.call_once(|| {});
     }
 
-    fn timer_get_ns() -> u64 { timer::get_ns() }
+    fn timer_get_ns() -> u64 {
+        if TIMER_INSTALLED.is_completed() { timer::get_ns() } else { 0 }
+    }
 
     fn halt() -> ! {
         loop {

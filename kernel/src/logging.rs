@@ -21,10 +21,11 @@ use alloc::fmt;
 use log::{Level, LevelFilter};
 use owo_colors::OwoColorize;
 
+use crate::arch::{Arch, Processor};
 use crate::devices;
 
 static TTY: SerialTty = SerialTty;
-const TTY_LEVEL: LevelFilter = LevelFilter::Debug;
+const TTY_LEVEL: LevelFilter = LevelFilter::Info;
 
 struct SerialTty;
 
@@ -34,10 +35,13 @@ impl log::Log for SerialTty {
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
             let content = record.args();
+            let time_secs = Processor::timer_get_ns() as f64 / 1_000_000_000.0;
+
             match record.level() {
                 Level::Error => {
                     __print(format_args!(
-                        "[{}] {}:{} {} \n",
+                        "[{:>7.3}] {}: {}:{} {} \n",
+                        time_secs,
                         "error".bright_red(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
@@ -46,7 +50,8 @@ impl log::Log for SerialTty {
                 },
                 Level::Warn => {
                     __print(format_args!(
-                        "[{}] {}:{} {} \n",
+                        "[{:>7.3}] {}: {}:{} {} \n",
+                        time_secs,
                         " warn".bright_yellow(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
@@ -55,14 +60,15 @@ impl log::Log for SerialTty {
                 },
                 Level::Info => {
                     __print(format_args!(
-                        "[{}] {} \n",
-                        " info".bright_green(),
+                        "[{:>7.3}] {} \n",
+                        time_secs,
                         content.white().bold()
                     ));
                 },
                 Level::Debug => {
                     __print(format_args!(
-                        "[{}] {}:{} {} \n",
+                        "[{:>7.3}] {}: {}:{} {} \n",
+                        time_secs,
                         "debug".black(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
@@ -71,7 +77,8 @@ impl log::Log for SerialTty {
                 },
                 Level::Trace => {
                     __print(format_args!(
-                        "[{}] {}:{} {} \n",
+                        "[{:>7.3}] {}: {}:{} {} \n",
+                        time_secs,
                         "trace".bright_purple(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
