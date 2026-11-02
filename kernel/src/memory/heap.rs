@@ -28,6 +28,8 @@ use crate::arch::x86_64::layout::{
 use crate::arch::{Arch, MapFlags, Processor};
 use crate::memory::vmm::AddressSpace;
 
+const MAX_ATTEMPTS: usize = 10;
+
 struct Allocator;
 #[global_allocator]
 static ALLOCATOR: Allocator = Allocator;
@@ -74,8 +76,8 @@ unsafe impl GlobalAlloc for Allocator {
             }
 
             // there's a chance that this will loop forever
-            // but let's just hope that doesn't happen
-            loop {
+            // but let's just hope that doesn't happen\
+            for _ in 0..MAX_ATTEMPTS {
                 if let Some(heap) = state.heap.as_mut()
                     && let Ok(ptr) = heap.allocate_first_fit(layout)
                 {
@@ -100,6 +102,12 @@ unsafe impl GlobalAlloc for Allocator {
                 }
                 state.heap_size += KERNEL_HEAP_SIZE;
             }
+
+            log::error!(
+                "failed to allocate memory after {} attempts",
+                MAX_ATTEMPTS
+            );
+            core::ptr::null_mut()
         })
     }
 
