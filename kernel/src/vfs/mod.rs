@@ -24,14 +24,18 @@ use alloc::vec::Vec;
 
 use spin::Mutex;
 
+use crate::println;
 use crate::vfs::file::{OpenFile, OpenFlags};
 use crate::vfs::path::{components, join, normalize, parent_and_name};
 use crate::vfs::traits::{FileSystem, Inode};
 
 pub mod file;
 pub mod path;
-pub mod ramfs;
 pub mod traits;
+
+// impl
+pub mod ramfs;
+pub mod tarfs;
 
 /// generic vfs types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -237,7 +241,20 @@ static ROOT_VFS: Mutex<Vfs> = Mutex::new(Vfs::new());
 pub fn install() -> VfsResult<()> {
     let mut vfs = ROOT_VFS.lock();
 
+    // ramfs
     vfs.mount("/tmp/", Box::new(ramfs::RamFs::new()))?;
+
+    // initrd
+    if let Some(modules) = crate::boot::limine::MODULE_REQUESTS.response() {
+        for module in modules.modules() {
+            if module.path() == "/boot/initrd" {
+                let initrd = tarfs::TarFs::from_bytes(module.data());
+                vfs.mount("/", Box::new(initrd))?;
+                break;
+            }
+        }
+        log::error!("no initrd found, skipping initrd mount");
+    }
 
     log::info!("mounted {} filesystem(s)", vfs.mounts.len());
     Ok(())
