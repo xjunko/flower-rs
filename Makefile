@@ -4,6 +4,7 @@
 default:
 	@echo "available targets:"
 	@echo "  - kernel // compiles the kernel"
+	@echo "  - initrd // creates the initrd"
 	@echo "  - run    // compiles the kernel and runs in qemu w/ kvm"
 	@echo "  - clean  // deletes build artifacts"
 
@@ -11,6 +12,10 @@ default:
 .PHONY: kernel
 kernel:
 	$(MAKE) -C kernel
+
+.PHONY: initrd
+initrd:
+	$(MAKE) -C initrd
 
 ##### image generation #####
 override IMG_NAME := flower
@@ -27,12 +32,15 @@ $(LIMINE)/limine:
 	$(MAKE) -C $(LIMINE)
 
 # compiling the entire thing 
-$(IMG_NAME).iso: $(LIMINE)/limine kernel 
+$(IMG_NAME).iso: $(LIMINE)/limine kernel initrd
 	rm    -rf $(TMP)/iso_root
 	mkdir -p  $(TMP)/iso_root/boot
 
 	# kernel elf
 	cp -v kernel/target/x86_64-flower/release/kernel $(TMP)/iso_root/boot/kernel
+
+	# initrd
+	cp -v /tmp/flower-initrd.tar $(TMP)/iso_root/boot/initrd
 
 	# limine
 	mkdir -p $(TMP)/iso_root/boot/limine
