@@ -37,6 +37,7 @@ pub fn schedule() {
     let context = {
         let mut guard = SCHEDULER.lock();
         if let Some(sched) = guard.as_mut() {
+            sched.awaken();
             sched.reap();
             sched.next_idx().map(|next| sched.switch_to(next))
         } else {
@@ -84,6 +85,20 @@ pub fn spawn(name: &str, entry: fn()) {
             sched.add(new_process);
         }
     })
+}
+
+pub fn sleep(ns: u64) {
+    Processor::interrupts_without(|| {
+        if let Some(sched) = SCHEDULER.lock().as_mut() {
+            if let Some(proc) = sched.current() {
+                let proc = proc.lock();
+                let current_ns = Processor::timer_get_ns();
+                *proc.state.lock() = ProcessState::Sleeping(current_ns + ns);
+            }
+        }
+    });
+
+    self::schedule();
 }
 
 pub fn exit(status: u64) -> ! {

@@ -103,8 +103,16 @@ impl Process {
 impl Drop for Process {
     fn drop(&mut self) {
         let stack_size = crate::arch::x86_64::layout::PROCESS_STACK_SIZE;
-        AddressSpace::kernel()
-            .unmap_range(self._stack_bottom, stack_size)
-            .expect("failed to free process stack");
+
+        if let Some(address_space) = self.address_space.lock().as_ref() {
+            address_space
+                .unmap_range(self._stack_bottom, stack_size)
+                .expect("failed to free process stack");
+        }
+
+        // TODO: do we need this?
+        // AddressSpace::kernel()
+        //     .unmap_range(self._stack_bottom, stack_size)
+        //     .expect("failed to free process stack");
     }
 }

@@ -64,6 +64,26 @@ fn _kernel_init() {
     // TODO: install drivers
     devices::gpu::fb::install();
     devices::tty::fb::install();
+
+    // process test
+    proc::spawn("t1", kernel_t1);
+    proc::spawn("t2", kernel_t2);
+
+    proc::start();
+}
+
+fn kernel_t1() {
+    loop {
+        println!("t1");
+        proc::sleep(1000000000);
+    }
+}
+
+fn kernel_t2() {
+    loop {
+        println!("t2");
+        proc::sleep(1000000000);
+    }
 }
 
 #[panic_handler]

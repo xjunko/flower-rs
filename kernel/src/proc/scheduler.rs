@@ -21,7 +21,7 @@ use alloc::sync::Arc;
 
 use spin::Mutex;
 
-use crate::arch::{Paging, Processor};
+use crate::arch::{Arch, Paging, Processor};
 use crate::memory::vmm::AddressSpace;
 use crate::proc::process::{Process, ProcessState};
 
@@ -49,9 +49,10 @@ impl Scheduler {
 
     pub fn next_idx(&self) -> Option<usize> {
         let length = self.processes.len();
+        let current = *self.current.lock();
 
         for i in 1..length {
-            let idx = (*self.current.lock() + i) % length;
+            let idx = (current + i) % length;
             let cur_process = self.processes[idx].lock();
             let cur_state = cur_process.state.lock();
 
@@ -60,7 +61,13 @@ impl Scheduler {
             }
         }
 
-        return None;
+        if current != 0
+            && *self.processes[0].lock().state.lock() == ProcessState::Ready
+        {
+            return Some(0);
+        }
+
+        None
     }
 
     pub fn first_idx(&self) -> Option<usize> {
@@ -88,6 +95,23 @@ impl Scheduler {
             next_proc._stack_top,
             (new_root != kernel_root).then_some(new_root),
         )
+    }
+
+    pub fn awaken(&mut self) {
+        let current_ns = Processor::timer_get_ns();
+
+        for proc in self.processes.iter() {
+            let proc = proc.lock();
+            let mut state = proc.state.lock();
+
+            if let ProcessState::Sleeping(ns) = *state {
+                if current_ns >= ns {
+                    log::trace!("awaking process: {:?}", proc.name.lock());
+                    *state = ProcessState::Ready;
+                }
+                drop(state);
+            }
+        }
     }
 
     pub fn reap(&mut self) {
