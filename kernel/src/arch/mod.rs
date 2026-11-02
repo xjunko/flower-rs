@@ -109,6 +109,9 @@ pub trait Paging {
 pub trait Multitasking: Paging {
     const KERNEL_STACK_SIZE: usize;
 
+    const KERNEL_DYN_START: u64;
+    const KERNEL_DYN_END: u64;
+
     fn prepare_stack(stack_top: u64, entry: fn()) -> u64;
     fn switch_context(
         old_sp: *mut u64,

@@ -29,6 +29,7 @@ mod acpi;
 mod arch;
 mod boot;
 mod devices;
+mod exec;
 mod logging;
 mod memory;
 mod proc;
@@ -38,6 +39,7 @@ mod vfs;
 unsafe extern "C" fn __kernel_init() -> ! {
     assert!(boot::limine::BASE_REVISION.is_supported());
     _kernel_init();
+    log::error!("nothing to do, halting!");
     Processor::halt();
 }
 
@@ -62,21 +64,6 @@ fn _kernel_init() {
     // TODO: install drivers
     devices::gpu::fb::install();
     devices::tty::fb::install();
-
-    proc::spawn("kmain1", kernel_main);
-    proc::spawn("kmain2", kernel_main2);
-}
-
-fn kernel_main() {
-    loop {
-        log::info!("hello world!");
-    }
-}
-
-fn kernel_main2() {
-    loop {
-        log::error!("hello dih!");
-    }
 }
 
 #[panic_handler]

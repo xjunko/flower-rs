@@ -18,6 +18,9 @@
 
 use core::arch::naked_asm;
 
+use crate::arch::x86_64::layout::{
+    KERNEL_DYN_END, KERNEL_DYN_START, KERNEL_STACK_SIZE,
+};
 use crate::arch::{Arch, Multitasking, Paging, Processor};
 use crate::proc;
 
@@ -79,7 +82,9 @@ unsafe extern "C" fn switch_context(
 }
 
 impl Multitasking for Processor {
-    const KERNEL_STACK_SIZE: usize = 0x4000;
+    const KERNEL_DYN_END: u64 = KERNEL_DYN_END;
+    const KERNEL_DYN_START: u64 = KERNEL_DYN_START;
+    const KERNEL_STACK_SIZE: usize = KERNEL_STACK_SIZE;
 
     fn prepare_stack(stack_top: u64, entry: fn()) -> u64 {
         let stack_ptr =
