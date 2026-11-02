@@ -91,6 +91,14 @@ pub fn exit(status: u64) -> ! {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
                 let proc = proc.lock();
+
+                // yeah, something messed up on the kernel side here
+                // we cant really exit it, so just halt.
+                if proc.id.lock().eq(&0) {
+                    log::error!("init process exited, halting!");
+                    Processor::halt();
+                }
+
                 *proc.return_code.lock() = Some(status);
                 *proc.state.lock() = ProcessState::Dead;
             } else {
