@@ -22,6 +22,11 @@ pub use generic::*;
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
 
+pub trait Port: Copy {
+    unsafe fn read(port: u32) -> Self;
+    unsafe fn write(port: u32, value: Self);
+}
+
 pub trait Arch: Paging + Multitasking {
     // cpu
     fn bsp_install();
@@ -34,8 +39,8 @@ pub trait Arch: Paging + Multitasking {
     fn timer_get_ns() -> u64;
 
     // ports
-    fn write<T>(p: u32, d: T);
-    fn read<T>(p: u32) -> T;
+    fn write<T: Port>(p: u32, d: T);
+    fn read<T: Port>(p: u32) -> T;
 
     // stacks
     fn set_kernel_stack(v: u64);

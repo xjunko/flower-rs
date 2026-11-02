@@ -24,11 +24,12 @@ mod interrupts;
 pub mod layout;
 mod multitasking;
 mod paging;
+pub mod port;
 mod timer;
 
 use core::arch::asm;
 
-use crate::arch::{Arch, Processor};
+use crate::arch::{Arch, Port, Processor};
 
 impl Arch for Processor {
     fn bsp_install() {
@@ -54,9 +55,9 @@ impl Arch for Processor {
         }
     }
 
-    fn write<T>(_p: u32, _d: T) { todo!() }
+    fn write<T: Port>(p: u32, d: T) { self::port::write::<T>(p as u16, d) }
 
-    fn read<T>(_p: u32) -> T { todo!() }
+    fn read<T: Port>(p: u32) -> T { self::port::read::<T>(p as u16) }
 
     fn set_kernel_stack(v: u64) { gdt::set_kernel_stack(v) }
 
