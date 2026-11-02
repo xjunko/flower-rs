@@ -37,9 +37,6 @@ fn kernel_init() {
     system::proc::install();
     arch::interrupts::enable();
 
-    // start other cores too
-    system::smp::install();
-
     // past this point, the kernel can now do dynamic allocation
     system::vfs::install();
     drivers::tty::terminal::install();

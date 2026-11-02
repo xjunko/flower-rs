@@ -1,5 +1,5 @@
 use limine::request::{
-    FramebufferRequest, HhdmRequest, MemmapRequest, ModulesRequest, MpRequest,
+    FramebufferRequest, HhdmRequest, MemmapRequest, ModulesRequest,
     RsdpRequest, StackSizeRequest,
 };
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
@@ -13,10 +13,6 @@ pub static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static BASE_REVISION: BaseRevision = BaseRevision::new();
-
-#[used]
-#[unsafe(link_section = ".limine_requests")]
-pub static SMP_REQUEST: MpRequest = MpRequest::new(0);
 
 #[used]
 #[unsafe(link_section = ".limine_requests")]
