@@ -13,12 +13,6 @@ path = "src/init.rs"
 test = false
 bench = false
 
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
-
 [dependencies]
 acpi = "6.1.0"
 bitflags = "2.13.2"
@@ -32,3 +26,17 @@ spin = "0.12.2"
 spinning_top = "0.3.0"
 x86_64 = "0.15.4"
 xmas-elf = "0.10.0"
+
+[profile.dev]
+panic = "abort"
+opt-level = 1
+debug = true
+strip = false
+
+
+[profile.release]
+panic = "abort"
+opt-level = 3
+debug = false
+overflow-checks = false
+strip = true
