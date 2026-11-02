@@ -24,7 +24,6 @@ use alloc::vec::Vec;
 
 use spin::Mutex;
 
-use crate::println;
 use crate::vfs::file::{OpenFile, OpenFlags};
 use crate::vfs::path::{components, join, normalize, parent_and_name};
 use crate::vfs::traits::{FileSystem, Inode};
@@ -246,14 +245,20 @@ pub fn install() -> VfsResult<()> {
 
     // initrd
     if let Some(modules) = crate::boot::limine::MODULE_REQUESTS.response() {
+        let mut found_initrd = false;
+
         for module in modules.modules() {
             if module.path() == "/boot/initrd" {
                 let initrd = tarfs::TarFs::from_bytes(module.data());
                 vfs.mount("/", Box::new(initrd))?;
+                found_initrd = true;
                 break;
             }
         }
-        log::error!("no initrd found, skipping initrd mount");
+
+        if !found_initrd {
+            log::error!("no initrd found, skipping initrd mount");
+        }
     }
 
     log::info!("mounted {} filesystem(s)", vfs.mounts.len());
