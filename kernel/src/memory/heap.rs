@@ -58,7 +58,7 @@ fn map_chunk(
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         Processor::interrupts_without(|| {
-            let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
+            let flags = MapFlags::WRITE;
 
             let mut state = ALLOC_STATE.lock();
 
