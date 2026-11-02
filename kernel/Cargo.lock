@@ -153,7 +153,6 @@ dependencies = [
  "raw-cpuid",
  "spin",
  "spinning_top 0.3.0",
- "uart_16550",
  "x86_64",
 ]
 
@@ -366,15 +365,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 dependencies = [
  "core_maths",
-]
-
-[[package]]
-name = "uart_16550"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9c24d1751f909d9e2d192475ca5527964e13dbc3126ce20c288dfa8f3a3e734"
-dependencies = [
- "bitflags",
 ]
 
 [[package]]
