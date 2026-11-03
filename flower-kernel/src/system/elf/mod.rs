@@ -2,11 +2,12 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use x86_64::structures::paging::PageTableFlags;
-use x86_64::{VirtAddr, align_down, align_up};
 use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
 use crate::arch;
+use crate::arch::addr::VirtAddr;
+use crate::arch::align::{align_down, align_up};
 use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
 use crate::system::mem::vmm::AddressSpace;
 

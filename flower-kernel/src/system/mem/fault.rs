@@ -1,8 +1,8 @@
-use x86_64::VirtAddr;
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::addr::VirtAddr;
 use crate::arch::idt::print_stack_frame;
 use crate::{println, system};
 

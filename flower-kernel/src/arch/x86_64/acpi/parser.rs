@@ -1,9 +1,9 @@
 use core::ptr::NonNull;
 
 use acpi::PhysicalMapping;
-use x86_64::PhysAddr;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::addr::PhysAddr;
 use crate::system;
 
 #[derive(Clone, Debug)]

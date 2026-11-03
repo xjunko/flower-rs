@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
 
 use flower_mono::auxv::AuxType;
-use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::addr::VirtAddr;
 use crate::arch::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
 };

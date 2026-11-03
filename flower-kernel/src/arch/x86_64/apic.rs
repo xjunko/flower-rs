@@ -5,9 +5,9 @@ use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 use x86_64::structures::paging::PageTableFlags;
-use x86_64::{PhysAddr, VirtAddr};
 
 use crate::arch::acpi;
+use crate::arch::addr::{PhysAddr, VirtAddr};
 use crate::arch::interrupts::InterruptIndex;
 use crate::system::mem::vmm;
 
@@ -162,7 +162,7 @@ pub fn install() {
             | PageTableFlags::NO_CACHE;
         vmm::page_map(
             VirtAddr::new(LAPIC_VIRT),
-            apic_base.start_address(),
+            PhysAddr::new(apic_base.start_address().as_u64()),
             flags,
         )
         .expect("failed to map lapic.");

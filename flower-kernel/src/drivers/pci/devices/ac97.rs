@@ -3,10 +3,10 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use pci_types::ConfigRegionAccess;
 use spin::MutexGuard;
 use spin::mutex::Mutex;
-use x86_64::VirtAddr;
 use x86_64::instructions::port::Port;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::addr::VirtAddr;
 use crate::drivers::pci::io::PciIO;
 use crate::drivers::pci::parser::PciBus;
 use crate::system;

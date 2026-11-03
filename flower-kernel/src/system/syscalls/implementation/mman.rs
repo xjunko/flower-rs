@@ -3,9 +3,9 @@ use core::ffi::c_int;
 use flower_mono::mmap::{
     MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
 };
-use x86_64::VirtAddr;
 use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::addr::VirtAddr;
 use crate::arch::layout::PAGE_SIZE;
 use crate::system::ToSyscallError;
 use crate::system::mem::vmm;
