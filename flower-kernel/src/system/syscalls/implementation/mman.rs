@@ -6,9 +6,10 @@ use flower_mono::mmap::{
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::VirtAddr;
+use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
 use crate::system::ToSyscallError;
-use crate::system::mem::vmm;
+use crate::system::mem::vmm::{self, AddressSpace};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
@@ -72,18 +73,18 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         / arch::layout::PAGE_SIZE as u64;
 
     let mut heap_ptr = heap_start;
-    let mut page_flags = PageTableFlags::PRESENT;
+    let mut page_flags = MapFlags::READ;
 
     if prot != PROT_NONE {
-        page_flags |= PageTableFlags::USER_ACCESSIBLE;
+        page_flags |= MapFlags::USER;
     }
 
     if prot & PROT_WRITE != 0 {
-        page_flags |= PageTableFlags::WRITABLE;
+        page_flags |= MapFlags::WRITE;
     }
 
-    if prot & PROT_EXEC == 0 {
-        page_flags |= PageTableFlags::NO_EXECUTE;
+    if prot & PROT_EXEC != 0 {
+        page_flags |= MapFlags::EXEC;
     }
 
     if fd != -1 && flags & MAP_ANONYMOUS == 0 {
@@ -113,11 +114,13 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 data as u64
             );
 
+            let address_space = AddressSpace::current();
+
             for i in 0..heap_pages {
                 let src_virt = VirtAddr::new(unsafe {
                     data.add(i as usize * arch::layout::PAGE_SIZE) as u64
                 });
-                let src_phys = vmm::virt_to_phys(src_virt).ok_or_else(|| {
+                let src_phys = address_space.translate(src_virt.as_u64()).ok_or_else(|| {
                     log::error!(
                         "mmap failed: could not translate source virt {:#x} to phys",
                         src_virt.as_u64()
@@ -126,7 +129,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 })?;
 
                 proc.address_space.as_mut().unwrap().map_page(
-                    VirtAddr::new(heap_ptr),
+                    heap_ptr,
                     src_phys,
                     page_flags,
                 ).map_err(|_| {
@@ -156,7 +159,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     } else {
         for _ in 0..heap_pages {
             proc.address_space.as_mut().unwrap().map_page_alloc(
-                VirtAddr::new(heap_ptr),
+                heap_ptr,
                 page_flags,
             ).map_err(|_| {
                 log::debug!(
@@ -209,7 +212,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
         for i in 0..pages {
             let page_addr = base + i * arch::layout::PAGE_SIZE as u64;
-            let phys = proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
+            let phys = proc.address_space.as_mut().unwrap().unmap_page(page_addr).map_err(|_| {
                 log::error!(
                     "munmap failed: could not unmap page at user heap position {:#x}",
                     page_addr
@@ -218,12 +221,12 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             })?;
 
             // NOTE: this might fuck me later
-            if system::mem::pmm::is_usable_address(phys.as_u64()) {
-                system::mem::pmm::free(phys.as_u64());
+            if system::mem::pmm::is_usable_address(phys) {
+                system::mem::pmm::free(phys);
             } else {
                 log::debug!(
                     "munmap: skipping free for non-usable physical page {:#x}",
-                    phys.as_u64()
+                    phys
                 );
             }
         }
@@ -234,19 +237,19 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 }
 
-fn prot_to_flags(prot: u64) -> PageTableFlags {
-    let mut flags = PageTableFlags::PRESENT;
+fn prot_to_flags(prot: u64) -> MapFlags {
+    let mut flags = MapFlags::empty();
 
     if prot != PROT_NONE {
-        flags |= PageTableFlags::USER_ACCESSIBLE;
+        flags |= MapFlags::USER;
     }
 
     if prot & PROT_WRITE != 0 {
-        flags |= PageTableFlags::WRITABLE;
+        flags |= MapFlags::WRITE;
     }
 
-    if prot & PROT_EXEC == 0 {
-        flags |= PageTableFlags::NO_EXECUTE;
+    if prot & PROT_EXEC != 0 {
+        flags |= MapFlags::EXEC;
     }
 
     flags
@@ -277,7 +280,7 @@ pub fn mprotect(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         proc.address_space
             .as_mut()
             .unwrap()
-            .update_page_flags(VirtAddr::new(page), flags)
+            .update_page_flags(page, flags)
             .map_err(|_| SyscallError::InvalidArgument)?;
         page += PAGE_SIZE as u64;
     }

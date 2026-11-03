@@ -79,6 +79,12 @@ pub trait Paging {
         virt: VirtAddr,
     ) -> Result<PhysAddr, &'static str>;
 
+    fn paging_update(
+        root: Self::Root,
+        virt: VirtAddr,
+        flags: MapFlags,
+    ) -> Result<(), &'static str>;
+
     fn paging_translate(
         root: Self::Root,
         virt: VirtAddr,
@@ -86,6 +92,8 @@ pub trait Paging {
 
     fn paging_flush(virt: VirtAddr);
     fn paging_flush_all();
+
+    fn paging_clone_user(root: Self::Root) -> Result<Self::Root, &'static str>;
 }
 
 pub trait Multitasking: Paging {

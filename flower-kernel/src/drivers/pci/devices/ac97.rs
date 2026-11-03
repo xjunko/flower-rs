@@ -4,12 +4,12 @@ use pci_types::ConfigRegionAccess;
 use spin::MutexGuard;
 use spin::mutex::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::VirtAddr;
+use crate::arch::generic::paging::MapFlags;
 use crate::drivers::pci::io::PciIO;
 use crate::drivers::pci::parser::PciBus;
-use crate::system;
+use crate::system::mem::vmm::AddressSpace;
 
 #[repr(C, packed)]
 struct BDL_Entry {
@@ -102,6 +102,8 @@ impl Ac97 {
     }
 
     fn setup_buffers(&mut self) {
+        let address_space = AddressSpace::current();
+
         unsafe {
             let bdl_entries = self.bdl_virt.as_mut_ptr::<BDL_Entry>();
 
@@ -111,26 +113,24 @@ impl Ac97 {
                 );
 
                 assert!(
-                    !system::mem::vmm::page_is_mapped(vaddr),
+                    !address_space.is_mapped(vaddr.as_u64()),
                     "AC97 buffer virt collision at {:#x}",
                     vaddr.as_u64()
                 );
 
-                let phys = system::mem::vmm::page_map_alloc(
-                    vaddr,
-                    PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-                )
-                .expect("failed to allocate ac97 buffers");
+                let phys = address_space
+                    .map_page_alloc(vaddr.as_u64(), MapFlags::WRITE)
+                    .expect("failed to allocate ac97 buffers");
 
                 self.buffers[i] = AudioBuffer {
                     virt: vaddr,
-                    phys: phys.as_u64() as u32,
+                    phys: phys as u32,
                     has_played: false,
                     data_written: 0,
                 };
 
                 let entry = BDL_Entry {
-                    addr: phys.as_u64() as u32,
+                    addr: phys as u32,
                     length: (AC97_BUFFER_SIZE / 2) as u16,
                     flags: 0,
                 };
@@ -190,6 +190,8 @@ static AC97_DRIVER: Mutex<Option<Ac97>> = Mutex::new(None);
 pub fn get_driver() -> MutexGuard<'static, Option<Ac97>> { AC97_DRIVER.lock() }
 
 pub fn install(pci: &PciBus) {
+    let address_space = AddressSpace::current();
+
     if let Some(ac97) = pci.find_by_class(0x04, 0x01) {
         let nam = ac97.bars[0].unwrap().unwrap_io() as u16;
         let nabm = ac97.bars[1].unwrap().unwrap_io() as u16;
@@ -198,16 +200,14 @@ pub fn install(pci: &PciBus) {
 
         let bdl_virt_addr = VirtAddr::new(AC97_BDL_VIRT_BASE);
         assert!(
-            !system::mem::vmm::page_is_mapped(bdl_virt_addr),
+            !address_space.is_mapped(bdl_virt_addr.as_u64()),
             "AC97 BDL virt collision at {:#x}",
             bdl_virt_addr.as_u64()
         );
 
-        let bdl_phys = system::mem::vmm::page_map_alloc(
-            bdl_virt_addr,
-            PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-        )
-        .expect("failed to allocate ac97 bdl");
+        let bdl_phys = address_space
+            .map_page_alloc(bdl_virt_addr.as_u64(), MapFlags::WRITE)
+            .expect("failed to allocate ac97 bdl");
         let bdl_virt = bdl_virt_addr;
 
         let mut driver = Ac97 {
@@ -269,7 +269,7 @@ pub fn install(pci: &PciBus) {
             log::debug!("AC97::BDL_ADDR");
             {
                 let mut port = Port::<u32>::new(driver.nabm + 0x10);
-                port.write(bdl_phys.as_u64() as u32);
+                port.write(bdl_phys as u32);
             }
 
             log::debug!("AC97::START");

@@ -6,10 +6,11 @@ use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 use x86_64::structures::paging::PageTableFlags;
 
-use crate::arch::acpi;
 use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::generic::paging::MapFlags;
 use crate::arch::interrupts::InterruptIndex;
-use crate::system::mem::vmm;
+use crate::arch::{Paging, Processor, acpi};
+use crate::system::mem::vmm::{self, AddressSpace};
 
 // legacy pic
 const PIC1: u16 = 0x20;
@@ -122,6 +123,8 @@ fn calibrate_timer() {
 }
 
 pub fn install() {
+    let address_space = AddressSpace::current();
+
     // disable the legacy pic
     pic_disable();
 
@@ -157,15 +160,11 @@ pub fn install() {
         }
 
         // map it
-        let flags = PageTableFlags::PRESENT
-            | PageTableFlags::WRITABLE
-            | PageTableFlags::NO_CACHE;
-        vmm::page_map(
-            VirtAddr::new(LAPIC_VIRT),
-            PhysAddr::new(apic_base.start_address().as_u64()),
-            flags,
-        )
-        .expect("failed to map lapic.");
+        let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
+
+        address_space
+            .map_page(LAPIC_VIRT, apic_base.start_address().as_u64(), flags)
+            .expect("failed to map lapic.");
 
         // also map ioapic
         let acpi_tables = acpi::get();
@@ -174,12 +173,9 @@ pub fn install() {
         }
         let ioapic_addr = acpi_tables.ioapics[0].address;
         log::debug!("ioapic addr: {:#x}", ioapic_addr);
-        vmm::page_map(
-            VirtAddr::new(IOAPIC_VIRT),
-            PhysAddr::new(ioapic_addr as u64),
-            flags,
-        )
-        .expect("failed to map ioapic");
+        address_space
+            .map_page(IOAPIC_VIRT, ioapic_addr as u64, flags)
+            .expect("failed to map ioapic");
 
         // enable spurious
         unsafe {

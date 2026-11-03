@@ -4,7 +4,9 @@ use acpi::PhysicalMapping;
 use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::PhysAddr;
+use crate::arch::generic::paging::MapFlags;
 use crate::system;
+use crate::system::mem::vmm::AddressSpace;
 
 #[derive(Clone, Debug)]
 pub struct AcpiReader;
@@ -15,22 +17,33 @@ impl acpi::Handler for AcpiReader {
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
-        let virt_addr = system::mem::vmm::phys_to_virt(PhysAddr::new(
-            physical_address as u64,
-        ));
+        let address_space = AddressSpace::kernel();
+        let phys_start = PhysAddr::new(physical_address as u64);
+        let virt_start = AddressSpace::phys_to_virt(phys_start.as_u64());
 
-        if !system::mem::vmm::page_is_mapped(virt_addr)
-            && let Err(e) = system::mem::vmm::page_map(
-                virt_addr,
-                PhysAddr::new(physical_address as u64),
-                PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-            )
-        {
-            panic!("failed to map physical region: {e}");
+        // we're gonna map the whole region
+        let page_offset = (physical_address as u64 & 0xFFF) as usize;
+        let aligned_phys = physical_address as u64 - page_offset as u64;
+        let total_len = size + page_offset;
+        let page_count = total_len.div_ceil(4096);
+
+        for i in 0..page_count {
+            let page_phys = PhysAddr::new(aligned_phys + (i as u64 * 4096));
+            let page_virt = AddressSpace::phys_to_virt(page_phys.as_u64());
+
+            if !address_space.is_mapped(page_virt)
+                && let Err(e) = address_space.map_page(
+                    page_virt,
+                    page_phys.as_u64(),
+                    MapFlags::WRITE,
+                )
+            {
+                panic!("failed to map physical page: {e}")
+            }
         }
 
-        let virtual_start = NonNull::new(virt_addr.as_mut_ptr::<T>())
-            .expect("acpi physical mapping translated to null virtual pointer");
+        let virtual_start = NonNull::<T>::new(virt_start as *mut T)
+            .expect("virtual address must not be null");
 
         PhysicalMapping {
             physical_start: physical_address,

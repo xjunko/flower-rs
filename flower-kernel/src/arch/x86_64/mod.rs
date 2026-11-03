@@ -4,6 +4,7 @@ pub mod gdt;
 pub mod idt;
 pub mod interrupts;
 pub mod layout;
+pub mod paging;
 
 use core::arch::asm;
 
