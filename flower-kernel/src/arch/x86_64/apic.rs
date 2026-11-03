@@ -4,13 +4,12 @@ use raw_cpuid::CpuId;
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
-use x86_64::structures::paging::PageTableFlags;
 
+use crate::arch::acpi;
 use crate::arch::addr::{PhysAddr, VirtAddr};
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::interrupts::InterruptIndex;
-use crate::arch::{Paging, Processor, acpi};
-use crate::system::mem::vmm::{self, AddressSpace};
+use crate::system::mem::vmm::AddressSpace;
 
 // legacy pic
 const PIC1: u16 = 0x20;
@@ -163,7 +162,11 @@ pub fn install() {
         let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
         address_space
-            .map_page(LAPIC_VIRT, apic_base.start_address().as_u64(), flags)
+            .map_page(
+                VirtAddr::new(LAPIC_VIRT),
+                PhysAddr::new(apic_base.start_address().as_u64()),
+                flags,
+            )
             .expect("failed to map lapic.");
 
         // also map ioapic
@@ -174,7 +177,11 @@ pub fn install() {
         let ioapic_addr = acpi_tables.ioapics[0].address;
         log::debug!("ioapic addr: {:#x}", ioapic_addr);
         address_space
-            .map_page(IOAPIC_VIRT, ioapic_addr as u64, flags)
+            .map_page(
+                VirtAddr::new(IOAPIC_VIRT),
+                PhysAddr::new(ioapic_addr as u64),
+                flags,
+            )
             .expect("failed to map ioapic");
 
         // enable spurious

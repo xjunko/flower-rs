@@ -1,11 +1,9 @@
 use core::ptr::NonNull;
 
 use acpi::PhysicalMapping;
-use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::PhysAddr;
 use crate::arch::generic::paging::MapFlags;
-use crate::system;
 use crate::system::mem::vmm::AddressSpace;
 
 #[derive(Clone, Debug)]
@@ -19,7 +17,7 @@ impl acpi::Handler for AcpiReader {
     ) -> acpi::PhysicalMapping<Self, T> {
         let address_space = AddressSpace::kernel();
         let phys_start = PhysAddr::new(physical_address as u64);
-        let virt_start = AddressSpace::phys_to_virt(phys_start.as_u64());
+        let virt_start = AddressSpace::phys_to_virt(phys_start);
 
         // we're gonna map the whole region
         let page_offset = (physical_address as u64 & 0xFFF) as usize;
@@ -29,12 +27,12 @@ impl acpi::Handler for AcpiReader {
 
         for i in 0..page_count {
             let page_phys = PhysAddr::new(aligned_phys + (i as u64 * 4096));
-            let page_virt = AddressSpace::phys_to_virt(page_phys.as_u64());
+            let page_virt = AddressSpace::phys_to_virt(page_phys);
 
             if !address_space.is_mapped(page_virt)
                 && let Err(e) = address_space.map_page(
                     page_virt,
-                    page_phys.as_u64(),
+                    page_phys,
                     MapFlags::WRITE,
                 )
             {
@@ -42,7 +40,7 @@ impl acpi::Handler for AcpiReader {
             }
         }
 
-        let virtual_start = NonNull::<T>::new(virt_start as *mut T)
+        let virtual_start = NonNull::<T>::new(virt_start.as_mut_ptr::<T>())
             .expect("virtual address must not be null");
 
         PhysicalMapping {

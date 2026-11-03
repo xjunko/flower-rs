@@ -1,7 +1,6 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use x86_64::structures::paging::PageTableFlags;
 use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
@@ -117,7 +116,7 @@ pub fn load_into(
                 let mut addr = start_page;
 
                 while addr < end_page {
-                    let page = VirtAddr::new(addr).as_u64();
+                    let page = VirtAddr::new(addr);
 
                     if !address_space.is_mapped(page) {
                         address_space.map_page_alloc(page, flags)?;
@@ -140,12 +139,14 @@ pub fn load_into(
                     return Err("segment data out of bounds");
                 }
 
-                address_space
-                    .write(vaddr + load_base, &elf_data[offset..file_end])?;
+                address_space.write(
+                    VirtAddr::new(vaddr + load_base),
+                    &elf_data[offset..file_end],
+                )?;
 
                 if mem_size > file_size as u64 {
                     address_space.zero(
-                        vaddr + file_size as u64 + load_base,
+                        VirtAddr::new(vaddr + file_size as u64 + load_base),
                         (mem_size - file_size as u64) as usize,
                     )?;
                 }

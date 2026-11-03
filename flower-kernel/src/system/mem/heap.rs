@@ -3,7 +3,6 @@ use core::alloc::GlobalAlloc;
 use linked_list_allocator::Heap;
 use spin::Mutex;
 use x86_64::instructions::interrupts;
-use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::VirtAddr;
 use crate::arch::generic::paging::MapFlags;
@@ -33,7 +32,7 @@ fn map_chunk(
 
     for i in 0..pages {
         let page_addr = addr + (i * PAGE_SIZE) as u64;
-        address_space.map_page_alloc(page_addr.as_u64(), flags)?;
+        address_space.map_page_alloc(page_addr, flags)?;
     }
 
     Ok(())

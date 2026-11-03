@@ -1,6 +1,5 @@
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
-use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::VirtAddr;
 use crate::arch::generic::paging::MapFlags;
@@ -45,12 +44,10 @@ pub extern "x86-interrupt" fn page_fault_handler(
                         "stack fault: addr={:#x} page={:#x} already_mapped={}",
                         fault_addr,
                         page_addr.as_u64(),
-                        address_space.is_mapped(page_addr.as_u64())
+                        address_space.is_mapped(page_addr)
                     );
 
-                    match address_space
-                        .map_page_alloc(page_addr.as_u64(), flags)
-                    {
+                    match address_space.map_page_alloc(page_addr, flags) {
                         Ok(_) => {
                             if page_addr.as_u64() < stack_bottom {
                                 proc.set_user_stack_bounds(
@@ -82,10 +79,7 @@ pub extern "x86-interrupt" fn page_fault_handler(
                     let page_addr = VirtAddr::new(fault_addr & !0xFFF);
                     let flags = MapFlags::WRITE | MapFlags::USER;
 
-                    if address_space
-                        .map_page_alloc(page_addr.as_u64(), flags)
-                        .is_ok()
-                    {
+                    if address_space.map_page_alloc(page_addr, flags).is_ok() {
                         // extend heap, if necessary
                         if page_addr.as_u64() + 0x1000 > heap_top {
                             proc.set_user_heap_bounds(

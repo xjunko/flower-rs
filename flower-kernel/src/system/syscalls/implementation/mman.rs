@@ -3,13 +3,12 @@ use core::ffi::c_int;
 use flower_mono::mmap::{
     MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
 };
-use x86_64::structures::paging::PageTableFlags;
 
 use crate::arch::addr::VirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
 use crate::system::ToSyscallError;
-use crate::system::mem::vmm::{self, AddressSpace};
+use crate::system::mem::vmm::AddressSpace;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
@@ -120,16 +119,16 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 let src_virt = VirtAddr::new(unsafe {
                     data.add(i as usize * arch::layout::PAGE_SIZE) as u64
                 });
-                let src_phys = address_space.translate(src_virt.as_u64()).ok_or_else(|| {
+                let src_phys = address_space.translate(src_virt).ok_or_else(|| {
                     log::error!(
                         "mmap failed: could not translate source virt {:#x} to phys",
-                        src_virt.as_u64()
+                        src_virt
                     );
                     SyscallError::InvalidArgument
                 })?;
 
                 proc.address_space.as_mut().unwrap().map_page(
-                    heap_ptr,
+                    VirtAddr::new(heap_ptr),
                     src_phys,
                     page_flags,
                 ).map_err(|_| {
@@ -159,7 +158,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     } else {
         for _ in 0..heap_pages {
             proc.address_space.as_mut().unwrap().map_page_alloc(
-                heap_ptr,
+                VirtAddr::new(heap_ptr),
                 page_flags,
             ).map_err(|_| {
                 log::debug!(
@@ -212,7 +211,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
         for i in 0..pages {
             let page_addr = base + i * arch::layout::PAGE_SIZE as u64;
-            let phys = proc.address_space.as_mut().unwrap().unmap_page(page_addr).map_err(|_| {
+            let phys = proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
                 log::error!(
                     "munmap failed: could not unmap page at user heap position {:#x}",
                     page_addr
@@ -221,8 +220,8 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             })?;
 
             // NOTE: this might fuck me later
-            if system::mem::pmm::is_usable_address(phys) {
-                system::mem::pmm::free(phys);
+            if system::mem::pmm::is_usable_address(phys.as_u64()) {
+                system::mem::pmm::free(phys.as_u64());
             } else {
                 log::debug!(
                     "munmap: skipping free for non-usable physical page {:#x}",
@@ -280,7 +279,7 @@ pub fn mprotect(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         proc.address_space
             .as_mut()
             .unwrap()
-            .update_page_flags(page, flags)
+            .update_page_flags(VirtAddr::new(page), flags)
             .map_err(|_| SyscallError::InvalidArgument)?;
         page += PAGE_SIZE as u64;
     }

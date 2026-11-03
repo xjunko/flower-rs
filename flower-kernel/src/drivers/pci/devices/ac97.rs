@@ -113,24 +113,24 @@ impl Ac97 {
                 );
 
                 assert!(
-                    !address_space.is_mapped(vaddr.as_u64()),
+                    !address_space.is_mapped(vaddr),
                     "AC97 buffer virt collision at {:#x}",
-                    vaddr.as_u64()
+                    vaddr
                 );
 
                 let phys = address_space
-                    .map_page_alloc(vaddr.as_u64(), MapFlags::WRITE)
+                    .map_page_alloc(vaddr, MapFlags::WRITE)
                     .expect("failed to allocate ac97 buffers");
 
                 self.buffers[i] = AudioBuffer {
                     virt: vaddr,
-                    phys: phys as u32,
+                    phys: phys.as_u64() as u32,
                     has_played: false,
                     data_written: 0,
                 };
 
                 let entry = BDL_Entry {
-                    addr: phys as u32,
+                    addr: phys.as_u64() as u32,
                     length: (AC97_BUFFER_SIZE / 2) as u16,
                     flags: 0,
                 };
@@ -200,13 +200,13 @@ pub fn install(pci: &PciBus) {
 
         let bdl_virt_addr = VirtAddr::new(AC97_BDL_VIRT_BASE);
         assert!(
-            !address_space.is_mapped(bdl_virt_addr.as_u64()),
+            !address_space.is_mapped(bdl_virt_addr),
             "AC97 BDL virt collision at {:#x}",
-            bdl_virt_addr.as_u64()
+            bdl_virt_addr
         );
 
         let bdl_phys = address_space
-            .map_page_alloc(bdl_virt_addr.as_u64(), MapFlags::WRITE)
+            .map_page_alloc(bdl_virt_addr, MapFlags::WRITE)
             .expect("failed to allocate ac97 bdl");
         let bdl_virt = bdl_virt_addr;
 
@@ -269,7 +269,7 @@ pub fn install(pci: &PciBus) {
             log::debug!("AC97::BDL_ADDR");
             {
                 let mut port = Port::<u32>::new(driver.nabm + 0x10);
-                port.write(bdl_phys as u32);
+                port.write(bdl_phys.as_u64() as u32);
             }
 
             log::debug!("AC97::START");

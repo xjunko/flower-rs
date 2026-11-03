@@ -16,7 +16,7 @@ pub fn ctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     match arg1 {
         ARCH_SET_FS => {
             if let fs_base = VirtAddr::new(arg2)
-                && address_space.is_mapped(fs_base.as_u64())
+                && address_space.is_mapped(fs_base)
             {
                 log::debug!("writing FSBase with: {:#x}", fs_base);
                 FsBase::write(x86VirtAddr::new(fs_base.as_u64()));
