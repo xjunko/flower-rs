@@ -18,13 +18,10 @@
 
 use alloc::collections::vec_deque::VecDeque;
 use alloc::sync::Arc;
-use core::arch::naked_asm;
 
 use spin::Mutex;
-use x86_64::VirtAddr;
-use x86_64::registers::model_specific::FsBase;
 
-use crate::arch;
+use crate::arch::{self, Multitasking, Processor};
 use crate::system::proc::{Process, ProcessLevel, ProcessState};
 
 pub struct Scheduler {
@@ -103,33 +100,12 @@ impl Scheduler {
         }
     }
 
-    /// performs a context switch to the process with the given pid, returning the old stack pointer and the new stack pointer.
-    #[unsafe(naked)]
-    pub unsafe extern "C" fn switch_context(
-        old_sp: *mut u64,
-        new_sp: u64,
-        new_cr3: u64,
-    ) {
-        naked_asm!(
-            "push rbp",
-            "push rbx",
-            "push r12",
-            "push r13",
-            "push r14",
-            "push r15",
-            "mov [rdi], rsp",
-            "test rdx, rdx",
-            "jz 2f",
-            "mov cr3, rdx",
-            "2:",
-            "mov rsp, rsi",
-            "pop r15",
-            "pop r14",
-            "pop r13",
-            "pop r12",
-            "pop rbx",
-            "pop rbp",
-            "ret",
+    /// switches the context
+    pub fn switch_context(old_sp: *mut u64, new_sp: u64, new_root: u64) {
+        Processor::switch_context(
+            old_sp,
+            new_sp,
+            if new_root == 0 { None } else { Some(new_root) },
         );
     }
 
@@ -154,20 +130,27 @@ impl Scheduler {
         let new_cr3 = next_proc.cr3;
         let cr3_to_load = if old_cr3 != new_cr3 { new_cr3 } else { 0 };
 
-        if current_proc.level == ProcessLevel::RING3 {
-            current_proc._fsbase = FsBase::read().as_u64();
-        }
+        #[cfg(target_arch = "x86_64")]
+        // TODO: figure out a way to abstract this away
+        {
+            use x86_64::VirtAddr;
+            use x86_64::registers::model_specific::FsBase;
 
-        if next_proc.valid_stack() {
-            unsafe {
-                next_proc.switch_stack();
+            if current_proc.level == ProcessLevel::RING3 {
+                current_proc._fsbase = FsBase::read().as_u64();
             }
-        }
 
-        if next_proc.level == ProcessLevel::RING3 {
-            FsBase::write(VirtAddr::new(next_proc._fsbase));
-        } else {
-            FsBase::write(VirtAddr::new(0));
+            if next_proc.valid_stack() {
+                unsafe {
+                    next_proc.switch_stack();
+                }
+            }
+
+            if next_proc.level == ProcessLevel::RING3 {
+                FsBase::write(VirtAddr::new(next_proc._fsbase));
+            } else {
+                FsBase::write(VirtAddr::new(0));
+            }
         }
 
         (old_sp, new_sp, cr3_to_load)

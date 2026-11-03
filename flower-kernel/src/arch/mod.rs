@@ -115,9 +115,10 @@ pub trait Multitasking: Paging {
     fn prepare_stack_kernel(kernel_stack_top: u64, entry: fn()) -> u64;
     fn prepare_stack_user(
         kernel_stack_top: u64,
-        entry: fn(),
+        entry: u64,
         user_stack_top: u64,
     ) -> u64;
+    fn prepare_stack_fork(kernel_stack_top: u64) -> u64;
 
     fn stack_set_kernel(addr: VirtAddr);
     fn stack_set_user(addr: VirtAddr);

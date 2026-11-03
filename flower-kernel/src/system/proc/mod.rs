@@ -20,7 +20,6 @@ mod exit;
 mod process;
 mod scheduler;
 mod sleep;
-mod trampoline;
 
 pub mod user;
 
@@ -53,7 +52,7 @@ pub fn schedule() {
         };
 
         if let Some((old_sp, new_sp, new_cr3)) = ctx_change {
-            unsafe { Scheduler::switch_context(old_sp, new_sp, new_cr3) }
+            Scheduler::switch_context(old_sp, new_sp, new_cr3);
         }
     });
 }

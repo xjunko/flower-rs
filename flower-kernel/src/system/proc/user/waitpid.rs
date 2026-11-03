@@ -16,13 +16,11 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use x86_64::instructions::interrupts;
-
-use crate::system;
+use crate::{arch, system};
 
 pub fn waitpid(pid: u64) -> Result<u64, &'static str> {
     loop {
-        let result = interrupts::without_interrupts(|| {
+        let result = arch::interrupts::without(|| {
             let mut guard = system::proc::SCHEDULER.lock();
             let sched = guard.as_mut().ok_or("scheduler not initialized")?;
 

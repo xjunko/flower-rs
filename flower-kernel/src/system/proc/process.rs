@@ -18,22 +18,20 @@
 
 use alloc::format;
 use alloc::string::String;
-use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::arch;
 use crate::arch::addr::VirtAddr;
-use crate::arch::layout::PROCESS_STACK_SIZE;
-use crate::arch::{Paging, Processor};
+use crate::arch::layout::KERNEL_STACK_SIZE;
+use crate::arch::paging::MapFlags;
+use crate::arch::{self, Multitasking, Paging, Processor};
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::vfs::{FdTable, VFSResult};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct UserMemory {
+struct ProcessUserMemory {
     entry: u64,
     stack: u64,
     heap: u64,
@@ -44,7 +42,7 @@ struct UserMemory {
     heap_max: u64,
 }
 
-impl UserMemory {
+impl ProcessUserMemory {
     fn new() -> Self {
         Self {
             entry: 0,
@@ -94,8 +92,7 @@ pub struct Process {
     pub kernel_stack_top: u64,
 
     pub _fsbase: u64,
-    user: UserMemory,
-    _stack: Vec<u8>,
+    user: ProcessUserMemory,
 }
 
 impl Process {
@@ -140,7 +137,9 @@ impl Process {
         self.user.heap_top = top;
         self.user.heap_max = max;
     }
+}
 
+impl Process {
     pub fn with_fd_table<F, R>(&mut self, f: F) -> VFSResult<R>
     where F: FnOnce(&mut FdTable) -> VFSResult<R> {
         f(&mut self.fds)
@@ -164,36 +163,25 @@ impl Process {
     /// creates a new kernel process
     pub fn new(name: &str, entry: fn()) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack = alloc::vec![0u8; PROCESS_STACK_SIZE];
 
-        let stack_top = stack.as_ptr() as u64 + PROCESS_STACK_SIZE as u64;
-        let stack_top = stack_top & !0xF;
+        let stack_size = KERNEL_STACK_SIZE;
+        let reservation_size = stack_size + Processor::PAGE_SIZE;
 
-        let mut stack_ptr = stack_top;
+        let stack_virt = AddressSpace::reserve_virt(reservation_size)
+            .expect("failed to allocate process stack virt");
 
-        unsafe {
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64)
-                .write(trampoline::kernel_trampoline_entry as *const () as u64);
+        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
+        let stack_top = stack_bottom.as_u64() + stack_size as u64;
 
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
+        AddressSpace::kernel()
+            .map_range_alloc(
+                stack_bottom,
+                stack_size,
+                MapFlags::READ | MapFlags::WRITE,
+            )
+            .expect("failed to allocate process stack");
 
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(entry as u64);
-        }
+        let stack = Processor::prepare_stack_kernel(stack_top, entry);
 
         let cr3 = Processor::paging_root_active();
 
@@ -209,13 +197,12 @@ impl Process {
 
             cr3,
 
-            stack_ptr,
+            stack_ptr: stack,
             kernel_stack_top: stack_top,
 
-            user: UserMemory::new(),
+            user: ProcessUserMemory::new(),
 
             _fsbase: 0,
-            _stack: stack,
         }
     }
 
@@ -228,36 +215,25 @@ impl Process {
         user_heap: u64,
     ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack = alloc::vec![0u8; PROCESS_STACK_SIZE];
+        let stack_size = KERNEL_STACK_SIZE;
+        let reservation_size = stack_size + Processor::PAGE_SIZE;
 
-        let stack_top = stack.as_ptr() as u64 + PROCESS_STACK_SIZE as u64;
-        let stack_top = stack_top & !0xF; // align to 16 bytes
+        let stack_virt = AddressSpace::reserve_virt(reservation_size)
+            .expect("failed to allocate process stack virt");
 
-        let mut stack_ptr = stack_top;
+        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
+        let stack_top = stack_bottom.as_u64() + stack_size as u64;
 
-        unsafe {
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64)
-                .write(trampoline::user_trampoline_entry as *const () as u64);
+        AddressSpace::kernel()
+            .map_range_alloc(
+                stack_bottom,
+                stack_size,
+                MapFlags::READ | MapFlags::WRITE,
+            )
+            .expect("failed to allocate process stack");
 
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(user_stack);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(user_entry);
-        }
+        let stack =
+            Processor::prepare_stack_user(stack_top, user_entry, user_stack);
 
         let cr3 = address_space.root_phys();
 
@@ -273,13 +249,14 @@ impl Process {
             fds: FdTable::new(),
             cr3,
 
-            stack_ptr,
+            stack_ptr: stack,
             kernel_stack_top: stack_top,
 
-            user: UserMemory::from_user(user_entry, user_stack, user_heap),
+            user: ProcessUserMemory::from_user(
+                user_entry, user_stack, user_heap,
+            ),
 
             _fsbase: 0,
-            _stack: stack,
         }
     }
 
@@ -290,10 +267,22 @@ impl Process {
         frame: &SyscallFrame,
     ) -> Self {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack = alloc::vec![0u8; PROCESS_STACK_SIZE];
+        let stack_size = KERNEL_STACK_SIZE;
+        let reservation_size = stack_size + Processor::PAGE_SIZE;
 
-        let stack_top = stack.as_ptr() as u64 + PROCESS_STACK_SIZE as u64;
-        let stack_top = stack_top & !0xF;
+        let stack_virt = AddressSpace::reserve_virt(reservation_size)
+            .expect("failed to allocate process stack virt");
+
+        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
+        let stack_top = stack_bottom.as_u64() + stack_size as u64;
+
+        AddressSpace::kernel()
+            .map_range_alloc(
+                stack_bottom,
+                stack_size,
+                MapFlags::READ | MapFlags::WRITE,
+            )
+            .expect("failed to allocate process stack");
 
         let mut stack_ptr = stack_top;
         let mut child_frame = *frame;
@@ -326,22 +315,7 @@ impl Process {
                 (stack_ptr as *mut u64).write(value);
             }
 
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64)
-                .write(trampoline::fork_return_trampoline as *const () as u64);
-
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
-            stack_ptr -= 8;
-            (stack_ptr as *mut u64).write(0);
+            stack_ptr = Processor::prepare_stack_fork(stack_ptr);
         }
 
         let cr3 = address_space.root_phys();
@@ -361,7 +335,7 @@ impl Process {
             stack_ptr,
             kernel_stack_top: stack_top,
 
-            user: UserMemory {
+            user: ProcessUserMemory {
                 entry: frame.rip,
                 stack: frame.rsp,
                 heap: parent.user_heap(),
@@ -373,7 +347,6 @@ impl Process {
             },
 
             _fsbase: parent._fsbase,
-            _stack: stack,
         }
     }
 }
@@ -397,8 +370,7 @@ pub fn null_process() -> Process {
         stack_ptr: 0,
         kernel_stack_top: 0,
 
-        user: UserMemory::new(),
+        user: ProcessUserMemory::new(),
         _fsbase: 0,
-        _stack: Vec::new(),
     }
 }
