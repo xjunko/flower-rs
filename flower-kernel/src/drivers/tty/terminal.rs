@@ -17,15 +17,17 @@
  */
 
 use alloc::boxed::Box;
+use core::fmt::{self, Write};
 
 use os_terminal::font::BitmapFont;
 use os_terminal::{DrawTarget, Terminal};
-use spin::MutexGuard;
-use spin::mutex::Mutex;
+use spin::Mutex;
+use spin::mutex::MutexGuard;
 
+use super::CrlfWriter;
 use crate::boot::limine::FRAMEBUFFER_REQUEST;
 
-pub struct FramebufferTerminal {
+struct FramebufferTerminal {
     buffer: *mut u8,
     width: usize,
     height: usize,
@@ -51,8 +53,9 @@ impl DrawTarget for FramebufferTerminal {
     }
 }
 
-pub static CONTEXT: Mutex<Option<Terminal<FramebufferTerminal>>> =
-    Mutex::new(None);
+type Context = Option<Terminal<FramebufferTerminal>>;
+
+static CONTEXT: Mutex<Context> = Mutex::new(None);
 
 pub fn install() {
     if let Some(framebuffer) = FRAMEBUFFER_REQUEST
@@ -75,6 +78,20 @@ pub fn install() {
     }
 }
 
-pub fn get() -> MutexGuard<'static, Option<Terminal<FramebufferTerminal>>> {
-    CONTEXT.lock()
+fn write_to(context: &mut MutexGuard<'static, Context>, args: fmt::Arguments) {
+    if let Some(term) = context.as_mut() {
+        let mut writer = CrlfWriter::new(term);
+        let _ = writer.write_fmt(args);
+    }
+}
+
+pub fn write_fmt(args: fmt::Arguments) {
+    let mut context = CONTEXT.lock();
+    write_to(&mut context, args);
+}
+
+pub fn try_write_fmt(args: fmt::Arguments) {
+    if let Some(mut context) = CONTEXT.try_lock() {
+        write_to(&mut context, args);
+    }
 }

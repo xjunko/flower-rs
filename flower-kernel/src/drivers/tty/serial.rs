@@ -16,13 +16,14 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use core::fmt::Write;
+use core::fmt::{self, Write};
 
 use spin::Mutex;
 
+use super::CrlfWriter;
 use crate::arch;
 
-pub struct SerialPort {
+struct SerialPort {
     base: u16,
 }
 
@@ -33,9 +34,9 @@ impl SerialPort {
     // limit the wait anyway....
     const MAX_WAIT: usize = 100_000;
 
-    pub const fn new(base: u16) -> Self { Self { base } }
+    const fn new(base: u16) -> Self { Self { base } }
 
-    pub fn init(&mut self) {
+    fn init(&mut self) {
         self.write(1, 0x00);
         self.write(3, 0x80);
         self.write(0, 0x03);
@@ -53,7 +54,7 @@ impl SerialPort {
         arch::ports::read::<u8>(self.base as u32 + offset as u32)
     }
 
-    pub fn send(&self, byte: u8) {
+    fn send(&self, byte: u8) {
         for _ in 0..Self::MAX_WAIT {
             if self.read(5) & 0x20 != 0 {
                 self.write(0, byte);
@@ -66,7 +67,7 @@ impl SerialPort {
 }
 
 impl Write for SerialPort {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.chars() {
             self.send(c as u8);
         }
@@ -75,7 +76,20 @@ impl Write for SerialPort {
 }
 
 const _DEFAULT_COM_PORT: u16 = 0x3F8;
-pub static SERIAL: Mutex<SerialPort> =
+static SERIAL: Mutex<SerialPort> =
     Mutex::new(SerialPort::new(_DEFAULT_COM_PORT));
 
 pub fn install() { SERIAL.lock().init() }
+
+pub fn write_fmt(args: fmt::Arguments) {
+    let mut serial = SERIAL.lock();
+    let mut writer = CrlfWriter::new(&mut *serial);
+    let _ = writer.write_fmt(args);
+}
+
+pub fn try_write_fmt(args: fmt::Arguments) {
+    if let Some(mut serial) = SERIAL.try_lock() {
+        let mut writer = CrlfWriter::new(&mut *serial);
+        let _ = writer.write_fmt(args);
+    }
+}

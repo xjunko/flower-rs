@@ -18,14 +18,53 @@
 
 use alloc::fmt;
 use core::fmt::Write;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use x86_64::instructions::interrupts;
 
 pub mod serial;
 pub mod terminal;
 
+static CONSOLE_BUSY: AtomicBool = AtomicBool::new(false);
+
+struct ConsoleGuard;
+
+impl ConsoleGuard {
+    fn acquire() -> Option<Self> {
+        CONSOLE_BUSY
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for ConsoleGuard {
+    fn drop(&mut self) { CONSOLE_BUSY.store(false, Ordering::Release); }
+}
+
+static LOGGING: AtomicBool = AtomicBool::new(false);
+
+struct LogGuard;
+
+impl LogGuard {
+    fn acquire() -> Option<Self> {
+        LOGGING
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for LogGuard {
+    fn drop(&mut self) { LOGGING.store(false, Ordering::Release); }
+}
+
 struct CrlfWriter<'a, W: Write> {
     inner: &'a mut W,
+}
+
+impl<'a, W: Write> CrlfWriter<'a, W> {
+    fn new(inner: &'a mut W) -> Self { Self { inner } }
 }
 
 impl<W: Write> Write for CrlfWriter<'_, W> {
@@ -64,14 +103,33 @@ macro_rules! println {
 }
 
 pub fn _print(args: fmt::Arguments) {
-    interrupts::without_interrupts(|| {
-        let mut serial = super::tty::serial::SERIAL.lock();
-        let _ = serial.write_fmt(args);
+    if CONSOLE_BUSY.load(Ordering::Acquire) || LOGGING.load(Ordering::Acquire) {
+        interrupts::without_interrupts(|| serial::try_write_fmt(args));
+        return;
+    }
 
-        let mut guard = terminal::get();
-        if let Some(term) = guard.as_mut() {
-            let mut writer = CrlfWriter { inner: term };
-            let _ = writer.write_fmt(args);
-        }
+    let Some(_guard) = ConsoleGuard::acquire() else {
+        interrupts::without_interrupts(|| serial::try_write_fmt(args));
+        return;
+    };
+
+    interrupts::without_interrupts(|| {
+        serial::write_fmt(args);
+        terminal::write_fmt(args);
+    });
+}
+
+pub fn _log(args: fmt::Arguments) {
+    if CONSOLE_BUSY.load(Ordering::Acquire) {
+        return;
+    }
+
+    let Some(_guard) = LogGuard::acquire() else {
+        return;
+    };
+
+    interrupts::without_interrupts(|| {
+        serial::try_write_fmt(args);
+        terminal::try_write_fmt(args);
     });
 }
