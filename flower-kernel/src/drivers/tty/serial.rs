@@ -19,15 +19,11 @@
 use core::fmt::Write;
 
 use spin::Mutex;
-use x86_64::instructions::port::Port;
+
+use crate::arch;
 
 pub struct SerialPort {
-    data: Port<u8>,
-    interrupt: Port<u8>,
-    fifo: Port<u8>,
-    line: Port<u8>,
-    modem: Port<u8>,
-    status: Port<u8>,
+    base: u16,
 }
 
 impl SerialPort {
@@ -37,45 +33,34 @@ impl SerialPort {
     // limit the wait anyway....
     const MAX_WAIT: usize = 100_000;
 
-    pub const fn new(base: u16) -> Self {
-        Self {
-            data: Port::new(base),
-            interrupt: Port::new(base + 1),
-            fifo: Port::new(base + 2),
-            line: Port::new(base + 3),
-            modem: Port::new(base + 4),
-            status: Port::new(base + 5),
-        }
-    }
+    pub const fn new(base: u16) -> Self { Self { base } }
 
     pub fn init(&mut self) {
-        unsafe {
-            self.interrupt.write(0x00);
-            self.line.write(0x80);
-            self.data.write(0x03);
-            self.interrupt.write(0x00);
-            self.line.write(0x03);
-            self.fifo.write(0xC7);
-            self.modem.write(0x0B);
-        }
+        self.write(1, 0x00);
+        self.write(3, 0x80);
+        self.write(0, 0x03);
+        self.write(1, 0x00);
+        self.write(3, 0x03);
+        self.write(2, 0xC7);
+        self.write(4, 0x0B);
     }
 
-    fn wait_ready(&mut self) -> bool {
+    fn write(&self, offset: u16, value: u8) {
+        arch::ports::write::<u8>(self.base as u32 + offset as u32, value)
+    }
+
+    fn read(&self, offset: u16) -> u8 {
+        arch::ports::read::<u8>(self.base as u32 + offset as u32)
+    }
+
+    pub fn send(&self, byte: u8) {
         for _ in 0..Self::MAX_WAIT {
-            unsafe {
-                if (self.status.read() & 0x20) != 0 {
-                    return true;
-                }
+            if self.read(5) & 0x20 != 0 {
+                self.write(0, byte);
+                return;
             }
-        }
-        false
-    }
 
-    pub unsafe fn write(&mut self, byte: u8) {
-        if self.wait_ready() {
-            unsafe {
-                self.data.write(byte);
-            }
+            core::hint::spin_loop();
         }
     }
 }
@@ -83,7 +68,7 @@ impl SerialPort {
 impl Write for SerialPort {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for c in s.chars() {
-            unsafe { self.write(c as u8) };
+            self.send(c as u8);
         }
         Ok(())
     }
