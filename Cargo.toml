@@ -9,6 +9,13 @@ edition = "2024"
 
 [profile.dev]
 panic = "abort"
+opt-level = 1
+debug = true
+strip = false
 
 [profile.release]
 panic = "abort"
+opt-level = 3
+debug = false
+overflow-checks = false
+strip = true

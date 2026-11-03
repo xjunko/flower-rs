@@ -33,7 +33,14 @@ mod system;
 
 mod user;
 
-fn kernel_init() {
+#[unsafe(no_mangle)]
+unsafe extern "C" fn __entry() -> ! {
+    kmain();
+    system::proc::spawn("userland-entry", user::entry);
+    arch::cpu::halt();
+}
+
+fn kmain() {
     assert!(boot::limine::BASE_REVISION.is_supported());
     drivers::tty::serial::install();
     logging::install();
@@ -58,13 +65,6 @@ fn kernel_init() {
     system::vfs::install();
     drivers::tty::terminal::install();
     system::mem::self_test();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn kmain() -> ! {
-    kernel_init();
-    system::proc::spawn("userland-entry", user::entry);
-    arch::cpu::halt();
 }
 
 #[panic_handler]
