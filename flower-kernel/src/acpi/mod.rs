@@ -1,8 +1,8 @@
 use acpi::AcpiTables;
-use spin::once::Once;
+use spin::Once;
 
-use crate::arch::acpi::parser::AcpiReader;
-use crate::arch::acpi::tables::KernelAcpiTables;
+use crate::acpi::parser::AcpiReader;
+use crate::acpi::tables::KernelAcpiTables;
 use crate::boot::limine::RSDP_REQUEST;
 
 mod parser;

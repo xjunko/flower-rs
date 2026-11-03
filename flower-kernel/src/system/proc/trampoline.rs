@@ -2,7 +2,7 @@ use core::arch::{asm, naked_asm};
 
 use x86_64::instructions::interrupts;
 
-use crate::arch::gdt;
+use crate::arch::x86_64::gdt;
 use crate::system::proc;
 
 #[allow(improper_ctypes_definitions)]

@@ -3,9 +3,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use x86_64::VirtAddr;
 use x86_64::registers::control::Cr3;
 
+use crate::arch::addr::VirtAddr;
 use crate::arch::layout::PROCESS_STACK_SIZE;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
@@ -139,7 +139,7 @@ impl Process {
         system::syscalls::set_kernel_stack(self.kernel_stack_top);
         system::syscalls::set_user_stack(self.user_stack());
         system::syscalls::write_cpu_context();
-        arch::gdt::set_kernel_stack(VirtAddr::new(self.kernel_stack_top));
+        arch::stacks::set_kernel_stack(VirtAddr::new(self.kernel_stack_top));
     }
 }
 

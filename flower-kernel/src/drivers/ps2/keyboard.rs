@@ -2,7 +2,7 @@ use spin::{Lazy, Mutex};
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::InterruptStackFrame;
 
-use crate::arch::apic;
+use crate::arch;
 use crate::drivers::ps2::keyboard_defs::{
     scancode_to_ascii, scancode_to_keycode,
 };
@@ -63,7 +63,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt_handler(
 
     let pending = unsafe { pending_port.read() };
     if pending & 0x1 == 0 {
-        apic::eoi();
+        arch::interrupts::ack();
         return;
     }
 
@@ -90,7 +90,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt_handler(
         KEYBOARD.lock().publish(KeyEvent::Ascii(ascii));
     }
 
-    apic::eoi();
+    arch::interrupts::ack();
 }
 
 const MAX_DRAIN: usize = 32;

@@ -5,10 +5,10 @@ use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 
-use crate::arch::acpi;
+use crate::acpi;
 use crate::arch::addr::{PhysAddr, VirtAddr};
 use crate::arch::generic::paging::MapFlags;
-use crate::arch::interrupts::InterruptIndex;
+use crate::arch::x86_64::interrupts::InterruptIndex;
 use crate::system::mem::vmm::AddressSpace;
 
 // legacy pic

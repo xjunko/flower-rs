@@ -1,6 +1,7 @@
 use log::{Level, LevelFilter};
 use owo_colors::OwoColorize;
 
+use crate::arch::{Processor, Timers};
 use crate::println;
 
 struct FlowerLogger;
@@ -11,36 +12,37 @@ impl log::Log for FlowerLogger {
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
             let content = record.args();
+            let time_secs = Processor::timer_get_ticks() as f64 / 1000.0;
+
             match record.level() {
                 Level::Error => {
                     println!(
-                        "{} {}:{} {}",
-                        " Error ".black().bold().on_bright_red(),
+                        "[{:>7.3}] {}: {}:{} {}",
+                        time_secs,
+                        "error".bright_red(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
                         content.red().bold()
-                    )
+                    );
                 },
                 Level::Warn => {
-                    println! {
-                        "{} {}:{} {}",
-                         " Warn  ".black().bold().on_bright_yellow(),
+                    println!(
+                        "[{:>7.3}] {}: {}:{} {}",
+                        time_secs,
+                        " warn".bright_yellow(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
                         content.yellow().bold()
-                    }
+                    );
                 },
                 Level::Info => {
-                    println!(
-                        "{} {}",
-                        " Info  ".black().bold().on_bright_cyan(),
-                        content
-                    )
+                    println!("[{:>7.3}] {}", time_secs, content.white().bold());
                 },
                 Level::Debug => {
                     println!(
-                        "{} {}:{} {}",
-                        " Debug ".black().bold().on_bright_black(),
+                        "[{:>7.3}] {}: {}:{} {}",
+                        time_secs,
+                        "debug".black(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
                         content
@@ -48,11 +50,12 @@ impl log::Log for FlowerLogger {
                 },
                 Level::Trace => {
                     println!(
-                        "{} {}:{} {}",
-                        " Trace ".black().on_bright_purple(),
+                        "[{:>7.3}] {}: {}:{} {}",
+                        time_secs,
+                        "trace".bright_purple(),
                         record.file().unwrap_or("unknown").bold(),
                         record.line().unwrap_or(0),
-                        content.bright_black(),
+                        content.white().bold()
                     );
                 },
             }

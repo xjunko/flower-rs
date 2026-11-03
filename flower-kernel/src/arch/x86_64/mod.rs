@@ -1,15 +1,17 @@
-pub mod acpi;
 pub mod apic;
 pub mod gdt;
 pub mod idt;
 pub mod interrupts;
 pub mod layout;
 pub mod paging;
+pub mod process;
 
 use core::arch::asm;
 
 use raw_cpuid::CpuId;
 use x86_64::registers::control::{Cr0, Cr0Flags, Cr4, Cr4Flags};
+
+use crate::arch::{Cpu, Processor};
 
 pub fn install_cpu_features() {
     let cpuid = CpuId::new();
@@ -35,12 +37,20 @@ pub fn install_cpu_features() {
     }
 }
 
-pub fn ticks() -> u64 { interrupts::get_ticks() }
+impl Cpu for Processor {
+    fn cpu_bsp_install() {
+        self::install_cpu_features();
+        self::gdt::install();
+        self::idt::install();
+    }
 
-pub fn halt() -> ! {
-    loop {
-        unsafe {
-            asm!("hlt");
+    fn cpu_ap_install() { todo!() }
+
+    fn cpu_halt() -> ! {
+        loop {
+            unsafe {
+                asm!("hlt");
+            }
         }
     }
 }

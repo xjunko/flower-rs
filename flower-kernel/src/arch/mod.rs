@@ -6,32 +6,29 @@ use crate::arch::generic::paging::MapFlags;
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
 
-#[cfg(target_arch = "x86_64")]
-pub use self::x86_64::*;
-
 pub trait Port: Copy {
     unsafe fn read(port: u32) -> Self;
     unsafe fn write(port: u32, value: Self);
 }
 
-pub trait Arch: Paging + Multitasking {
-    // cpu
-    fn cpu_bsp_install();
-    fn cpu_ap_install();
-    fn cpu_halt() -> !;
-
-    // timers
-    fn timer_install();
-    fn timer_get_ticks() -> u64;
-
+pub trait Arch: Cpu + Paging + Multitasking + Interrupts {
     // ports
     fn port_read<T: Port>(port: u32) -> T;
     fn port_write<T: Port>(port: u32, value: T);
+}
 
-    // stacks
-    fn stack_set_kernel(addr: u64);
+pub trait Cpu {
+    fn cpu_bsp_install();
+    fn cpu_ap_install();
+    fn cpu_halt() -> !;
+}
 
-    // interrupts
+pub trait Timers {
+    fn timer_install();
+    fn timer_get_ticks() -> u64;
+}
+
+pub trait Interrupts {
     fn interrupts_enable();
     fn interrupts_disable();
     fn interrupts_ack();
@@ -103,6 +100,8 @@ pub trait Multitasking: Paging {
         entry: fn(),
         user_stack_top: u64,
     ) -> u64;
+
+    fn stack_set_kernel(addr: VirtAddr);
 
     fn switch_context(
         old_sp: *mut u64,
