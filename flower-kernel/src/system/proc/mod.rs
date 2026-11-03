@@ -29,10 +29,10 @@ use alloc::sync::Arc;
 
 pub use process::*;
 use spin::Mutex;
-use x86_64::instructions::interrupts;
 
 pub use self::exit::exit;
 pub use self::sleep::sleep;
+use crate::arch;
 use crate::system::proc::scheduler::Scheduler;
 use crate::system::vfs::{FdTable, VFSError, VFSResult};
 
@@ -40,7 +40,7 @@ pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
 /// schedules the process
 pub fn schedule() {
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         let ctx_change = {
             let mut guard = SCHEDULER.lock();
             if let Some(sched) = guard.as_mut() {
@@ -62,7 +62,7 @@ pub fn schedule() {
 pub fn spawn(name: &str, entry: fn()) {
     let new_process = Process::new(name, entry);
     log::debug!("created process {}", new_process.name);
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             log::debug!("adding process {} to scheduler", new_process.name);
             sched.add(new_process);
@@ -81,21 +81,21 @@ where F: FnOnce(&mut FdTable) -> VFSResult<R> {
 
 /// returns the current process
 pub fn current() -> Option<Arc<Mutex<Process>>> {
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         SCHEDULER.lock().as_mut().and_then(|sched| sched.current())
     })
 }
 
 /// returns the current pid
 pub fn current_pid() -> Option<usize> {
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         SCHEDULER.lock().as_ref().map(|sched| sched.current_idx())
     })
 }
 
 /// gets the current process name
 pub fn name() -> String {
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         SCHEDULER
             .lock()
             .as_ref()
@@ -110,7 +110,7 @@ pub fn name() -> String {
 pub fn install() {
     let mut scheduler = Scheduler::new();
     scheduler.add(null_process());
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         *SCHEDULER.lock() = Some(scheduler);
     });
 }

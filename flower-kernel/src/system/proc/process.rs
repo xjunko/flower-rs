@@ -21,10 +21,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use x86_64::registers::control::Cr3;
-
 use crate::arch::addr::VirtAddr;
 use crate::arch::layout::PROCESS_STACK_SIZE;
+use crate::arch::{Paging, Processor};
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
@@ -197,7 +196,7 @@ impl Process {
             (stack_ptr as *mut u64).write(entry as u64);
         }
 
-        let (pml4_frame, _) = Cr3::read();
+        let cr3 = Processor::paging_root_active();
 
         Self {
             id,
@@ -209,7 +208,7 @@ impl Process {
             exit_status: None,
             fds: FdTable::new(),
 
-            cr3: pml4_frame.start_address().as_u64(),
+            cr3,
 
             stack_ptr,
             kernel_stack_top: stack_top,
@@ -382,7 +381,7 @@ impl Process {
 
 /// creates a null process that does nothing and never sleeps, used as the initial process before the scheduler starts.
 pub fn null_process() -> Process {
-    let (pml4_frame, _) = Cr3::read();
+    let cr3 = Processor::paging_root_active();
 
     Process {
         id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
@@ -394,7 +393,7 @@ pub fn null_process() -> Process {
         exit_status: None,
         fds: FdTable::new(),
 
-        cr3: pml4_frame.start_address().as_u64(),
+        cr3,
 
         stack_ptr: 0,
         kernel_stack_top: 0,

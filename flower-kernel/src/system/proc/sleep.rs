@@ -16,8 +16,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use x86_64::instructions::interrupts;
-
 use crate::arch;
 use crate::system::proc::{ProcessState, SCHEDULER, schedule};
 use crate::system::{self};
@@ -26,7 +24,7 @@ use crate::system::{self};
 pub fn sleep(nanos: u64) {
     let wake_at = arch::timers::ns() + nanos;
 
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         system::syscalls::write_cpu_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {

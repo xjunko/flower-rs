@@ -16,14 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use x86_64::instructions::interrupts;
-
+use crate::arch;
 use crate::system::proc::{ProcessState, schedule};
 use crate::system::{self};
 
 /// exits the current process.
 pub fn exit(status: u64) {
-    interrupts::without_interrupts(|| {
+    arch::interrupts::without(|| {
         system::syscalls::write_cpu_context();
         if let Some(sched) = system::proc::SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {

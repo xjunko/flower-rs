@@ -25,3 +25,8 @@ pub fn disable() { Processor::interrupts_disable(); }
 pub fn ack() { Processor::interrupts_ack(); }
 
 pub fn enabled() -> bool { Processor::interrupts_enabled() }
+
+pub fn without<F, R>(f: F) -> R
+where F: FnOnce() -> R {
+    Processor::interrupts_without(f)
+}
