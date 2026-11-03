@@ -9,9 +9,11 @@ name = "flower-kernel"
 test = false
 
 [dependencies]
+# flower
+flower-mono = { path = "../flower-mono" }
+# deps
 acpi = "6.1.0"
 bitflags = "2.13.2"
-flower-mono = { path = "../flower-mono" }
 limine = "0.5.0"
 linked_list_allocator = "0.10.5"
 log = "0.4.29"

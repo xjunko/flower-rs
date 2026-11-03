@@ -21,7 +21,6 @@ use core::fmt::Write;
 
 use x86_64::instructions::interrupts;
 
-pub mod logging;
 pub mod serial;
 pub mod terminal;
 

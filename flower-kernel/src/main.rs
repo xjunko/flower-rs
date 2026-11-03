@@ -28,6 +28,7 @@ mod acpi;
 mod arch;
 mod boot;
 mod drivers;
+mod logging;
 mod system;
 
 mod user;
@@ -35,7 +36,7 @@ mod user;
 fn kernel_init() {
     assert!(boot::limine::BASE_REVISION.is_supported());
     drivers::tty::serial::install();
-    drivers::tty::logging::install();
+    logging::install();
 
     arch::cpu::bsp_install();
 

@@ -22,9 +22,9 @@ use owo_colors::OwoColorize;
 use crate::arch::{Processor, Timers};
 use crate::println;
 
-struct FlowerLogger;
+struct KernelLogger;
 
-impl log::Log for FlowerLogger {
+impl log::Log for KernelLogger {
     fn enabled(&self, _: &log::Metadata) -> bool { true }
 
     fn log(&self, record: &log::Record) {
@@ -83,7 +83,7 @@ impl log::Log for FlowerLogger {
     fn flush(&self) {}
 }
 
-static LOG: FlowerLogger = FlowerLogger;
+static LOG: KernelLogger = KernelLogger;
 const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
 pub fn install() {
