@@ -17,10 +17,6 @@ pub static BASE_REVISION: BaseRevision = BaseRevision::new();
 
 #[used]
 #[unsafe(link_section = ".limine_requests")]
-pub static SMP_REQUEST: MpRequest = MpRequest::new();
-
-#[used]
-#[unsafe(link_section = ".limine_requests")]
 pub static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 
 #[used]
