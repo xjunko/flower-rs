@@ -1,3 +1,21 @@
+/*
+ * ISC License
+ *
+ * Copyright (c) 2025-2026 xjunko
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+
 use spin::Lazy;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
@@ -5,7 +23,7 @@ use crate::arch::x86_64::gdt::DOUBLE_FAULT_IST_INDEX;
 use crate::arch::x86_64::interrupts::{
     InterruptIndex, spurious_interrupt_handler, timer_interrupt_handler,
 };
-use crate::drivers::ps2::keyboard;
+use crate::drivers::ps2;
 use crate::{println, system};
 
 static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
@@ -23,14 +41,15 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
             .set_stack_index(DOUBLE_FAULT_IST_INDEX);
     }
 
-    // ps2/keyboard
-    idt[InterruptIndex::Keyboard.as_u8()]
-        .set_handler_fn(keyboard::keyboard_interrupt_handler);
-
-    // spurious
-    idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
+    // lapic timer
+    idt[InterruptIndex::LapicTimer.as_u8()]
+        .set_handler_fn(timer_interrupt_handler);
     idt[InterruptIndex::Spurious.as_u8()]
         .set_handler_fn(spurious_interrupt_handler);
+
+    // ps/2 keyboard
+    idt[InterruptIndex::Keyboard.as_u8()]
+        .set_handler_fn(ps2::keyboard::keyboard_interrupt_handler);
 
     idt
 });
