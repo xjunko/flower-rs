@@ -30,7 +30,6 @@ pub trait Port: Copy {
 }
 
 pub trait Arch: Cpu + Paging + Multitasking + Interrupts {
-    // ports
     fn port_read<T: Port>(port: u32) -> T;
     fn port_write<T: Port>(port: u32, value: T);
 }
