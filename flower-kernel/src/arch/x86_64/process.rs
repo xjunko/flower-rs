@@ -17,7 +17,7 @@
  */
 
 use crate::arch::addr::VirtAddr;
-use crate::arch::x86_64::gdt;
+use crate::arch::x86_64::{gdt, syscalls};
 use crate::arch::{Multitasking, Processor};
 
 impl Multitasking for Processor {
@@ -35,7 +35,14 @@ impl Multitasking for Processor {
 
     fn stack_set_kernel(addr: VirtAddr) {
         gdt::set_kernel_stack(addr.as_u64());
+        syscalls::set_kernel_stack(addr.as_u64());
     }
+
+    fn stack_set_user(addr: VirtAddr) {
+        syscalls::set_user_stack(addr.as_u64());
+    }
+
+    fn stack_write_context() { syscalls::write_cpu_context(); }
 
     fn switch_context(
         _old_sp: *mut u64,

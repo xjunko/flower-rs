@@ -21,6 +21,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
+use crate::arch;
 use crate::arch::addr::VirtAddr;
 use crate::arch::layout::PROCESS_STACK_SIZE;
 use crate::arch::{Paging, Processor};
@@ -28,7 +29,6 @@ use crate::system::mem::vmm::AddressSpace;
 use crate::system::proc::trampoline;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::vfs::{FdTable, VFSResult};
-use crate::{arch, system};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -153,10 +153,9 @@ impl Process {
     }
 
     pub unsafe fn switch_stack(&self) {
-        system::syscalls::set_kernel_stack(self.kernel_stack_top);
-        system::syscalls::set_user_stack(self.user_stack());
-        system::syscalls::write_cpu_context();
         arch::stacks::set_kernel_stack(VirtAddr::new(self.kernel_stack_top));
+        arch::stacks::set_user_stack(VirtAddr::new(self.user_stack()));
+        arch::stacks::write_context();
     }
 }
 

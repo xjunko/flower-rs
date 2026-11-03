@@ -57,7 +57,7 @@ fn kmain() {
     drivers::ps2::install();
     drivers::pci::install();
 
-    system::syscalls::install();
+    arch::syscalls::install();
     system::proc::install();
     arch::interrupts::enable();
 

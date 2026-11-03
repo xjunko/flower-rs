@@ -120,6 +120,8 @@ pub trait Multitasking: Paging {
     ) -> u64;
 
     fn stack_set_kernel(addr: VirtAddr);
+    fn stack_set_user(addr: VirtAddr);
+    fn stack_write_context();
 
     fn switch_context(
         old_sp: *mut u64,

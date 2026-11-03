@@ -24,6 +24,7 @@ pub mod layout;
 pub mod paging;
 pub mod port;
 pub mod process;
+pub mod syscalls;
 pub mod timers;
 
 use core::arch::asm;

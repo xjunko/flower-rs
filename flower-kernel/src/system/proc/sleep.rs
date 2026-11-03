@@ -18,14 +18,13 @@
 
 use crate::arch;
 use crate::system::proc::{ProcessState, SCHEDULER, schedule};
-use crate::system::{self};
 
 /// sleeps the current process for the given number of nanoseconds.
 pub fn sleep(nanos: u64) {
     let wake_at = arch::timers::ns() + nanos;
 
     arch::interrupts::without(|| {
-        system::syscalls::write_cpu_context();
+        arch::stacks::write_context();
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
                 let mut proc = proc.lock();
