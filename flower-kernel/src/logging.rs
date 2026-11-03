@@ -20,7 +20,15 @@ use log::{Level, LevelFilter};
 use owo_colors::OwoColorize;
 
 use crate::arch::{Processor, Timers};
-use crate::println;
+
+macro_rules! output {
+    ($($arg:tt)*) => {
+        crate::drivers::tty::_log(format_args!(
+            "{}\n",
+            format_args!($($arg)*)
+        ))
+    };
+}
 
 struct KernelLogger;
 
@@ -34,7 +42,7 @@ impl log::Log for KernelLogger {
 
             match record.level() {
                 Level::Error => {
-                    println!(
+                    output!(
                         "[{:>7.3}] {}: {}:{} {}",
                         time_secs,
                         "error".bright_red(),
@@ -44,7 +52,7 @@ impl log::Log for KernelLogger {
                     );
                 },
                 Level::Warn => {
-                    println!(
+                    output!(
                         "[{:>7.3}] {}: {}:{} {}",
                         time_secs,
                         " warn".bright_yellow(),
@@ -54,10 +62,10 @@ impl log::Log for KernelLogger {
                     );
                 },
                 Level::Info => {
-                    println!("[{:>7.3}] {}", time_secs, content.white().bold());
+                    output!("[{:>7.3}] {}", time_secs, content.white().bold());
                 },
                 Level::Debug => {
-                    println!(
+                    output!(
                         "[{:>7.3}] {}: {}:{} {}",
                         time_secs,
                         "debug".black(),
@@ -67,7 +75,7 @@ impl log::Log for KernelLogger {
                     );
                 },
                 Level::Trace => {
-                    println!(
+                    output!(
                         "[{:>7.3}] {}: {}:{} {}",
                         time_secs,
                         "trace".bright_purple(),
