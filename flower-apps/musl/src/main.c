@@ -23,8 +23,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "input/input.h"
-#include "tools/exec.h"
+#include "exec.h"
+#include "input.h"
 
 #define BUFFER_SIZE 64
 
