@@ -16,6 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+pub mod fb;
 pub mod pci;
 pub mod ps2;
 pub mod tty;

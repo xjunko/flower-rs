@@ -20,36 +20,26 @@ use alloc::boxed::Box;
 use core::fmt::{self, Write};
 
 use os_terminal::font::BitmapFont;
-use os_terminal::{DrawTarget, Terminal};
+use os_terminal::{DrawTarget, Palette, Terminal};
 use spin::Mutex;
 use spin::mutex::MutexGuard;
 
 use super::CrlfWriter;
-use crate::boot::limine::FRAMEBUFFER_REQUEST;
+use crate::drivers;
+use crate::drivers::fb::Framebuffer;
 
 struct FramebufferTerminal {
-    buffer: *mut u8,
-    width: usize,
-    height: usize,
-
-    bpp: usize,
-    pitch: usize,
+    fb: Framebuffer,
 }
 
-unsafe impl Send for FramebufferTerminal {}
-unsafe impl Sync for FramebufferTerminal {}
-
 impl DrawTarget for FramebufferTerminal {
-    fn size(&self) -> (usize, usize) { (self.width, self.height) }
+    fn size(&self) -> (usize, usize) {
+        (self.fb.width as usize, self.fb.height as usize)
+    }
 
     #[inline(always)]
     fn draw_pixel(&mut self, x: usize, y: usize, rgb: os_terminal::Rgb) {
-        let offset = y * self.pitch + x * self.bpp / 8;
-        unsafe {
-            let pixel = self.buffer.add(offset) as *mut u32;
-            *pixel =
-                (rgb.0 as u32) << 16 | (rgb.1 as u32) << 8 | (rgb.2 as u32);
-        }
+        self.fb.draw(x, y, (rgb.0, rgb.1, rgb.2));
     }
 }
 
@@ -58,25 +48,16 @@ type Context = Option<Terminal<FramebufferTerminal>>;
 static CONTEXT: Mutex<Context> = Mutex::new(None);
 
 pub fn install() {
-    if let Some(framebuffer) = FRAMEBUFFER_REQUEST
-        .get_response()
-        .expect("no framebuffer")
-        .framebuffers()
-        .next()
-    {
-        let term = FramebufferTerminal {
-            buffer: framebuffer.addr(),
-            width: framebuffer.width() as usize,
-            height: framebuffer.height() as usize,
-            bpp: framebuffer.bpp() as usize,
-            pitch: framebuffer.pitch() as usize,
-        };
+    if let Some(fb) = drivers::fb::get() {
+        let term = FramebufferTerminal { fb };
 
         let mut terminal = Terminal::new(term, Box::new(BitmapFont));
         terminal.set_color_scheme(7);
         *CONTEXT.lock() = Some(terminal);
     }
 }
+
+pub fn uninstall() { *CONTEXT.lock() = None; }
 
 fn write_to(context: &mut MutexGuard<'static, Context>, args: fmt::Arguments) {
     if let Some(term) = context.as_mut() {
@@ -93,5 +74,35 @@ pub fn write_fmt(args: fmt::Arguments) {
 pub fn try_write_fmt(args: fmt::Arguments) {
     if let Some(mut context) = CONTEXT.try_lock() {
         write_to(&mut context, args);
+    }
+}
+
+pub fn set_crash_color_scheme() {
+    const CRASH_PALETTE: Palette = Palette {
+        foreground: (0xff, 0xe6, 0xe6),
+        background: (0x33, 0x00, 0x00),
+        ansi_colors: [
+            (0x33, 0x00, 0x00),
+            (0xff, 0x00, 0x00),
+            (0xcc, 0x33, 0x33),
+            (0xff, 0x66, 0x66),
+            (0x99, 0x00, 0x00),
+            (0xff, 0x33, 0x33),
+            (0xcc, 0x00, 0x00),
+            (0xff, 0xe6, 0xe6),
+            (0x66, 0x00, 0x00),
+            (0xff, 0x33, 0x33),
+            (0xff, 0x66, 0x66),
+            (0xff, 0x99, 0x99),
+            (0xcc, 0x33, 0x33),
+            (0xff, 0x4d, 0x4d),
+            (0xff, 0x1a, 0x1a),
+            (0xff, 0xff, 0xff),
+        ],
+    };
+
+    let mut context = CONTEXT.lock();
+    if let Some(term) = context.as_mut() {
+        term.set_custom_color_scheme(&CRASH_PALETTE);
     }
 }
