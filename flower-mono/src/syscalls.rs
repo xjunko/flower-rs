@@ -16,35 +16,26 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-pub const SYS_RESTART: u64 = 0;
-pub const SYS_EXIT: u64 = 1;
-pub const SYS_FORK: u64 = 2;
-pub const SYS_READ: u64 = 3;
-pub const SYS_WRITE: u64 = 4;
-pub const SYS_OPEN: u64 = 5;
-pub const SYS_CLOSE: u64 = 6;
-pub const SYS_WAITPID: u64 = 7;
+pub const SYS_READ: u64 = 0;
+pub const SYS_WRITE: u64 = 1;
+pub const SYS_OPEN: u64 = 2;
+pub const SYS_CLOSE: u64 = 3;
+pub const SYS_STAT: u64 = 4;
 pub const SYS_SEEK: u64 = 8;
-pub const SYS_EXECVE: u64 = 9;
-pub const SYS_STAT: u64 = 10;
-
+pub const SYS_MMAP: u64 = 9;
+pub const SYS_MUNMAP: u64 = 11;
+pub const SYS_MPROTECT: u64 = 10;
 pub const SYS_IOCTL: u64 = 16;
-
 pub const SYS_WRITEV: u64 = 20;
-
+pub const SYS_FORK: u64 = 57;
+pub const SYS_EXECVE: u64 = 59;
+pub const SYS_EXIT: u64 = 60;
 pub const SYS_ARCH_PRCTL: u64 = 158;
-
+pub const SYS_RESTART: u64 = 219;
 pub const SYS_SET_TID_ADDRESS: u64 = 218;
-
-pub const SYS_MMAP: u64 = 31;
-pub const SYS_MUNMAP: u64 = 32;
-pub const SYS_MPROTECT: u64 = 33;
+pub const SYS_EXIT_GROUP: u64 = 231;
 
 pub const SYS_MSLEEP: u64 = 101;
 pub const SYS_MTIME: u64 = 102;
 
-pub const SYS_EXIT_GROUP: u64 = 231;
-
-// old riria-specific impl
-pub const SYS_WRITE_FS_BASE: u64 = 29;
-pub const SYS_GET_THREAD_ID: u64 = 30;
+pub const SYS_WAITPID: u64 = 255; // none
