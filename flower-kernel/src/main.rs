@@ -30,7 +30,6 @@ mod boot;
 mod drivers;
 mod logging;
 mod system;
-
 mod user;
 
 #[unsafe(no_mangle)]
@@ -56,6 +55,7 @@ fn kmain() {
 
     drivers::ps2::install();
     drivers::pci::install();
+    drivers::fb::install();
 
     arch::syscalls::install();
     system::proc::install();
@@ -67,8 +67,50 @@ fn kmain() {
     system::mem::self_test();
 }
 
+fn kcrash(info: &core::panic::PanicInfo) {
+    drivers::tty::terminal::set_crash_color_scheme();
+
+    log::error!("!!!! KERNEL PANIC !!!!");
+    log::error!("reason: {}", info.message());
+    if let Some(location) = info.location() {
+        log::error!(
+            "location: {}:{}:{}",
+            location.file(),
+            location.line(),
+            location.column()
+        );
+    } else {
+        log::error!("location: unknown");
+    }
+    log::error!("!!!! KERNEL PANIC !!!!");
+
+    drivers::tty::terminal::uninstall();
+}
+
 #[panic_handler]
-fn rust_panic(_info: &core::panic::PanicInfo) -> ! {
-    log::error!("panic: {}", _info);
+fn rust_panic(info: &core::panic::PanicInfo) -> ! {
+    if let Some(thread) = system::proc::current() {
+        let thread_id = thread.lock().id;
+
+        // if we're on tid 0 just bail out.
+        if thread_id == 0 {
+            kcrash(info);
+        } else {
+            log::error!("panicked on thread: {:?}", thread_id);
+            log::error!("reason: {}", info.message());
+
+            if let Some(location) = info.location() {
+                log::error!(
+                    "location: {}:{}:{}",
+                    location.file(),
+                    location.line(),
+                    location.column()
+                );
+            } else {
+                log::error!("location: unknown");
+            }
+        }
+    }
+
     arch::cpu::halt()
 }
