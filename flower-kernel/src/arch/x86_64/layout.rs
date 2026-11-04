@@ -18,7 +18,7 @@
 
 pub const PAGE_SIZE: usize = 4096;
 
-pub const KERNEL_STACK_SIZE: usize = PAGE_SIZE;
+pub const KERNEL_STACK_SIZE: usize = PAGE_SIZE * 4;
 pub const KERNEL_HALF_START: u64 = 0xffff_8000_0000_0000;
 
 pub const PROCESS_STACK_SIZE: usize = PAGE_SIZE * 4;
