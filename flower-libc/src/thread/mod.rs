@@ -20,4 +20,5 @@ use flower_mono::syscalls::SYS_MSLEEP;
 
 use crate::sys::kernel::syscall1;
 
-pub fn sleep(millis: u64) { syscall1(SYS_MSLEEP, millis); }
+#[unsafe(no_mangle)]
+pub extern "C" fn sleep(millis: u64) { syscall1(SYS_MSLEEP, millis); }

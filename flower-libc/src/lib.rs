@@ -19,7 +19,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::tty::*;
 extern crate alloc;
 
 pub mod allocator;

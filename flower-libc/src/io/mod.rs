@@ -21,7 +21,7 @@ use crate::sys::fs::{self, open};
 
 pub fn getch() -> u8 {
     let path = b"/dev/keyboard\0";
-    let kb = open(path.as_ptr(), path.len(), 0, 0);
+    let kb = open(path.as_ptr(), 0, 0);
     if kb < 0 {
         return 0;
     }

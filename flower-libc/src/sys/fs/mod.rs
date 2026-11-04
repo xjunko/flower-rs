@@ -24,7 +24,7 @@ use flower_mono::syscalls::{
 };
 
 use crate::sys::kernel::{syscall_result, syscall1, syscall3};
-use crate::with_c_path_raw;
+use crate::tty::with_c_string;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn read(fd: u64, buf: *mut u8, buf_len: usize) -> i64 {
@@ -37,13 +37,8 @@ pub extern "C" fn write(fd: u64, buf: *const u8, buf_len: usize) -> i64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn open(
-    path: *const u8,
-    path_len: usize,
-    flags: u64,
-    mode: u64,
-) -> i64 {
-    let result = match with_c_path_raw(path, path_len, |ptr| {
+pub extern "C" fn open(path: *const u8, flags: u64, mode: u64) -> i64 {
+    let result = match with_c_string(path, |ptr| {
         syscall3(SYS_OPEN, ptr as u64, flags, mode)
     }) {
         Some(result) => result,

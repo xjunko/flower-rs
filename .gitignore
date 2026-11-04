@@ -1,6 +1,7 @@
 # build
 target/
 *.iso
+*.o
 
 # initramfs
 /flower-boot/initramfs/**/*.txt

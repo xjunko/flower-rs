@@ -21,7 +21,8 @@ use flower_mono::syscalls::{SYS_MMAP, SYS_MUNMAP};
 
 use crate::sys::kernel::{syscall_result, syscall2, syscall6};
 
-pub fn mmap(
+#[unsafe(no_mangle)]
+pub extern "C" fn mmap(
     addr: *mut u8,
     size: usize,
     prot: u64,
@@ -58,7 +59,8 @@ pub fn mmap_anonymous(size: usize) -> *mut u8 {
     )
 }
 
-pub fn munmap(addr: *mut u8, size: usize) -> i64 {
+#[unsafe(no_mangle)]
+pub extern "C" fn munmap(addr: *mut u8, size: usize) -> i64 {
     if addr.is_null() || size == 0 {
         return -1;
     }

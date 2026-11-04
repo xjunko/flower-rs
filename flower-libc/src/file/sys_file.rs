@@ -64,7 +64,15 @@ impl File {
     pub fn fd(&self) -> u64 { self.fd }
 
     pub fn open(path: String) -> Result<Self, FileError> {
-        let fd = fs::open(path.as_ptr(), path.len(), 0, 0);
+        let fd =
+            path.as_bytes().iter().position(|&byte| byte == 0).map_or_else(
+                || {
+                    let mut path = path;
+                    path.push('\0');
+                    fs::open(path.as_ptr(), 0, 0)
+                },
+                |_| -1,
+            );
         if fd < 0 {
             Err(FileError::FileNotFound)
         } else {

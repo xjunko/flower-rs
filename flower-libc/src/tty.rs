@@ -61,6 +61,26 @@ pub fn with_c_path_raw<T>(
     Some(f(path_buf.as_ptr()))
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub fn with_c_string<T>(
+    path: *const u8,
+    f: impl FnOnce(*const u8) -> T,
+) -> Option<T> {
+    if path.is_null() {
+        return None;
+    }
+
+    let mut length = 0;
+    while length < MAX_PATH_BYTES {
+        if unsafe { *path.add(length) } == 0 {
+            return Some(f(path));
+        }
+        length += 1;
+    }
+
+    None
+}
+
 pub struct FlowerLibcStdout;
 impl Write for FlowerLibcStdout {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {

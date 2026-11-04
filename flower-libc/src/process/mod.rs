@@ -18,8 +18,9 @@
 
 use flower_mono::syscalls::{SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_WAITPID};
 
+use crate::allocator;
 use crate::sys::kernel::{syscall_result, syscall0, syscall1, syscall3};
-use crate::{allocator, with_c_path_raw};
+use crate::tty::with_c_string;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn fork() -> i64 { syscall0(SYS_FORK) as i64 }
@@ -31,13 +32,8 @@ pub extern "C" fn waitpid(pid: u64) -> i64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn execve(
-    path: *const u8,
-    path_len: usize,
-    argv: u64,
-    envp: u64,
-) -> i64 {
-    match with_c_path_raw(path, path_len, |ptr| {
+pub extern "C" fn execve(path: *const u8, argv: u64, envp: u64) -> i64 {
+    match with_c_string(path, |ptr| {
         syscall3(SYS_EXECVE, ptr as u64, argv, envp)
     }) {
         Some(result) => {
