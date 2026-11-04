@@ -2,6 +2,7 @@
 target/
 *.iso
 *.o
+*.d
 
 # initramfs
 /flower-boot/initramfs/**/*.txt

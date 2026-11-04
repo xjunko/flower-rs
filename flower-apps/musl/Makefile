@@ -1,20 +1,30 @@
 CC := x86_64-linux-musl-gcc
 
-CFLAGS  := -fno-pie -fno-pic -fno-asynchronous-unwind-tables
+CFLAGS  := -O2 -Wall -Wextra \
+           -fno-pie -fno-pic \
+           -fno-asynchronous-unwind-tables
+
 LDFLAGS := -static -no-pie
 
 TARGET := ../target/x86_64-unknown-none/release
+OUTPUT := $(TARGET)/flower-apps-musl
+
+SRCS := $(shell find . -type f -name '*.c')
+OBJS := $(SRCS:.c=.o)
+DEPS := $(OBJS:.o=.d)
 
 .PHONY: all clean
 
-all: flower-apps-musl
+all: $(OUTPUT)
 
+$(OUTPUT): $(OBJS)
+	mkdir -p $(TARGET)
+	$(CC) $(LDFLAGS) $^ -o $@
 
-main.o: main.c
-	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.c
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-flower-apps-musl: main.o
-	$(CC) $(LDFLAGS) main.o $(LIBC) -o $(TARGET)/$@
+-include $(DEPS)
 
 clean:
-	rm -f main.o flower-apps-musl
+	rm -f $(OBJS) $(DEPS) $(OUTPUT)
