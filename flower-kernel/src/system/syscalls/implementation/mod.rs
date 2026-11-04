@@ -17,9 +17,10 @@
  */
 
 use flower_mono::syscalls::{
-    SYS_ARCH_PRCTL, SYS_CLOSE, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FORK,
-    SYS_IOCTL, SYS_MMAP, SYS_MPROTECT, SYS_MSLEEP, SYS_MTIME, SYS_MUNMAP,
-    SYS_OPEN, SYS_READ, SYS_SEEK, SYS_SET_TID_ADDRESS, SYS_STAT, SYS_WAITPID,
+    SYS_ACCESS, SYS_ARCH_PRCTL, SYS_BRK, SYS_CLOSE, SYS_EXECVE, SYS_EXIT,
+    SYS_EXIT_GROUP, SYS_FORK, SYS_GET_TID, SYS_IOCTL, SYS_MMAP, SYS_MPROTECT,
+    SYS_MSLEEP, SYS_MTIME, SYS_MUNMAP, SYS_OPEN, SYS_READ, SYS_SEEK,
+    SYS_SET_TID_ADDRESS, SYS_SIG_PROC_MASK, SYS_STAT, SYS_WAIT4, SYS_WAITPID,
     SYS_WRITE, SYS_WRITEV,
 };
 
@@ -36,6 +37,7 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
     handlers[SYS_EXIT as usize] = Some(process::exit as SyscallHandler);
     handlers[SYS_FORK as usize] = Some(process::fork as SyscallHandler);
     handlers[SYS_WAITPID as usize] = Some(process::waitpid as SyscallHandler);
+    handlers[SYS_WAIT4 as usize] = Some(process::wait4 as SyscallHandler);
     handlers[SYS_EXECVE as usize] = Some(process::execve as SyscallHandler);
     handlers[SYS_EXIT_GROUP as usize] =
         Some(process::exit_group as SyscallHandler);
@@ -48,9 +50,13 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
     handlers[SYS_STAT as usize] = Some(fs::stat as SyscallHandler);
     handlers[SYS_IOCTL as usize] = Some(fs::ioctl as SyscallHandler);
     handlers[SYS_WRITEV as usize] = Some(fs::write_v as SyscallHandler);
+    handlers[SYS_ACCESS as usize] = Some(fs::access as SyscallHandler);
 
     handlers[SYS_MSLEEP as usize] = Some(process::msleep as SyscallHandler);
     handlers[SYS_MTIME as usize] = Some(process::mtime as SyscallHandler);
+    handlers[SYS_SIG_PROC_MASK as usize] =
+        Some(process::signal_process_mask as SyscallHandler);
+    handlers[SYS_GET_TID as usize] = Some(process::get_tid as SyscallHandler);
     handlers[SYS_SET_TID_ADDRESS as usize] =
         Some(process::set_tid_address as SyscallHandler);
 
@@ -59,6 +65,7 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = {
     handlers[SYS_MMAP as usize] = Some(mman::mmap as SyscallHandler);
     handlers[SYS_MUNMAP as usize] = Some(mman::munmap as SyscallHandler);
     handlers[SYS_MPROTECT as usize] = Some(mman::mprotect as SyscallHandler);
+    handlers[SYS_BRK as usize] = Some(mman::brk as SyscallHandler);
 
     handlers
 };

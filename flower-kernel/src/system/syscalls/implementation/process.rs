@@ -72,6 +72,17 @@ pub fn waitpid(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     })
 }
 
+pub fn wait4(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    system::proc::user::waitpid(frame.rdi).map_err(|e| {
+        if e == "no child process" {
+            SyscallError::NoChildProcess
+        } else {
+            log::error!("wait4 failed: {}", e);
+            SyscallError::Other(format!("wait4 failed: {}", e))
+        }
+    })
+}
+
 pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     const MAX_ARGV: usize = 32;
 
@@ -127,4 +138,28 @@ pub fn set_tid_address(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 
     Ok(current_tid)
+}
+
+pub fn get_tid(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let current_thread =
+        system::proc::current().ok_or(SyscallError::NoProcess)?;
+    let current_tid = current_thread.lock().id;
+    Ok(current_tid)
+}
+
+pub fn signal_process_mask(
+    frame: &mut SyscallFrame,
+) -> Result<u64, SyscallError> {
+    let how = frame.rdi as u32;
+    let set_ptr = frame.rsi as *const u64;
+    let oldset_ptr = frame.rdx as *mut u64;
+
+    log::trace!(
+        "signal_procmask called with how: {}, set_ptr: {:?}, oldset_ptr: {:?}",
+        how,
+        set_ptr,
+        oldset_ptr
+    );
+
+    Err(SyscallError::NotImplemented)
 }

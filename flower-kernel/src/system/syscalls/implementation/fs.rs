@@ -245,3 +245,17 @@ pub fn ioctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     //     });
     Err(SyscallError::NotATty)
 }
+
+pub fn access(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let path =
+        unsafe { CStr::from_ptr(frame.rdi as *const c_char).to_str().unwrap() };
+    let mode = frame.rsi as u32;
+
+    log::debug!("access syscall: path={}, mode={:#x}", path, mode);
+
+    if system::vfs::open(path, 0).is_ok() {
+        return Ok(0); // TODO: whatever man, you can have at it idc
+    }
+
+    Err(SyscallError::NoSuchFile)
+}

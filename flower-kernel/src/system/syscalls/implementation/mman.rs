@@ -32,6 +32,56 @@ use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
 use crate::{arch, system};
 
+pub fn brk(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let requested = frame.rdi;
+    let current = system::proc::current()
+        .ok_or(SyscallError::Other("no current process found".into()))?;
+    let mut proc = current.lock();
+    let current_break = proc.user_heap_position();
+
+    if requested == 0 || requested == current_break {
+        return Ok(current_break);
+    }
+
+    let heap_base = proc.user_heap();
+    let heap_max = proc.user_heap_max();
+    if requested < heap_base || requested > heap_max {
+        return Ok(current_break);
+    }
+
+    if requested > current_break {
+        let page_size = PAGE_SIZE as u64;
+        let first_page = current_break
+            .checked_add(page_size - 1)
+            .ok_or(SyscallError::InvalidArgument)?
+            & !(page_size - 1);
+        let last_page = requested
+            .checked_add(page_size - 1)
+            .ok_or(SyscallError::InvalidArgument)?
+            & !(page_size - 1);
+        let flags = MapFlags::READ | MapFlags::WRITE | MapFlags::USER;
+        let address_space =
+            proc.address_space.as_mut().ok_or(SyscallError::NoProcess)?;
+
+        let mut page = first_page;
+        while page < last_page {
+            if !address_space.is_mapped(VirtAddr::new(page)) {
+                address_space
+                    .map_page_alloc(VirtAddr::new(page), flags)
+                    .map_err(|_| SyscallError::NoMemory)?;
+            }
+            page += page_size;
+        }
+
+        if last_page > proc.user_heap_top() {
+            proc.set_user_heap_bounds(last_page, heap_max);
+        }
+    }
+
+    proc.set_user_heap_position(requested);
+    Ok(requested)
+}
+
 #[allow(clippy::manual_is_multiple_of)]
 pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let addr = frame.rdi;

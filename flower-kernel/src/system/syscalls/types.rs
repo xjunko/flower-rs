@@ -42,6 +42,7 @@ pub enum SyscallError {
     NoSpace,
     TooLong,
     NotATty,
+    NotImplemented,
     Other(String),
 }
 
@@ -67,6 +68,7 @@ impl SyscallError {
             SyscallError::NoSpace => 28,             // ENOSPC
             SyscallError::TooLong => 36,             // ENAMETOOLONG
             SyscallError::NotATty => 25,             // ENOTTY
+            SyscallError::NotImplemented => 38,      // ENOSYS
             SyscallError::Other(_) => 255,
         }
     }

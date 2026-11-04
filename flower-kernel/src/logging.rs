@@ -92,7 +92,7 @@ impl log::Log for KernelLogger {
 }
 
 static LOG: KernelLogger = KernelLogger;
-const LOG_LEVEL: LevelFilter = LevelFilter::Info;
+const LOG_LEVEL: LevelFilter = LevelFilter::Trace;
 
 pub fn install() {
     log::set_logger(&LOG).unwrap();
