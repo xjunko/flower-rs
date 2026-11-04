@@ -32,7 +32,7 @@ pub extern "C" fn syscall_handler(frame: *mut SyscallFrame) {
         let frame = unsafe { &mut *frame };
         let result = syscall_handler_unwrapped(frame.rax as u64, frame);
         frame.rax = result as isize;
-    })
+    });
 }
 
 fn syscall_handler_unwrapped(
@@ -51,6 +51,6 @@ fn syscall_handler_unwrapped(
             },
         }
     } else {
-        panic!("invalid syscall number: {}", num);
+        panic!("invalid syscall number: {} | frame: {:?}", num, frame);
     }
 }

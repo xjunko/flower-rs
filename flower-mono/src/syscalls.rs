@@ -28,7 +28,13 @@ pub const SYS_SEEK: u64 = 8;
 pub const SYS_EXECVE: u64 = 9;
 pub const SYS_STAT: u64 = 10;
 
-pub const SYS_ARCHCTL: u64 = 157;
+pub const SYS_IOCTL: u64 = 16;
+
+pub const SYS_WRITEV: u64 = 20;
+
+pub const SYS_ARCH_PRCTL: u64 = 158;
+
+pub const SYS_SET_TID_ADDRESS: u64 = 218;
 
 pub const SYS_MMAP: u64 = 31;
 pub const SYS_MUNMAP: u64 = 32;
@@ -36,6 +42,8 @@ pub const SYS_MPROTECT: u64 = 33;
 
 pub const SYS_MSLEEP: u64 = 101;
 pub const SYS_MTIME: u64 = 102;
+
+pub const SYS_EXIT_GROUP: u64 = 231;
 
 // old riria-specific impl
 pub const SYS_WRITE_FS_BASE: u64 = 29;

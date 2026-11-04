@@ -18,6 +18,7 @@
 
 use core::ffi::{CStr, c_char};
 
+use flower_mono::iovec;
 use flower_mono::structs::FileStat;
 
 use crate::print;
@@ -108,6 +109,53 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 }
 
+pub fn write_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let iov = frame.rsi as *const iovec::Iovec;
+    let iovcnt = frame.rdx as usize;
+
+    if iovcnt > iovec::IOV_MAX {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let result = system::proc::with_fd_table(|table| {
+        let mut written = 0usize;
+        match table.get_mut(fd)? {
+            FdKind::Stdout | FdKind::Stderr => {
+                for index in 0..iovcnt {
+                    let entry = unsafe { &*iov.add(index) };
+                    for offset in 0..entry.len {
+                        let byte = unsafe { *entry.base.add(offset) };
+                        print!("{}", byte as char);
+                    }
+                    written = written
+                        .checked_add(entry.len)
+                        .ok_or(VFSError::IOError)?;
+                }
+                Ok(written)
+            },
+            FdKind::File(file) => {
+                for index in 0..iovcnt {
+                    let entry = unsafe { &*iov.add(index) };
+                    let slice = unsafe {
+                        core::slice::from_raw_parts_mut(
+                            entry.base as *mut u8,
+                            entry.len,
+                        )
+                    };
+                    written = written
+                        .checked_add(file.write(slice)?)
+                        .ok_or(VFSError::IOError)?;
+                }
+                Ok(written)
+            },
+            _ => Err(VFSError::PermissionDenied),
+        }
+    });
+
+    result.map(|count| count as u64).map_err(|error| error.to_syscall_error())
+}
+
 pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
     let result = system::proc::with_fd_table(|table| table.close(fd));
@@ -173,4 +221,27 @@ pub fn stat(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     } else {
         Err(result.err().unwrap().to_syscall_error())
     }
+}
+
+pub fn ioctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let request = frame.rsi;
+    let argp = frame.rdx as *mut u8;
+
+    log::debug!(
+        "ioctl syscall: fd={}, request={:#x}, argp={:?}",
+        fd,
+        request,
+        argp
+    );
+
+    // let result =
+    //     system::proc::with_fd_table(|table| match table.get_mut(fd)? {
+    //         FdKind::File(file) => file.ioctl(request, argp),
+    //         _ => {
+    //             log::error!("ioctl syscall: fd {} is not ioctlable", fd);
+    //             Err(VFSError::PermissionDenied)
+    //         },
+    //     });
+    Err(SyscallError::NotATty)
 }

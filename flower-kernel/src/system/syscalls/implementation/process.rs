@@ -30,6 +30,12 @@ pub fn exit(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     unreachable!();
 }
 
+pub fn exit_group(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    // TODO: we dont support multithreading yet, so this is fine
+    system::proc::exit(frame.rdi);
+    unreachable!();
+}
+
 pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     // TODO: turn this into a nanosecond sleep from the syscall side.
     let ms = frame.rdi * 1_000_000;
@@ -104,4 +110,21 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::NoSuchFile);
     }
     Ok(0)
+}
+
+pub fn set_tid_address(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let tid_ptr = frame.rdi as *mut u32;
+    if tid_ptr.is_null() {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let current_thread =
+        system::proc::current().ok_or(SyscallError::NoProcess)?;
+    let current_tid = current_thread.lock().id;
+
+    unsafe {
+        core::ptr::write_volatile(tid_ptr, current_tid as u32);
+    }
+
+    Ok(current_tid)
 }

@@ -41,6 +41,7 @@ pub enum SyscallError {
     InvalidArgument,
     NoSpace,
     TooLong,
+    NotATty,
     Other(String),
 }
 
@@ -65,6 +66,7 @@ impl SyscallError {
             SyscallError::InvalidArgument => 22,     // EINVAL
             SyscallError::NoSpace => 28,             // ENOSPC
             SyscallError::TooLong => 36,             // ENAMETOOLONG
+            SyscallError::NotATty => 25,             // ENOTTY
             SyscallError::Other(_) => 255,
         }
     }

@@ -25,11 +25,13 @@ use crate::system::mem::vmm::AddressSpace;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallError;
 
-pub fn ctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn prctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let address_space = AddressSpace::current();
 
     let arg1 = frame.rdi;
     let arg2 = frame.rsi;
+
+    log::trace!("prctl called with arg1: {:#x}, arg2: {:#x}", arg1, arg2);
 
     match arg1 {
         ARCH_SET_FS => {

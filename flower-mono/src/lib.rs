@@ -18,6 +18,7 @@
  */
 
 pub mod auxv;
+pub mod iovec;
 pub mod mmap;
 pub mod prctl;
 pub mod structs;
