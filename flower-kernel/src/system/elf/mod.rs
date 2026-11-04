@@ -203,10 +203,6 @@ pub fn load_into(
         let ph_offset = elf.header.pt2.ph_offset();
 
         for header in elf.program_iter() {
-            if matches!(header.get_type(), Ok(Type::Load)) {
-                continue;
-            }
-
             let seg_start = header.offset();
             let seg_end = seg_start + header.file_size();
             if ph_offset >= seg_start && ph_offset < seg_end {
