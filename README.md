@@ -80,9 +80,19 @@ available targets:
 
 and thousands other stuff that i don't remember or know yet.
 
+## why(s)
+### why musl instead of mlibc?
+well, i did try it, mlibc is very nice to use, the problem was that, i need to set up the tooling, which is just a PITA to get it to work and portable. 
+there were solutions such [[jinx]](https://github.com/mintsuki/jinx) and others but i'm too lazy to set it up. 
+in the end i ended up using musl because during one of my random attempts to port libc, it just sorta works (albeit with slight syscall hacking) as is, so thats why.
+sorry to the OSDEV peeps who probably think this is a very terrible idea.
+
 ## credits
-early part of the kernel was loosely based of [riria](https://github.com/xjunko/riria).
-some part of the newer rust side of things are based on [seele](https://github.com/SeeleOS/seele).
+these were the projects that i used for reference:
+- [riria](https://github.com/xjunko/riria)
+- [seele](https://github.com/SeeleOS/seele)
+- [zinnia](https://github.com/zinnia-os/zinnia)
+- [evalynOS](https://git.evalyngoemer.com/evalynOS/evalynOS)
 
 ## license
 ISC License, see [[LICENSE]](LICENSE) for more details.
