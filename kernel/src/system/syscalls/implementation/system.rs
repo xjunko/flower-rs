@@ -19,12 +19,13 @@
 use flower_abi::system;
 
 use crate::arch::syscalls::SyscallFrame;
-use crate::system::syscalls::SyscallError;
+use crate::system::posix::{KError, KResult};
+use crate::system::syscalls::types::SyscallReturnCode;
 
-pub fn uname(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn uname(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let ptr = frame.rdi as *mut system::UtsName;
     if ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
     log::trace!("uname syscall: ptr={:?}", ptr);
 

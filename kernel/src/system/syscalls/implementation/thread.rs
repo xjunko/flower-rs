@@ -18,16 +18,16 @@
 
 use crate::arch::syscalls::SyscallFrame;
 use crate::system;
-use crate::system::syscalls::SyscallError;
+use crate::system::posix::{KError, KResult};
+use crate::system::syscalls::types::SyscallReturnCode;
 
-pub fn set_tid_address(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn set_tid_address(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let tid_ptr = frame.rdi as *mut u32;
     if tid_ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
-    let current_thread =
-        system::proc::current().ok_or(SyscallError::NoProcess)?;
+    let current_thread = system::proc::current().ok_or(KError::ESRCH)?;
     let current_tid = current_thread.lock().id;
 
     unsafe {
@@ -37,9 +37,8 @@ pub fn set_tid_address(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     Ok(current_tid)
 }
 
-pub fn get_tid(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    let current_thread =
-        system::proc::current().ok_or(SyscallError::NoProcess)?;
+pub fn get_tid(_frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
+    let current_thread = system::proc::current().ok_or(KError::ESRCH)?;
     let current_tid = current_thread.lock().id;
     Ok(current_tid)
 }

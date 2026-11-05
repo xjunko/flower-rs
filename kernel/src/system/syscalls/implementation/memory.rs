@@ -25,10 +25,11 @@ use flower_abi::memory::{
 use crate::arch::addr::VirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
-use crate::system::ToSyscallError;
+use crate::system::ToPosixError;
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::posix::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
-use crate::system::syscalls::types::SyscallError;
+use crate::system::syscalls::types::SyscallReturnCode;
 use crate::system::vfs::{FdKind, VFSError};
 use crate::{arch, system};
 
@@ -36,15 +37,12 @@ fn range_is_mapped(
     address_space: &AddressSpace,
     start: u64,
     pages: u64,
-) -> Result<bool, SyscallError> {
+) -> Result<bool, KError> {
     let page_size = arch::layout::PAGE_SIZE as u64;
     for page in 0..pages {
         let address = start
-            .checked_add(
-                page.checked_mul(page_size)
-                    .ok_or(SyscallError::InvalidArgument)?,
-            )
-            .ok_or(SyscallError::InvalidArgument)?;
+            .checked_add(page.checked_mul(page_size).ok_or(KError::EINVAL)?)
+            .ok_or(KError::EINVAL)?;
         if address_space.is_mapped(VirtAddr::new(address)) {
             return Ok(true);
         }
@@ -52,10 +50,9 @@ fn range_is_mapped(
     Ok(false)
 }
 
-pub fn brk(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let requested = frame.rdi;
-    let current = system::proc::current()
-        .ok_or(SyscallError::Other("no current process found".into()))?;
+    let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
     let current_break = proc.user_heap_position();
 
@@ -71,24 +68,22 @@ pub fn brk(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     if requested > current_break {
         let page_size = PAGE_SIZE as u64;
-        let first_page = current_break
-            .checked_add(page_size - 1)
-            .ok_or(SyscallError::InvalidArgument)?
-            & !(page_size - 1);
-        let last_page = requested
-            .checked_add(page_size - 1)
-            .ok_or(SyscallError::InvalidArgument)?
-            & !(page_size - 1);
+        let first_page =
+            current_break.checked_add(page_size - 1).ok_or(KError::EINVAL)?
+                & !(page_size - 1);
+        let last_page =
+            requested.checked_add(page_size - 1).ok_or(KError::EINVAL)?
+                & !(page_size - 1);
         let flags = MapFlags::READ | MapFlags::WRITE | MapFlags::USER;
         let address_space =
-            proc.address_space.as_mut().ok_or(SyscallError::NoProcess)?;
+            proc.address_space.as_mut().ok_or(KError::EINVAL)?;
 
         let mut page = first_page;
         while page < last_page {
             if !address_space.is_mapped(VirtAddr::new(page)) {
                 address_space
                     .map_page_alloc(VirtAddr::new(page), flags)
-                    .map_err(|_| SyscallError::NoMemory)?;
+                    .map_err(|_| KError::ENOMEM)?;
             }
             page += page_size;
         }
@@ -103,7 +98,7 @@ pub fn brk(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 }
 
 #[allow(clippy::manual_is_multiple_of)]
-pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
     let addr = frame.rdi;
     let size = frame.rsi;
     let prot = frame.rdx;
@@ -121,19 +116,19 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     if size == 0 {
         log::error!("mmap failed: size is 0");
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     if flags & flower_abi::memory::MAP_FIXED != 0
         && !addr.is_multiple_of(arch::layout::PAGE_SIZE as u64)
     {
         log::error!("mmap failed: MAP_FIXED address is not page-aligned");
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     if offset % arch::layout::PAGE_SIZE as u64 != 0 {
         log::error!("mmap failed: offset is not page-aligned");
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     let has_shared = flags & MAP_SHARED != 0;
@@ -144,18 +139,17 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             log::error!(
                 "mmap failed: file mapping requires MAP_SHARED or MAP_PRIVATE"
             );
-            return Err(SyscallError::InvalidArgument);
+            return Err(KError::EINVAL);
         }
 
         if has_shared && has_private {
             log::error!(
                 "mmap failed: MAP_SHARED and MAP_PRIVATE cannot both be set"
             );
-            return Err(SyscallError::InvalidArgument);
+            return Err(KError::EINVAL);
         }
     }
-    let current = system::proc::current()
-        .ok_or(SyscallError::Other("no current process found".into()))?;
+    let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
 
     let mut heap_start = if addr == 0 {
@@ -165,12 +159,11 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     };
     let page_size = arch::layout::PAGE_SIZE as u64;
     let heap_pages =
-        size.checked_add(page_size - 1).ok_or(SyscallError::InvalidArgument)?
-            / page_size;
+        size.checked_add(page_size - 1).ok_or(KError::EINVAL)? / page_size;
 
     if flags & flower_abi::memory::MAP_FIXED == 0 {
         let address_space =
-            proc.address_space.as_ref().ok_or(SyscallError::NoProcess)?;
+            proc.address_space.as_ref().ok_or(KError::EINVAL)?;
 
         if addr != 0 && range_is_mapped(address_space, heap_start, heap_pages)?
         {
@@ -178,9 +171,8 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         }
 
         while range_is_mapped(address_space, heap_start, heap_pages)? {
-            heap_start = heap_start
-                .checked_add(page_size)
-                .ok_or(SyscallError::InvalidArgument)?;
+            heap_start =
+                heap_start.checked_add(page_size).ok_or(KError::EINVAL)?;
         }
     }
 
@@ -237,7 +229,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                         "mmap failed: could not translate source virt {:#x} to phys",
                         src_virt
                     );
-                    SyscallError::InvalidArgument
+                    KError::EINVAL
                 })?;
 
                 proc.address_space.as_mut().unwrap().map_page(
@@ -249,7 +241,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                         "mmap failed: could not map page at user heap position {:#x}",
                         proc.user_heap_position()
                     );
-                    SyscallError::InvalidArgument
+                    KError::EINVAL
                 })?;
 
                 heap_ptr += arch::layout::PAGE_SIZE as u64;
@@ -266,11 +258,11 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             Ok(heap_start)
         } else {
             log::error!("mmap failed for fd {}", fd);
-            Err(result.err().unwrap().to_syscall_error())
+            Err(result.err().unwrap().to_posix_error())
         }
     } else {
         let address_space =
-            proc.address_space.as_mut().ok_or(SyscallError::NoProcess)?;
+            proc.address_space.as_mut().ok_or(KError::EINVAL)?;
 
         for page_index in 0..heap_pages {
             let virt = VirtAddr::new(heap_ptr);
@@ -279,7 +271,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             {
                 let old_phys = address_space
                     .unmap_page(virt)
-                    .map_err(|_| SyscallError::InvalidArgument)?;
+                    .map_err(|_| KError::EINVAL)?;
                 if system::mem::pmm::is_usable_address(old_phys.as_u64()) {
                     system::mem::pmm::free(old_phys.as_u64());
                 }
@@ -295,7 +287,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     heap_pages,
                     heap_ptr,
                 );
-                SyscallError::InvalidArgument
+                KError::EINVAL
             })?;
             heap_ptr += arch::layout::PAGE_SIZE as u64;
         }
@@ -307,16 +299,16 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 }
 
-pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn munmap(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let addr = frame.rdi;
     let base = addr & !(arch::layout::PAGE_SIZE as u64 - 1);
     let size = frame.rsi;
 
     if size == 0 {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
-    let end = addr.checked_add(size).ok_or(SyscallError::InvalidArgument)?;
+    let end = addr.checked_add(size).ok_or(KError::EINVAL)?;
 
     let pages = (size + arch::layout::PAGE_SIZE as u64 - 1)
         / arch::layout::PAGE_SIZE as u64;
@@ -324,8 +316,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
 
     {
-        let current = system::proc::current()
-            .ok_or(SyscallError::Other("no current process".into()))?;
+        let current = system::proc::current().ok_or(KError::EINVAL)?;
         let mut proc = current.lock();
 
         if addr < proc.user_heap() || end > proc.user_heap_position() {
@@ -336,7 +327,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 proc.user_heap(),
                 proc.user_heap_position()
             );
-            return Err(SyscallError::InvalidArgument);
+            return Err(KError::EINVAL);
         }
 
         for i in 0..pages {
@@ -346,7 +337,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                     "munmap failed: could not unmap page at user heap position {:#x}",
                     page_addr
                 );
-                SyscallError::InvalidArgument
+                KError::EINVAL
             })?;
 
             // NOTE: this might fuck me later
@@ -384,24 +375,23 @@ fn prot_to_flags(prot: u64) -> MapFlags {
     flags
 }
 
-pub fn mprotect(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn mprotect(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let addr = frame.rdi;
     let size = frame.rsi;
     let prot = frame.rdx;
 
     if size == 0 {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     if (addr as usize & (PAGE_SIZE - 1)) != 0 {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
-    let end = addr.checked_add(size).ok_or(SyscallError::InvalidArgument)?;
+    let end = addr.checked_add(size).ok_or(KError::EINVAL)?;
     let flags = prot_to_flags(prot);
 
-    let current = system::proc::current()
-        .ok_or(SyscallError::Other("no process found".into()))?;
+    let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
 
     let mut page = addr;
@@ -410,7 +400,7 @@ pub fn mprotect(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             .as_mut()
             .unwrap()
             .update_page_flags(VirtAddr::new(page), flags)
-            .map_err(|_| SyscallError::InvalidArgument)?;
+            .map_err(|_| KError::EINVAL)?;
         page += PAGE_SIZE as u64;
     }
 

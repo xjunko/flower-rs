@@ -19,10 +19,11 @@
 use flower_abi::time;
 
 use crate::arch::syscalls::SyscallFrame;
-use crate::system::syscalls::SyscallError;
+use crate::system::posix::{KError, KResult};
+use crate::system::syscalls::types::SyscallReturnCode;
 use crate::{arch, system};
 
-pub fn clock_get_time(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn clock_get_time(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let clock_id = frame.rdi as i32;
     let ptr = frame.rsi as *mut time::Timespec;
 
@@ -44,20 +45,20 @@ pub fn clock_get_time(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             unsafe { ptr.write(timespec) };
             Ok(0)
         },
-        _ => Err(SyscallError::NotImplemented),
+        _ => Err(KError::ENOSYS),
     }
 }
 
-pub fn times(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn times(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let ptr = frame.rdi as *mut time::Times;
     log::trace!("times syscall: ptr={:?}", ptr);
-    Err(SyscallError::NotImplemented)
+    Err(KError::ENOSYS)
 }
 
-pub fn mtime(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn mtime(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let time_ptr = frame.rdi as *mut u64;
     if time_ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
     unsafe {
         core::ptr::write_volatile(time_ptr, arch::timers::ticks());
@@ -65,17 +66,17 @@ pub fn mtime(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     Ok(0)
 }
 
-pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn msleep(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     // TODO: turn this into a nanosecond sleep from the syscall side.
     let ms = frame.rdi * 1_000_000;
     system::proc::sleep(ms);
     Ok(0)
 }
 
-pub fn nanosleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn nanosleep(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let req_ptr = frame.rdi as *const time::Timespec;
     if req_ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
     log::trace!("nanosleep called with req_ptr: {:?}", req_ptr);
 

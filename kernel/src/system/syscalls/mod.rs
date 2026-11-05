@@ -22,7 +22,6 @@ mod types;
 pub use types::SyscallFrame;
 use x86_64::instructions::interrupts;
 
-pub use self::types::SyscallError;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
 use crate::system::syscalls::types::SyscallReturnCode;
 
@@ -44,10 +43,7 @@ fn syscall_handler_unwrapped(
             Ok(result) => result,
             Err(e) => {
                 log::error!("syscall {} failed with error: {:?}", num, e);
-                if let SyscallError::Other(message) = &e {
-                    log::error!("unhandled syscall error: {}", message);
-                }
-                -(e.errno()) as SyscallReturnCode
+                -(e as i32) as SyscallReturnCode
             },
         }
     } else {

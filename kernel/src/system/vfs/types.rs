@@ -17,13 +17,12 @@
  */
 
 use alloc::boxed::Box;
-use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::ffi::c_int;
 
-use crate::system::ToSyscallError;
-use crate::system::syscalls::SyscallError;
+use crate::system::ToPosixError;
+use crate::system::posix::KError;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSPermission {
@@ -96,14 +95,17 @@ pub enum VFSError {
     Unknown(String),
 }
 
-impl ToSyscallError for VFSError {
-    fn to_syscall_error(&self) -> SyscallError {
+impl ToPosixError for VFSError {
+    fn to_posix_error(&self) -> KError {
         match self {
-            Self::NotFound => SyscallError::NoSuchFile,
-            Self::InvalidSeek => SyscallError::InvalidArgument,
-            Self::PermissionDenied => SyscallError::NoPermission,
-            Self::IOError => SyscallError::IOError,
-            _ => SyscallError::Other(format!("Unhandled VFSError: {:?}", self)),
+            Self::NotFound => KError::ENOENT,
+            Self::AlreadyExists => KError::EEXIST,
+            Self::InvalidSeek => KError::EINVAL,
+            Self::PermissionDenied => KError::EACCES,
+            Self::NoSpace => KError::ENOSPC,
+            Self::IOError => KError::EIO,
+            Self::Unsupported => KError::EIO,
+            Self::Unknown(_) => KError::EIO,
         }
     }
 }

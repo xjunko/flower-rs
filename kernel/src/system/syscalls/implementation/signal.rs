@@ -17,11 +17,12 @@
  */
 
 use crate::arch::syscalls::SyscallFrame;
-use crate::system::syscalls::SyscallError;
+use crate::system::posix::{KError, KResult};
+use crate::system::syscalls::types::SyscallReturnCode;
 
 pub fn signal_process_mask(
     frame: &mut SyscallFrame,
-) -> Result<u64, SyscallError> {
+) -> KResult<SyscallReturnCode> {
     let how = frame.rdi as u32;
     let set_ptr = frame.rsi as *const u64;
     let oldset_ptr = frame.rdx as *mut u64;
@@ -33,5 +34,5 @@ pub fn signal_process_mask(
         oldset_ptr
     );
 
-    Err(SyscallError::NotImplemented)
+    Err(KError::ENOSYS)
 }

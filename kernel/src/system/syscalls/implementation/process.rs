@@ -16,65 +16,65 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
-use crate::system::syscalls::types::{SyscallError, SyscallFrame};
+use crate::system::posix::{KError, KResult};
+use crate::system::syscalls::types::{SyscallFrame, SyscallReturnCode};
 use crate::system::{self};
 
-pub fn exit(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn exit(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     system::proc::exit(frame.rdi);
     unreachable!();
 }
 
-pub fn exit_group(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn exit_group(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     // TODO: we dont support multithreading yet, so this is fine
     system::proc::exit(frame.rdi);
     unreachable!();
 }
 
-pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn fork(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     system::proc::user::fork(frame).map_err(|e| {
         log::error!("fork failed: {}", e);
-        SyscallError::Other(format!("fork failed: {}", e))
+        KError::EINVAL
     })
 }
 
-pub fn waitpid(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn waitpid(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     system::proc::user::waitpid(frame.rdi).map_err(|e| {
         if e == "no child process" {
-            SyscallError::NoChildProcess
+            KError::ECHILD
         } else {
             log::error!("waitpid failed: {}", e);
-            SyscallError::Other(format!("waitpid failed: {}", e))
+            KError::EINVAL
         }
     })
 }
 
-pub fn wait4(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn wait4(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     system::proc::user::waitpid(frame.rdi).map_err(|e| {
         if e == "no child process" {
-            SyscallError::NoChildProcess
+            KError::ECHILD
         } else {
             log::error!("wait4 failed: {}", e);
-            SyscallError::Other(format!("wait4 failed: {}", e))
+            KError::EINVAL
         }
     })
 }
 
-pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn execve(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     const MAX_ARGV: usize = 32;
 
     let path_ptr = frame.rdi as *const c_char;
     if path_ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     let path = unsafe { CStr::from_ptr(path_ptr) }
         .to_str()
-        .map_err(|_| SyscallError::InvalidArgument)?;
+        .map_err(|_| KError::EINVAL)?;
 
     let argv_ptr = frame.rsi as *const *const c_char;
     let mut argv = Vec::<String>::new();
@@ -88,7 +88,7 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
             let arg = unsafe { CStr::from_ptr(arg_ptr) }
                 .to_str()
-                .map_err(|_| SyscallError::InvalidArgument)?;
+                .map_err(|_| KError::EINVAL)?;
             argv.push(arg.to_string());
         }
     }
@@ -99,7 +99,7 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
     if let Err(reason) = system::proc::user::execve(path, &argv, frame) {
         log::error!("execve failed for path '{}': {:?}", path, reason);
-        return Err(SyscallError::NoSuchFile);
+        return Err(KError::ENOENT);
     }
     Ok(0)
 }

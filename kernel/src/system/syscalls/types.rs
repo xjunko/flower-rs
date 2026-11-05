@@ -16,62 +16,8 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::string::String;
+pub use crate::arch::generic::syscalls::SyscallFrame;
+use crate::system::posix::KResult;
 
 pub type SyscallReturnCode = u64;
-pub use crate::arch::generic::syscalls::SyscallFrame;
-
-#[derive(Debug)]
-pub enum SyscallError {
-    NotPermitted,
-    NoSuchFile,
-    NoProcess,
-    InterruptedSyscall,
-    IOError,
-    NoDeviceOrAddress,
-    NoExecutable,
-    BadFileDescriptor,
-    NoChildProcess,
-    ResourceTryAgain,
-    NoMemory,
-    NoPermission,
-    BadAddress,
-    BlockDeviceRequired,
-    ResourceBusy,
-    InvalidArgument,
-    NoSpace,
-    TooLong,
-    NotATty,
-    NotImplemented,
-    Other(String),
-}
-
-impl SyscallError {
-    pub fn errno(&self) -> i64 {
-        match self {
-            SyscallError::NotPermitted => 1,         // EPERM
-            SyscallError::NoSuchFile => 2,           // ENOENT
-            SyscallError::NoProcess => 3,            // ESRCH
-            SyscallError::InterruptedSyscall => 4,   // EINTR
-            SyscallError::IOError => 5,              // EIO
-            SyscallError::NoDeviceOrAddress => 6,    // ENXIO
-            SyscallError::NoExecutable => 8,         // ENOEXEC
-            SyscallError::BadFileDescriptor => 9,    // EBADF
-            SyscallError::NoChildProcess => 10,      // ECHILD
-            SyscallError::ResourceTryAgain => 11,    // EAGAIN
-            SyscallError::NoMemory => 12,            // ENOMEM
-            SyscallError::NoPermission => 13,        // EACCES
-            SyscallError::BadAddress => 14,          // EFAULT
-            SyscallError::BlockDeviceRequired => 15, // ENOTBLK
-            SyscallError::ResourceBusy => 16,        // EBUSY
-            SyscallError::InvalidArgument => 22,     // EINVAL
-            SyscallError::NoSpace => 28,             // ENOSPC
-            SyscallError::TooLong => 36,             // ENAMETOOLONG
-            SyscallError::NotATty => 25,             // ENOTTY
-            SyscallError::NotImplemented => 38,      // ENOSYS
-            SyscallError::Other(_) => 255,
-        }
-    }
-}
-
-pub type SyscallHandler = fn(&mut SyscallFrame) -> Result<u64, SyscallError>;
+pub type SyscallHandler = fn(&mut SyscallFrame) -> KResult<SyscallReturnCode>;

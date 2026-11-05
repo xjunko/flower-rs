@@ -22,10 +22,11 @@ use x86_64::registers::model_specific::FsBase;
 
 use crate::arch::addr::VirtAddr;
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::posix::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
-use crate::system::syscalls::types::SyscallError;
+use crate::system::syscalls::types::SyscallReturnCode;
 
-pub fn prctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn prctl(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let address_space = AddressSpace::current();
 
     let arg1 = frame.rdi;
@@ -42,9 +43,9 @@ pub fn prctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
                 FsBase::write(x86VirtAddr::new(fs_base.as_u64()));
                 Ok(0)
             } else {
-                Err(SyscallError::InvalidArgument)
+                Err(KError::EINVAL)
             }
         },
-        _ => Err(SyscallError::NoPermission),
+        _ => Err(KError::EPERM),
     }
 }

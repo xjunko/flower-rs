@@ -22,11 +22,12 @@ use flower_abi::fs;
 use flower_abi::structs::FileStat;
 
 use crate::print;
-use crate::system::syscalls::types::{SyscallError, SyscallFrame};
+use crate::system::posix::{KError, KResult};
+use crate::system::syscalls::types::{SyscallFrame, SyscallReturnCode};
 use crate::system::vfs::{FdKind, VFSError, VFSFilelike, VFSWhence};
-use crate::system::{self, ToSyscallError};
+use crate::system::{self, ToPosixError};
 
-pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn open(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let path =
         unsafe { CStr::from_ptr(frame.rdi as *const c_char).to_str().unwrap() };
     let flags = frame.rsi as u32;
@@ -43,14 +44,14 @@ pub fn open(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             },
             _ => {
                 log::error!("open syscall: {} is not a regular file", path);
-                Err(SyscallError::IOError)
+                Err(KError::EIO)
             },
         },
-        Err(e) => Err(e.to_syscall_error()),
+        Err(e) => Err(e.to_posix_error()),
     }
 }
 
-pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn read(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let buf = frame.rsi as *mut u8;
     let len = frame.rdx as usize;
@@ -74,17 +75,17 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(result.err().unwrap().to_syscall_error())
+        Err(result.err().unwrap().to_posix_error())
     }
 }
 
-pub fn read_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn read_v(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let iov = frame.rsi as *const fs::Iovec;
     let iovcnt = frame.rdx as usize;
 
     if iovcnt > fs::IOV_MAX {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     let result = system::proc::with_fd_table(|table| {
@@ -109,10 +110,10 @@ pub fn read_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         }
     });
 
-    result.map(|count| count as u64).map_err(|error| error.to_syscall_error())
+    result.map(|count| count as u64).map_err(|error| error.to_posix_error())
 }
 
-pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn write(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let buf = frame.rsi as *mut u8;
     let len = frame.rdx as usize;
@@ -139,17 +140,17 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(result.err().unwrap().to_syscall_error())
+        Err(result.err().unwrap().to_posix_error())
     }
 }
 
-pub fn write_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn write_v(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let iov = frame.rsi as *const fs::Iovec;
     let iovcnt = frame.rdx as usize;
 
     if iovcnt > fs::IOV_MAX {
-        return Err(SyscallError::InvalidArgument);
+        return Err(KError::EINVAL);
     }
 
     let result = system::proc::with_fd_table(|table| {
@@ -187,10 +188,10 @@ pub fn write_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         }
     });
 
-    result.map(|count| count as u64).map_err(|error| error.to_syscall_error())
+    result.map(|count| count as u64).map_err(|error| error.to_posix_error())
 }
 
-pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn close(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
 
     let result = system::proc::with_fd_table(|table| match table.get(fd)? {
@@ -202,10 +203,10 @@ pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         _ => table.close(fd),
     });
 
-    if result.is_ok() { Ok(0) } else { Err(SyscallError::BadFileDescriptor) }
+    if result.is_ok() { Ok(0) } else { Err(KError::EBADF) }
 }
 
-pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn seek(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let offset = frame.rsi as i64;
     let whence = frame.rdx as u32;
@@ -233,11 +234,11 @@ pub fn seek(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(result.err().unwrap().to_syscall_error())
+        Err(result.err().unwrap().to_posix_error())
     }
 }
 
-pub fn stat(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn stat(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let stat_buf = frame.rsi as *mut FileStat;
 
@@ -262,11 +263,11 @@ pub fn stat(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     if result.is_ok() {
         Ok(0)
     } else {
-        Err(result.err().unwrap().to_syscall_error())
+        Err(result.err().unwrap().to_posix_error())
     }
 }
 
-pub fn ioctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn ioctl(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let fd = frame.rdi as usize;
     let request = frame.rsi;
     let argp = frame.rdx as *mut u8;
@@ -286,10 +287,10 @@ pub fn ioctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     //             Err(VFSError::PermissionDenied)
     //         },
     //     });
-    Err(SyscallError::NotATty)
+    Err(KError::ENOTTY)
 }
 
-pub fn access(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn access(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let path =
         unsafe { CStr::from_ptr(frame.rdi as *const c_char).to_str().unwrap() };
     let mode = frame.rsi as u32;
@@ -300,17 +301,17 @@ pub fn access(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Ok(0); // TODO: whatever man, you can have at it idc
     }
 
-    Err(SyscallError::NoSuchFile)
+    Err(KError::ENOENT)
 }
 
-pub fn pipe(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn pipe(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let pipefd_ptr = frame.rdi as *mut fs::PipeFd;
     log::trace!("pipe syscall: pipefd_ptr={:?}", pipefd_ptr);
-    Err(SyscallError::NotImplemented)
+    Err(KError::ENOSYS)
 }
 
-pub fn umask(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+pub fn umask(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let mask = frame.rdi as u32;
     log::trace!("umask syscall: mask={:#o}", mask);
-    Err(SyscallError::NotImplemented)
+    Err(KError::ENOSYS)
 }
