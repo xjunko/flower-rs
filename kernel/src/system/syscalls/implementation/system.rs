@@ -18,8 +18,11 @@
 
 use flower_abi::system;
 
+use crate::arch;
+use crate::arch::addr::VirtAddr;
 use crate::arch::syscalls::SyscallFrame;
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
+use crate::system::posix::utsname::UTSNAME;
 use crate::system::syscalls::types::SyscallReturnCode;
 
 pub fn uname(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
@@ -29,31 +32,9 @@ pub fn uname(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     }
     log::trace!("uname syscall: ptr={:?}", ptr);
 
-    // TODO: put this somewhere else
-    fn make_cstr<const N: usize>(value: &str) -> [u8; N] {
-        let mut buf = [0u8; N];
+    let utsname = UTSNAME.lock();
+    arch::user::copy_to_user(VirtAddr::new(ptr.addr() as u64), utsname.clone())
+        .map_err(|_| KError::EFAULT)?;
 
-        let len = value.len().min(N.saturating_sub(1));
-        buf[..len].copy_from_slice(&value.as_bytes()[..len]);
-
-        buf
-    }
-
-    let utsname = system::UtsName {
-        sysname: make_cstr("flower"),
-        nodename: make_cstr("riria"),
-        release: make_cstr(env!("CARGO_PKG_VERSION")),
-        version: make_cstr(concat!(
-            env!("CARGO_PKG_NAME"),
-            " ",
-            env!("CARGO_PKG_VERSION")
-        )),
-        machine: make_cstr("x86_64"),
-        domainname: make_cstr("(none)"),
-    };
-
-    unsafe {
-        core::ptr::write_volatile(ptr, utsname);
-    }
     Ok(0)
 }

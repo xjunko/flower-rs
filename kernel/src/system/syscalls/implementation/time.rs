@@ -18,8 +18,9 @@
 
 use flower_abi::time;
 
+use crate::arch::addr::VirtAddr;
 use crate::arch::syscalls::SyscallFrame;
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::SyscallReturnCode;
 use crate::{arch, system};
 
@@ -60,9 +61,13 @@ pub fn mtime(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     if time_ptr.is_null() {
         return Err(KError::EINVAL);
     }
-    unsafe {
-        core::ptr::write_volatile(time_ptr, arch::timers::ticks());
-    }
+
+    arch::user::copy_to_user(
+        VirtAddr::new(time_ptr.addr() as u64),
+        arch::timers::ticks(),
+    )
+    .map_err(|_| KError::EFAULT)?;
+
     Ok(0)
 }
 
