@@ -78,6 +78,40 @@ pub fn read(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 }
 
+pub fn read_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let fd = frame.rdi as usize;
+    let iov = frame.rsi as *const fs::Iovec;
+    let iovcnt = frame.rdx as usize;
+
+    if iovcnt > fs::IOV_MAX {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let result = system::proc::with_fd_table(|table| {
+        let mut read_total = 0usize;
+        match table.get_mut(fd)? {
+            FdKind::File(file) => {
+                for index in 0..iovcnt {
+                    let entry = unsafe { &*iov.add(index) };
+                    let slice = unsafe {
+                        core::slice::from_raw_parts_mut(
+                            entry.base as *mut u8,
+                            entry.len,
+                        )
+                    };
+                    read_total = read_total
+                        .checked_add(file.read(slice)?)
+                        .ok_or(VFSError::IOError)?;
+                }
+                Ok(read_total)
+            },
+            _ => Err(VFSError::PermissionDenied),
+        }
+    });
+
+    result.map(|count| count as u64).map_err(|error| error.to_syscall_error())
+}
+
 pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
     let buf = frame.rsi as *mut u8;

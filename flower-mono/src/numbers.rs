@@ -28,6 +28,7 @@ pub const SYS_MUNMAP: u64 = 11;
 pub const SYS_BRK: u64 = 12;
 pub const SYS_SIG_PROC_MASK: u64 = 14;
 pub const SYS_IOCTL: u64 = 16;
+pub const SYS_READV: u64 = 19;
 pub const SYS_WRITEV: u64 = 20;
 pub const SYS_ACCESS: u64 = 21;
 pub const SYS_PIPE: u64 = 22;
