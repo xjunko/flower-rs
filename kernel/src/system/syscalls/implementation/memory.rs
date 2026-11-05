@@ -310,8 +310,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
     let end = addr.checked_add(size).ok_or(KError::EINVAL)?;
 
-    let pages = (size + arch::layout::PAGE_SIZE as u64 - 1)
-        / arch::layout::PAGE_SIZE as u64;
+    let pages = size.div_ceil(arch::layout::PAGE_SIZE as u64);
 
     log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
 

@@ -18,9 +18,13 @@
 
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt)]
-#![allow(dead_code)] // everything is WIP, i dont care
-#![allow(clippy::manual_div_ceil)] // i dont trust the .div_ceil implementation
+// common feature
+#![feature(const_index)]
+#![feature(const_trait_impl)]
+// arch feature
+#![cfg_attr(target_arch = "x86_64", feature(abi_x86_interrupt))]
+// clippy
+#![allow(dead_code)]
 
 extern crate alloc;
 

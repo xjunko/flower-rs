@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [[bin]]
+path = "src/init.rs"
 bench = false
 name = "flower-kernel"
 test = false

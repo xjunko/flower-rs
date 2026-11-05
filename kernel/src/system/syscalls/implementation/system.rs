@@ -33,7 +33,7 @@ pub fn uname(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     log::trace!("uname syscall: ptr={:?}", ptr);
 
     let utsname = UTSNAME.lock();
-    arch::user::copy_to_user(VirtAddr::new(ptr.addr() as u64), utsname.clone())
+    arch::user::copy_to_user(VirtAddr::new(ptr.addr() as u64), *utsname)
         .map_err(|_| KError::EFAULT)?;
 
     Ok(0)

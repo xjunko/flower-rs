@@ -45,7 +45,7 @@ pub fn get_ticks() -> u64 {
 }
 
 pub fn wait_ms(ms: u32) {
-    let ticks_needed: u64 = (ACPI_TIMER_FREQUENCY * ms as u64 + 999) / 1000;
+    let ticks_needed: u64 = (ACPI_TIMER_FREQUENCY * ms as u64).div_ceil(1000);
     let start: u64 = self::get_ticks();
     while (self::get_ticks() - start) < ticks_needed {
         core::hint::spin_loop();

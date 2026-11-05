@@ -218,7 +218,7 @@ impl VFSImplementation for TarFS {
                     });
                 }
 
-                let next = (((file_size + 511) / 512) + 1) * 512;
+                let next = (file_size.div_ceil(512) + 1) * 512;
                 offset = match offset.checked_add(next) {
                     Some(value) => value,
                     None => {

@@ -117,8 +117,8 @@ pub fn install() {
 
     log::debug!("Highest Memory Address: {:#x}", highest_addr);
 
-    let total_pages = (highest_addr as usize + PAGE_SIZE - 1) / PAGE_SIZE;
-    let bitmap_size = (total_pages + 7) / 8;
+    let total_pages = (highest_addr as usize).div_ceil(PAGE_SIZE);
+    let bitmap_size = total_pages.div_ceil(8);
 
     let mut bitmap_addr: Option<u64> = None;
     for entry in mmap {
@@ -155,7 +155,7 @@ pub fn install() {
 
     for entry in mmap {
         if entry.entry_type == EntryType::USABLE {
-            let start_page = (entry.base as usize + PAGE_SIZE - 1) / PAGE_SIZE;
+            let start_page = (entry.base as usize).div_ceil(PAGE_SIZE);
             let end_page = (entry.base + entry.length) as usize / PAGE_SIZE;
 
             for page in start_page..end_page {
@@ -167,7 +167,9 @@ pub fn install() {
 
     let bitmap_start_page = (bitmap_addr as usize) / PAGE_SIZE;
     let bitmap_end_page =
-        ((bitmap_addr as usize) + bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
+        ((bitmap_addr as usize) + bitmap_size).div_ceil(PAGE_SIZE);
+    // let bitmap_end_page =
+    //     ((bitmap_addr as usize) + bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
 
     for page in bitmap_start_page..bitmap_end_page {
         if !allocator.test_bit(page) {
