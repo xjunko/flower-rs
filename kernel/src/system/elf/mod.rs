@@ -23,8 +23,7 @@ use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
 use crate::arch;
-use crate::arch::addr::VirtAddr;
-use crate::arch::align::{align_down, align_up};
+use crate::arch::addr::{VirtAddr, align_down, align_up};
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
 use crate::system::mem::vmm::AddressSpace;
