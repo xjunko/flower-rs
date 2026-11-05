@@ -149,16 +149,16 @@ impl VFSFile for TarFile {
     }
 
     fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize> {
-        let mut new_pos = match pos {
-            VFSWhence::Start => offset as usize,
-            VFSWhence::Current => self
-                ._position
-                .load(Ordering::Acquire)
-                .saturating_add(offset as usize),
-            VFSWhence::End => self.size.saturating_add(offset as usize),
+        let current = self._position.load(Ordering::Acquire) as i128;
+        let base = match pos {
+            VFSWhence::Start => 0,
+            VFSWhence::Current => current,
+            VFSWhence::End => self.size as i128,
         };
-
-        new_pos = core::cmp::min(new_pos, self.size);
+        let new_pos = base
+            .checked_add(offset as i128)
+            .and_then(|position| usize::try_from(position).ok())
+            .ok_or(VFSError::InvalidSeek)?;
 
         self._position.store(new_pos, Ordering::Release);
         Ok(new_pos)
