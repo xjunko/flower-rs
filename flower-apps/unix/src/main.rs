@@ -26,8 +26,6 @@ use alloc::boxed::Box;
 use flower_libc::{env, println, process};
 
 mod coreutils;
-mod media;
-mod other;
 
 type StartFn = fn() -> Result<i32, Box<dyn core::error::Error>>;
 // impl tables
@@ -36,12 +34,6 @@ const IMPL_TABLES: &[(&str, StartFn)] = &[
     ("cat", coreutils::cat::start),
     ("echo", coreutils::echo::start),
     ("sleep", coreutils::sleep::start),
-    // media-utils
-    ("wav", media::wav::start),
-    ("png", media::png::start),
-    // other non-standard programs
-    ("hello", other::hello::start),
-    ("fetch", other::fetch::start),
 ];
 
 #[unsafe(no_mangle)]

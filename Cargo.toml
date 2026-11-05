@@ -4,9 +4,10 @@ members = ["flower-apps/*", "flower-kernel", "flower-libc", "flower-mono"]
 exclude = [
     "flower-apps/target",
     "flower-apps/template",
-    "flower-apps/musl",
+    "flower-apps/shell",
     "flower-apps/image",
     "flower-apps/mp3",
+    "flower-apps/fetch",
 ]
 
 [workspace.package]

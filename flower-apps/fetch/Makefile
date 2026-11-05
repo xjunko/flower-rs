@@ -7,7 +7,7 @@ CFLAGS  := -O2 -Wall -Wextra \
 LDFLAGS := -static -no-pie
 
 TARGET := ../target/x86_64-unknown-none/release
-OUTPUT := $(TARGET)/flower-apps-musl
+OUTPUT := $(TARGET)/flower-apps-fetch
 
 SRCS := $(shell find . -type f -name '*.c')
 OBJS := $(SRCS:.c=.o)

@@ -1,10 +1,10 @@
 export CARGO_TARGET_DIR := $(CURDIR)/target
 
 # independent apps
-APPS := shell unix musl image mp3
+APPS := shell fetch image mp3 unix 
 
 # shared under unix package
-UNIX_APPS := cat echo sleep wav png fetch hello
+UNIX_APPS := cat echo sleep
 
 TARGET := target/x86_64-unknown-none/release
 DEST := ../flower-boot/initramfs/bin
