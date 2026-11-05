@@ -20,6 +20,7 @@ pub mod generic;
 pub use self::generic::*;
 use crate::arch::addr::{PhysAddr, VirtAddr};
 use crate::arch::generic::paging::MapFlags;
+use crate::system::posix::errno::KResult;
 
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
@@ -129,6 +130,11 @@ pub trait Multitasking: Paging {
         new_sp: u64,
         new_root: Option<<Self as Paging>::Root>,
     );
+}
+
+pub trait Userspace {
+    fn copy_to_user<T: Copy>(src: VirtAddr, data: T) -> KResult<()>;
+    fn copy_from_user<T: Copy>(dest: VirtAddr) -> KResult<T>;
 }
 
 pub struct Processor {}

@@ -26,6 +26,7 @@ pub mod port;
 pub mod process;
 pub mod syscalls;
 pub mod timers;
+pub mod user;
 
 use core::arch::asm;
 

@@ -26,3 +26,4 @@ pub mod ports;
 pub mod stacks;
 pub mod syscalls;
 pub mod timers;
+pub mod user;

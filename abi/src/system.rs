@@ -19,6 +19,7 @@
 pub const UTSNAME_LEN: usize = 65;
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct UtsName {
     pub sysname: [u8; UTSNAME_LEN],
     pub nodename: [u8; UTSNAME_LEN],
