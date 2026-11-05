@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use flower_mono::prctl::ARCH_SET_FS;
+use flower_mono::arch;
 use x86_64::VirtAddr as x86VirtAddr;
 use x86_64::registers::model_specific::FsBase;
 
@@ -34,7 +34,7 @@ pub fn prctl(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     log::trace!("prctl called with arg1: {:#x}, arg2: {:#x}", arg1, arg2);
 
     match arg1 {
-        ARCH_SET_FS => {
+        arch::ARCH_SET_FS => {
             if let fs_base = VirtAddr::new(arg2)
                 && address_space.is_mapped(fs_base)
             {

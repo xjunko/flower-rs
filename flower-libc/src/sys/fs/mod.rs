@@ -18,10 +18,10 @@
 
 use core::ptr;
 
-use flower_mono::structs::FileStat;
-use flower_mono::syscalls::{
+use flower_mono::numbers::{
     SYS_CLOSE, SYS_OPEN, SYS_READ, SYS_STAT, SYS_WRITE,
 };
+use flower_mono::structs::FileStat;
 
 use crate::sys::kernel::{syscall_result, syscall1, syscall3};
 use crate::tty::with_c_string;

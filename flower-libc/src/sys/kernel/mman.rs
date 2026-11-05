@@ -16,8 +16,8 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use flower_mono::mmap::{MAP_ANONYMOUS, MAP_PRIVATE, PROT_READ, PROT_WRITE};
-use flower_mono::syscalls::{SYS_MMAP, SYS_MUNMAP};
+use flower_mono::memory::{MAP_ANONYMOUS, MAP_PRIVATE, PROT_READ, PROT_WRITE};
+use flower_mono::numbers::{SYS_MMAP, SYS_MUNMAP};
 
 use crate::sys::kernel::{syscall_result, syscall2, syscall6};
 

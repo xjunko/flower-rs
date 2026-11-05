@@ -18,7 +18,7 @@
 
 use alloc::vec::Vec;
 
-use flower_mono::auxv::AuxType;
+use flower_mono::elf::AuxType;
 
 use crate::arch::addr::VirtAddr;
 use crate::arch::generic::paging::MapFlags;

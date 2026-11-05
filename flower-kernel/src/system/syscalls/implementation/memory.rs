@@ -18,7 +18,7 @@
 
 use core::ffi::c_int;
 
-use flower_mono::mmap::{
+use flower_mono::memory::{
     MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
 };
 

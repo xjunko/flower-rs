@@ -18,7 +18,7 @@
 
 use core::ffi::{CStr, c_char};
 
-use flower_mono::iovec;
+use flower_mono::fs;
 use flower_mono::structs::FileStat;
 
 use crate::print;
@@ -111,10 +111,10 @@ pub fn write(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
 pub fn write_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
-    let iov = frame.rsi as *const iovec::Iovec;
+    let iov = frame.rsi as *const fs::Iovec;
     let iovcnt = frame.rdx as usize;
 
-    if iovcnt > iovec::IOV_MAX {
+    if iovcnt > fs::IOV_MAX {
         return Err(SyscallError::InvalidArgument);
     }
 
@@ -158,7 +158,16 @@ pub fn write_v(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
 
 pub fn close(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let fd = frame.rdi as usize;
-    let result = system::proc::with_fd_table(|table| table.close(fd));
+
+    let result = system::proc::with_fd_table(|table| match table.get(fd)? {
+        // TODO: musl closes these
+        FdKind::Stdout | FdKind::Stderr => {
+            log::trace!("we're not closing stdout/stderr");
+            Ok(())
+        },
+        _ => table.close(fd),
+    });
+
     if result.is_ok() { Ok(0) } else { Err(SyscallError::BadFileDescriptor) }
 }
 
@@ -258,4 +267,16 @@ pub fn access(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     }
 
     Err(SyscallError::NoSuchFile)
+}
+
+pub fn pipe(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let pipefd_ptr = frame.rdi as *mut fs::PipeFd;
+    log::trace!("pipe syscall: pipefd_ptr={:?}", pipefd_ptr);
+    Err(SyscallError::NotImplemented)
+}
+
+pub fn umask(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let mask = frame.rdi as u32;
+    log::trace!("umask syscall: mask={:#o}", mask);
+    Err(SyscallError::NotImplemented)
 }

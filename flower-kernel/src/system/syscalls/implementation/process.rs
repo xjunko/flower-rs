@@ -21,7 +21,6 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
-use crate::arch;
 use crate::system::syscalls::types::{SyscallError, SyscallFrame};
 use crate::system::{self};
 
@@ -34,24 +33,6 @@ pub fn exit_group(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     // TODO: we dont support multithreading yet, so this is fine
     system::proc::exit(frame.rdi);
     unreachable!();
-}
-
-pub fn msleep(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    // TODO: turn this into a nanosecond sleep from the syscall side.
-    let ms = frame.rdi * 1_000_000;
-    system::proc::sleep(ms);
-    Ok(0)
-}
-
-pub fn mtime(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    let time_ptr = frame.rdi as *mut u64;
-    if time_ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
-    }
-    unsafe {
-        core::ptr::write_volatile(time_ptr, arch::timers::ticks());
-    }
-    Ok(0)
 }
 
 pub fn fork(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
@@ -121,45 +102,4 @@ pub fn execve(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::NoSuchFile);
     }
     Ok(0)
-}
-
-pub fn set_tid_address(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    let tid_ptr = frame.rdi as *mut u32;
-    if tid_ptr.is_null() {
-        return Err(SyscallError::InvalidArgument);
-    }
-
-    let current_thread =
-        system::proc::current().ok_or(SyscallError::NoProcess)?;
-    let current_tid = current_thread.lock().id;
-
-    unsafe {
-        core::ptr::write_volatile(tid_ptr, current_tid as u32);
-    }
-
-    Ok(current_tid)
-}
-
-pub fn get_tid(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
-    let current_thread =
-        system::proc::current().ok_or(SyscallError::NoProcess)?;
-    let current_tid = current_thread.lock().id;
-    Ok(current_tid)
-}
-
-pub fn signal_process_mask(
-    frame: &mut SyscallFrame,
-) -> Result<u64, SyscallError> {
-    let how = frame.rdi as u32;
-    let set_ptr = frame.rsi as *const u64;
-    let oldset_ptr = frame.rdx as *mut u64;
-
-    log::trace!(
-        "signal_procmask called with how: {}, set_ptr: {:?}, oldset_ptr: {:?}",
-        how,
-        set_ptr,
-        oldset_ptr
-    );
-
-    Err(SyscallError::NotImplemented)
 }

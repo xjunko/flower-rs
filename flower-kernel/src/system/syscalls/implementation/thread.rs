@@ -16,11 +16,30 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-pub const IOV_MAX: usize = 1024;
+use crate::arch::syscalls::SyscallFrame;
+use crate::system;
+use crate::system::syscalls::SyscallError;
 
-#[repr(C)]
-#[derive(Debug, Clone, Default)]
-pub struct Iovec {
-    pub base: *const u8,
-    pub len: usize,
+pub fn set_tid_address(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let tid_ptr = frame.rdi as *mut u32;
+    if tid_ptr.is_null() {
+        return Err(SyscallError::InvalidArgument);
+    }
+
+    let current_thread =
+        system::proc::current().ok_or(SyscallError::NoProcess)?;
+    let current_tid = current_thread.lock().id;
+
+    unsafe {
+        core::ptr::write_volatile(tid_ptr, current_tid as u32);
+    }
+
+    Ok(current_tid)
+}
+
+pub fn get_tid(_frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
+    let current_thread =
+        system::proc::current().ok_or(SyscallError::NoProcess)?;
+    let current_tid = current_thread.lock().id;
+    Ok(current_tid)
 }

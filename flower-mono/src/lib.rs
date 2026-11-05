@@ -1,4 +1,3 @@
-#![no_std]
 /*
  * ISC License
  *
@@ -17,9 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-pub mod auxv;
-pub mod iovec;
-pub mod mmap;
-pub mod prctl;
+#![no_std]
+
+pub mod arch;
+pub mod elf;
+pub mod fs;
+pub mod memory;
+pub mod numbers;
 pub mod structs;
-pub mod syscalls;
+pub mod system;
+pub mod time;

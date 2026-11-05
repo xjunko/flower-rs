@@ -20,7 +20,7 @@ use alloc::string::String;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 
-use flower_mono::mmap::{MAP_SHARED, PROT_READ, PROT_WRITE};
+use flower_mono::memory::{MAP_SHARED, PROT_READ, PROT_WRITE};
 use flower_mono::structs::FileStat;
 
 use crate::sys::{fs, kernel};

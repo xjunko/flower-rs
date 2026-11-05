@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use flower_mono::syscalls::{SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_WAITPID};
+use flower_mono::numbers::{SYS_EXECVE, SYS_EXIT, SYS_FORK, SYS_WAITPID};
 
 use crate::allocator;
 use crate::sys::kernel::{syscall_result, syscall0, syscall1, syscall3};

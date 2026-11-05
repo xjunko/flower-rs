@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use flower_mono::syscalls::SYS_MSLEEP;
+use flower_mono::numbers::SYS_MSLEEP;
 
 use crate::sys::kernel::syscall1;
 

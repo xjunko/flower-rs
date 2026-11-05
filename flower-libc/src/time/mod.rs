@@ -16,7 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use flower_mono::syscalls::SYS_MTIME;
+use flower_mono::numbers::SYS_MTIME;
 
 use crate::sys::kernel::syscall1;
 
