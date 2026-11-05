@@ -15,6 +15,7 @@ repos:
     hooks:
       - id: insert-license
         files: '(^|.*/).*\.(rs|c|h)$'
+        exclude: '(^|.*/)thirdparty/.*'
         args:
           - --license-filepath
           - LICENSE

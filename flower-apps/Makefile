@@ -1,7 +1,7 @@
 export CARGO_TARGET_DIR := $(CURDIR)/target
 
 # independent apps
-APPS := shell unix musl
+APPS := shell unix musl image mp3
 
 # shared under unix package
 UNIX_APPS := cat echo sleep wav png fetch hello
