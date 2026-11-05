@@ -20,6 +20,7 @@
 
 pub mod arch;
 pub mod elf;
+pub mod errors;
 pub mod fs;
 pub mod memory;
 pub mod numbers;
