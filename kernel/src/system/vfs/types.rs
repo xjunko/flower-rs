@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use core::ffi::c_int;
 
 use crate::system::ToPosixError;
-use crate::system::posix::KError;
+use crate::system::posix::errno::KError;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VFSPermission {

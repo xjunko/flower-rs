@@ -16,6 +16,8 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+use crate::system::posix::errno::KError;
+
 pub mod elf;
 pub mod mem;
 pub mod posix;
@@ -24,5 +26,5 @@ pub mod syscalls;
 pub mod vfs;
 
 pub trait ToPosixError {
-    fn to_posix_error(&self) -> posix::KError;
+    fn to_posix_error(&self) -> KError;
 }

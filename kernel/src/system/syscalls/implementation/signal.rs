@@ -17,7 +17,7 @@
  */
 
 use crate::arch::syscalls::SyscallFrame;
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::SyscallReturnCode;
 
 pub fn signal_process_mask(

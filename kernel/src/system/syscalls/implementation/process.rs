@@ -20,7 +20,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ffi::{CStr, c_char};
 
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::{SyscallFrame, SyscallReturnCode};
 use crate::system::{self};
 

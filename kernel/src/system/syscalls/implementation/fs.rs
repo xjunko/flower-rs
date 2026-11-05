@@ -22,7 +22,7 @@ use flower_abi::fs;
 use flower_abi::structs::FileStat;
 
 use crate::print;
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::{SyscallFrame, SyscallReturnCode};
 use crate::system::vfs::{FdKind, VFSError, VFSFilelike, VFSWhence};
 use crate::system::{self, ToPosixError};

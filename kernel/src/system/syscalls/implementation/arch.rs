@@ -22,7 +22,7 @@ use x86_64::registers::model_specific::FsBase;
 
 use crate::arch::addr::VirtAddr;
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallReturnCode;
 

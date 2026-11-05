@@ -17,7 +17,7 @@
  */
 
 pub use crate::arch::generic::syscalls::SyscallFrame;
-use crate::system::posix::KResult;
+use crate::system::posix::errno::KResult;
 
 pub type SyscallReturnCode = u64;
 pub type SyscallHandler = fn(&mut SyscallFrame) -> KResult<SyscallReturnCode>;

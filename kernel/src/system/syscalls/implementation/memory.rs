@@ -27,7 +27,7 @@ use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
 use crate::system::ToPosixError;
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::posix::{KError, KResult};
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallReturnCode;
 use crate::system::vfs::{FdKind, VFSError};
