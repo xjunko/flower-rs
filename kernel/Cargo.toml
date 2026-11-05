@@ -1,0 +1,26 @@
+[package]
+name = "flower-kernel"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+bench = false
+name = "flower-kernel"
+test = false
+
+[dependencies]
+# flower
+flower-abi = { path = "../abi" }
+# deps
+acpi = "6.1.0"
+bitflags = "2.13.2"
+limine = "0.5.0"
+linked_list_allocator = "0.10.5"
+log = "0.4.29"
+os-terminal = "0.7.3"
+owo-colors = "4.3.0"
+pci_types = "0.10.1"
+raw-cpuid = "11.6.0"
+spin = "0.10.0"
+x86_64 = "0.15.5"
+xmas-elf = "0.10.0"

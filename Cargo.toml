@@ -1,14 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["flower-apps/*", "flower-kernel", "flower-libc", "flower-mono"]
-exclude = [
-    "flower-apps/target",
-    "flower-apps/template",
-    "flower-apps/shell",
-    "flower-apps/image",
-    "flower-apps/mp3",
-    "flower-apps/fetch",
-]
+members = ["kernel", "abi"]
 
 [workspace.package]
 version = "0.0.1"

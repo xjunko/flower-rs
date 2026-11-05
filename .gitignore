@@ -10,6 +10,11 @@ target/
 /flower-boot/initramfs/*
 /flower-boot/*.tar
 
+/initrd/initramfs/**/*.txt
+/initrd/initramfs/*.hash
+/initrd/initramfs/*
+/initrd/*.tar
+
 # tooling and other misc hack stuff
 flower-apps/lethe/*
 flower-tooling/*

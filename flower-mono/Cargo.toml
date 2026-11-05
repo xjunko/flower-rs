@@ -1,6 +1,0 @@
-[package]
-name = "flower-mono"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]

@@ -71,11 +71,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
-name = "flower-apps-unix"
+name = "flower-abi"
 version = "0.0.1"
-dependencies = [
- "flower-libc",
-]
 
 [[package]]
 name = "flower-kernel"
@@ -83,7 +80,7 @@ version = "0.0.1"
 dependencies = [
  "acpi",
  "bitflags",
- "flower-mono",
+ "flower-abi",
  "limine",
  "linked_list_allocator",
  "log",
@@ -95,19 +92,6 @@ dependencies = [
  "x86_64",
  "xmas-elf",
 ]
-
-[[package]]
-name = "flower-libc"
-version = "0.0.1"
-dependencies = [
- "flower-mono",
- "linked_list_allocator",
- "spin",
-]
-
-[[package]]
-name = "flower-mono"
-version = "0.0.1"
 
 [[package]]
 name = "foldhash"
