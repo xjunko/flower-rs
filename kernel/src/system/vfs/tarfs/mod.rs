@@ -59,6 +59,8 @@ impl TarFS {
     }
 }
 
+const INITRD_FILE: &str = "/boot/initrd";
+
 impl VFSImplementation for TarFS {
     fn initialize(&mut self) -> VFSResult<()> {
         let file = {
@@ -70,7 +72,7 @@ impl VFSImplementation for TarFS {
                 .find(|m| {
                     m.path()
                         .to_str()
-                        .map(|path| path == "/boot/initramfs.tar")
+                        .map(|path| path == INITRD_FILE)
                         .unwrap_or(false)
                 })
         }

@@ -1,4 +1,4 @@
-OUT_TAR := ../initramfs.tar
+OUT_TAR := /tmp/flower-initrd.tar
 HASH_FILE := .initramfs.hash
 
 SRCS := $(filter-out Makefile,$(wildcard *))
