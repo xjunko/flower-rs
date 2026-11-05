@@ -32,6 +32,26 @@ use crate::system::syscalls::types::SyscallError;
 use crate::system::vfs::{FdKind, VFSError};
 use crate::{arch, system};
 
+fn range_is_mapped(
+    address_space: &AddressSpace,
+    start: u64,
+    pages: u64,
+) -> Result<bool, SyscallError> {
+    let page_size = arch::layout::PAGE_SIZE as u64;
+    for page in 0..pages {
+        let address = start
+            .checked_add(
+                page.checked_mul(page_size)
+                    .ok_or(SyscallError::InvalidArgument)?,
+            )
+            .ok_or(SyscallError::InvalidArgument)?;
+        if address_space.is_mapped(VirtAddr::new(address)) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 pub fn brk(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
     let requested = frame.rdi;
     let current = system::proc::current()
@@ -104,6 +124,13 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         return Err(SyscallError::InvalidArgument);
     }
 
+    if flags & flower_mono::memory::MAP_FIXED != 0
+        && !addr.is_multiple_of(arch::layout::PAGE_SIZE as u64)
+    {
+        log::error!("mmap failed: MAP_FIXED address is not page-aligned");
+        return Err(SyscallError::InvalidArgument);
+    }
+
     if offset % arch::layout::PAGE_SIZE as u64 != 0 {
         log::error!("mmap failed: offset is not page-aligned");
         return Err(SyscallError::InvalidArgument);
@@ -131,13 +158,31 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
         .ok_or(SyscallError::Other("no current process found".into()))?;
     let mut proc = current.lock();
 
-    let heap_start = if addr == 0 {
+    let mut heap_start = if addr == 0 {
         proc.user_heap_position()
     } else {
         addr & !(arch::layout::PAGE_SIZE as u64 - 1)
     };
-    let heap_pages = (size + arch::layout::PAGE_SIZE as u64 - 1)
-        / arch::layout::PAGE_SIZE as u64;
+    let page_size = arch::layout::PAGE_SIZE as u64;
+    let heap_pages =
+        size.checked_add(page_size - 1).ok_or(SyscallError::InvalidArgument)?
+            / page_size;
+
+    if flags & flower_mono::memory::MAP_FIXED == 0 {
+        let address_space =
+            proc.address_space.as_ref().ok_or(SyscallError::NoProcess)?;
+
+        if addr != 0 && range_is_mapped(address_space, heap_start, heap_pages)?
+        {
+            heap_start = proc.user_heap_position();
+        }
+
+        while range_is_mapped(address_space, heap_start, heap_pages)? {
+            heap_start = heap_start
+                .checked_add(page_size)
+                .ok_or(SyscallError::InvalidArgument)?;
+        }
+    }
 
     let mut heap_ptr = heap_start;
     let mut page_flags = MapFlags::READ;
@@ -224,14 +269,31 @@ pub fn mmap(frame: &mut SyscallFrame) -> Result<u64, SyscallError> {
             Err(result.err().unwrap().to_syscall_error())
         }
     } else {
-        for _ in 0..heap_pages {
-            proc.address_space.as_mut().unwrap().map_page_alloc(
-                VirtAddr::new(heap_ptr),
-                page_flags,
-            ).map_err(|_| {
-                log::debug!(
-                    "mmap failed: could not map page at user heap position {:#x}",
-                    proc.user_heap_position()
+        let address_space =
+            proc.address_space.as_mut().ok_or(SyscallError::NoProcess)?;
+
+        for page_index in 0..heap_pages {
+            let virt = VirtAddr::new(heap_ptr);
+            if flags & flower_mono::memory::MAP_FIXED != 0
+                && address_space.is_mapped(virt)
+            {
+                let old_phys = address_space
+                    .unmap_page(virt)
+                    .map_err(|_| SyscallError::InvalidArgument)?;
+                if system::mem::pmm::is_usable_address(old_phys.as_u64()) {
+                    system::mem::pmm::free(old_phys.as_u64());
+                }
+            }
+
+            address_space.map_page_alloc(virt, page_flags).map_err(|_| {
+                log::error!(
+                    "mmap failed: addr={:#x}, flags={:#x}, fixed={}, page={}/{}, target={:#x}",
+                    addr,
+                    flags,
+                    flags & flower_mono::memory::MAP_FIXED != 0,
+                    page_index,
+                    heap_pages,
+                    heap_ptr,
                 );
                 SyscallError::InvalidArgument
             })?;
