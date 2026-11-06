@@ -16,15 +16,15 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::system::vfs::VFSFilelike;
+use crate::system::vfs::FileLike;
 use crate::system::{self};
 
 const SHELL_PATH: &str = "/bin/shell";
 pub fn entry() {
     if let Ok(file) = system::vfs::open(SHELL_PATH, 0) {
         match file {
-            VFSFilelike::File(f) => {
-                let metadata = f.metadata().expect("invalid metadata");
+            FileLike::File(f) => {
+                let metadata = f.stat().expect("invalid metadata");
                 let mut buffer = alloc::vec![0u8; metadata.size ];
                 f.read(&mut buffer).expect("failed to read file");
                 system::proc::user::spawn_elf("shell", &buffer)

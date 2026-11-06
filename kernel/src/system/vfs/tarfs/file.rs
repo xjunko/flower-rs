@@ -21,13 +21,12 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::system::vfs::{
-    VFSError, VFSFile, VFSMetadata, VFSMetadataFileType, VFSPermissions,
-    VFSResult, VFSWhence,
-};
+use crate::arch::addr::PhysAddr;
+use crate::system::posix::errno::{KError, KResult};
+use crate::system::vfs::{File, FileType, Stat, Whence};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TarFSFileType {
+pub enum TarFileType {
     File = 0,
     HardLink = 1,
     Symlink = 2,
@@ -38,17 +37,17 @@ pub enum TarFSFileType {
     Unknown = 7,
 }
 
-impl From<u8> for TarFSFileType {
+impl From<u8> for TarFileType {
     fn from(value: u8) -> Self {
         match value {
-            b'0' | 0 => TarFSFileType::File,
-            b'1' => TarFSFileType::HardLink,
-            b'2' => TarFSFileType::Symlink,
-            b'3' => TarFSFileType::CharacterDevice,
-            b'4' => TarFSFileType::BlockDevice,
-            b'5' => TarFSFileType::Directory,
-            b'6' => TarFSFileType::Fifo,
-            _ => TarFSFileType::Unknown,
+            b'0' | 0 => TarFileType::File,
+            b'1' => TarFileType::HardLink,
+            b'2' => TarFileType::Symlink,
+            b'3' => TarFileType::CharacterDevice,
+            b'4' => TarFileType::BlockDevice,
+            b'5' => TarFileType::Directory,
+            b'6' => TarFileType::Fifo,
+            _ => TarFileType::Unknown,
         }
     }
 }
@@ -66,7 +65,7 @@ pub struct TarFile {
     pub size: usize,
     pub last_modified: usize,
     pub checksum: usize,
-    pub file_type: TarFSFileType,
+    pub file_type: TarFileType,
     pub owner_name: String,
     pub group_name: String,
     pub device_major: usize,
@@ -101,10 +100,10 @@ impl Clone for TarFile {
     }
 }
 
-impl VFSFile for TarFile {
-    fn name(&self) -> VFSResult<String> { Ok(self.name.clone()) }
+impl File for TarFile {
+    fn name(&self) -> KResult<String> { Ok(self.name.clone()) }
 
-    fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
+    fn read(&self, buf: &mut [u8]) -> KResult<usize> {
         let (position, bytes_to_read) = loop {
             let position = self._position.load(Ordering::Acquire);
 
@@ -143,22 +142,22 @@ impl VFSFile for TarFile {
         Ok(bytes_to_read)
     }
 
-    fn write(&self, _buf: &mut [u8]) -> VFSResult<usize> {
+    fn write(&self, _buf: &mut [u8]) -> KResult<usize> {
         // tarfs is a read-only view over the initramfs archive.
-        Err(VFSError::Unsupported)
+        Err(KError::EPERM)
     }
 
-    fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize> {
+    fn seek(&mut self, offset: i64, pos: Whence) -> KResult<usize> {
         let current = self._position.load(Ordering::Acquire) as i128;
         let base = match pos {
-            VFSWhence::Start => 0,
-            VFSWhence::Current => current,
-            VFSWhence::End => self.size as i128,
+            Whence::Start => 0,
+            Whence::Current => current,
+            Whence::End => self.size as i128,
         };
         let new_pos = base
             .checked_add(offset as i128)
             .and_then(|position| usize::try_from(position).ok())
-            .ok_or(VFSError::InvalidSeek)?;
+            .ok_or(KError::ESPIPE)?;
 
         self._position.store(new_pos, Ordering::Release);
         Ok(new_pos)
@@ -170,32 +169,27 @@ impl VFSFile for TarFile {
         _prot: core::ffi::c_int,
         _flags: core::ffi::c_int,
         _offset: u64,
-    ) -> VFSResult<*mut u8> {
+    ) -> KResult<PhysAddr> {
         unimplemented!()
     }
 
-    fn metadata(&self) -> VFSResult<VFSMetadata> {
+    fn stat(&self) -> KResult<Stat> {
         let typ = match self.file_type {
-            TarFSFileType::File | TarFSFileType::HardLink => {
-                VFSMetadataFileType::File
+            TarFileType::File | TarFileType::HardLink => FileType::File,
+            TarFileType::Directory => FileType::Directory,
+            TarFileType::CharacterDevice | TarFileType::BlockDevice => {
+                FileType::Device
             },
-            TarFSFileType::Directory => VFSMetadataFileType::Directory,
-            TarFSFileType::CharacterDevice | TarFSFileType::BlockDevice => {
-                VFSMetadataFileType::Device
-            },
-            TarFSFileType::Symlink => VFSMetadataFileType::Symlink,
-            TarFSFileType::Fifo => VFSMetadataFileType::Pipe,
-            _ => VFSMetadataFileType::Unknown,
+            TarFileType::Symlink => FileType::Symlink,
+            TarFileType::Fifo => FileType::Pipe,
+            _ => FileType::Unknown,
         };
 
-        Ok(VFSMetadata {
+        Ok(Stat {
             name: self.name.clone(),
             typ,
             size: self.size,
             last_modified: self.last_modified,
-            owner_id: self.owner_id,
-            group_id: self.group_id,
-            permissions: VFSPermissions::from_unix(self.mode),
         })
     }
 }

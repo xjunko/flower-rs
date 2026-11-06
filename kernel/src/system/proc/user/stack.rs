@@ -27,7 +27,7 @@ use crate::arch::layout::{
 };
 use crate::system::elf::{self, ELFLoadType};
 use crate::system::mem::vmm::AddressSpace;
-use crate::system::vfs::VFSFilelike;
+use crate::system::vfs::FileLike;
 use crate::{arch, system};
 
 pub struct UserImageInfo {
@@ -141,9 +141,9 @@ pub fn build_user_image(
     if let Some(interp_path) = &loaded.interp {
         if let Ok(interp_file) = system::vfs::open(interp_path, 0) {
             match interp_file {
-                VFSFilelike::File(f) => {
+                FileLike::File(f) => {
                     let metadata =
-                        f.metadata().expect("failed to get interp metadata.");
+                        f.stat().expect("failed to get interp metadata.");
                     let mut buffer = alloc::vec![0u8; metadata.size];
                     f.read(&mut buffer).expect("failed to read interp");
                     let interp_loaded = elf::load_into(

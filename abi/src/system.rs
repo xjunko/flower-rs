@@ -28,3 +28,14 @@ pub struct UtsName {
     pub machine: [u8; UTSNAME_LEN],
     pub domainname: [u8; UTSNAME_LEN],
 }
+
+pub const TIOCGWINSZ: usize = 0x5413;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct WinSize {
+    pub ws_row: u16,
+    pub ws_col: u16,
+    pub ws_xpixel: u16,
+    pub ws_ypixel: u16,
+}

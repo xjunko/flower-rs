@@ -18,12 +18,13 @@
 
 use alloc::boxed::Box;
 
-use crate::system::vfs::types::{VFSError, VFSFile, VFSResult};
+use crate::system::posix::errno::{KError, KResult};
+use crate::system::vfs::types::File;
 
 pub const MAX_FDS: usize = 8;
 
 pub enum FdKind {
-    File(Box<dyn VFSFile>),
+    File(Box<dyn File>),
     Stdin,
     Stdout,
     Stderr,
@@ -42,42 +43,39 @@ impl FdTable {
         table
     }
 
-    pub fn alloc(&mut self, kind: FdKind) -> VFSResult<usize> {
+    pub fn alloc(&mut self, kind: FdKind) -> KResult<usize> {
         for (i, slot) in self.fds.iter_mut().enumerate().skip(3) {
             if slot.is_none() {
                 *slot = Some(kind);
                 return Ok(i);
             }
         }
-        Err(VFSError::NoSpace)
+        Err(KError::ENOSPC)
     }
 
-    pub fn get(&self, fd: usize) -> VFSResult<&FdKind> {
+    pub fn get(&self, fd: usize) -> KResult<&FdKind> {
         if fd >= MAX_FDS {
-            return Err(VFSError::NotFound);
+            return Err(KError::EBADFD);
         }
-        self.fds.get(fd).and_then(|opt| opt.as_ref()).ok_or(VFSError::NotFound)
+        self.fds.get(fd).and_then(|opt| opt.as_ref()).ok_or(KError::EBADFD)
     }
 
-    pub fn get_mut(&mut self, fd: usize) -> VFSResult<&mut FdKind> {
+    pub fn get_mut(&mut self, fd: usize) -> KResult<&mut FdKind> {
         if fd >= MAX_FDS {
-            return Err(VFSError::NotFound);
+            return Err(KError::EBADFD);
         }
-        self.fds
-            .get_mut(fd)
-            .and_then(|opt| opt.as_mut())
-            .ok_or(VFSError::NotFound)
+        self.fds.get_mut(fd).and_then(|opt| opt.as_mut()).ok_or(KError::EBADF)
     }
 
-    pub fn close(&mut self, fd: usize) -> VFSResult<()> {
+    pub fn close(&mut self, fd: usize) -> KResult<()> {
         if fd >= MAX_FDS {
-            return Err(VFSError::NotFound);
+            return Err(KError::EBADFD);
         }
         if fd < 3 {
-            return Err(VFSError::PermissionDenied);
+            return Err(KError::EPERM);
         }
         if self.fds[fd].is_none() {
-            return Err(VFSError::NotFound);
+            return Err(KError::EBADFD);
         }
         self.fds[fd] = None;
         Ok(())

@@ -20,12 +20,14 @@ use core::ffi::{CStr, c_char};
 
 use flower_abi::fs;
 use flower_abi::structs::FileStat;
+use flower_abi::system::WinSize;
 
-use crate::print;
+use crate::arch::addr::VirtAddr;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::{SyscallFrame, SyscallReturnCode};
-use crate::system::vfs::{FdKind, VFSError, VFSFilelike, VFSWhence};
-use crate::system::{self, ToPosixError};
+use crate::system::vfs::{FdKind, FileLike, Whence};
+use crate::system::{self};
+use crate::{arch, print};
 
 pub fn open(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let path =
@@ -36,7 +38,7 @@ pub fn open(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     // TODO: handle directory
     match system::vfs::open(path, flags) {
         Ok(file) => match file {
-            VFSFilelike::File(f) => {
+            FileLike::File(f) => {
                 let result = system::proc::with_fd_table(|table| {
                     table.alloc(FdKind::File(f))
                 });
@@ -47,7 +49,7 @@ pub fn open(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
                 Err(KError::EIO)
             },
         },
-        Err(e) => Err(e.to_posix_error()),
+        Err(e) => Err(e),
     }
 }
 
@@ -68,14 +70,14 @@ pub fn read(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
             },
             _ => {
                 log::error!("read syscall: fd {} is not readable", fd);
-                Err(VFSError::PermissionDenied)
+                Err(KError::EPERM)
             },
         });
 
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(result.err().unwrap().to_posix_error())
+        Err(result.err().unwrap())
     }
 }
 
@@ -102,15 +104,15 @@ pub fn read_v(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
                     };
                     read_total = read_total
                         .checked_add(file.read(slice)?)
-                        .ok_or(VFSError::IOError)?;
+                        .ok_or(KError::EIO)?;
                 }
                 Ok(read_total)
             },
-            _ => Err(VFSError::PermissionDenied),
+            _ => Err(KError::EBADFD),
         }
     });
 
-    result.map(|count| count as u64).map_err(|error| error.to_posix_error())
+    result.map(|count| count as u64)
 }
 
 pub fn write(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
@@ -133,14 +135,14 @@ pub fn write(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         },
         _ => {
             log::error!("write syscall: fd {} is not writable", fd);
-            Err(VFSError::PermissionDenied)
+            Err(KError::EPERM)
         },
     });
 
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(result.err().unwrap().to_posix_error())
+        Err(result.expect_err("error not found while erroring"))
     }
 }
 
@@ -163,9 +165,8 @@ pub fn write_v(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
                         let byte = unsafe { *entry.base.add(offset) };
                         print!("{}", byte as char);
                     }
-                    written = written
-                        .checked_add(entry.len)
-                        .ok_or(VFSError::IOError)?;
+                    written =
+                        written.checked_add(entry.len).ok_or(KError::EIO)?;
                 }
                 Ok(written)
             },
@@ -180,15 +181,15 @@ pub fn write_v(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
                     };
                     written = written
                         .checked_add(file.write(slice)?)
-                        .ok_or(VFSError::IOError)?;
+                        .ok_or(KError::EIO)?;
                 }
                 Ok(written)
             },
-            _ => Err(VFSError::PermissionDenied),
+            _ => Err(KError::EBADFD),
         }
     });
 
-    result.map(|count| count as u64).map_err(|error| error.to_posix_error())
+    result.map(|count| count as u64)
 }
 
 pub fn close(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
@@ -216,10 +217,10 @@ pub fn seek(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
             FdKind::File(file) => file.seek(
                 offset,
                 match whence {
-                    0 => VFSWhence::Start,
-                    1 => VFSWhence::Current,
-                    2 => VFSWhence::End,
-                    _ => return Err(VFSError::InvalidSeek),
+                    0 => Whence::Start,
+                    1 => Whence::Current,
+                    2 => Whence::End,
+                    _ => return Err(KError::EINVAL),
                 },
             ),
             FdKind::Stdin | FdKind::Stdout | FdKind::Stderr => {
@@ -234,7 +235,7 @@ pub fn seek(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     if let Ok(result) = result {
         Ok(result as u64)
     } else {
-        Err(result.err().unwrap().to_posix_error())
+        Err(result.expect_err("error not found while erroring"))
     }
 }
 
@@ -246,7 +247,7 @@ pub fn stat(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
     let result = system::proc::with_fd_table(|table| match table.get(fd)? {
         FdKind::File(file) => {
-            let stat = file.metadata()?;
+            let stat = file.stat()?;
             unsafe {
                 (*stat_buf).st_mode = 0; // TODO: set mode
                 (*stat_buf).st_dev = 0; // TODO: set device id
@@ -256,14 +257,14 @@ pub fn stat(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         },
         _ => {
             log::error!("stat syscall: fd {} is not statable", fd);
-            Err(VFSError::PermissionDenied)
+            Err(KError::EPERM)
         },
     });
 
     if result.is_ok() {
         Ok(0)
     } else {
-        Err(result.err().unwrap().to_posix_error())
+        Err(result.expect_err("err not found, while erroring."))
     }
 }
 
@@ -279,15 +280,34 @@ pub fn ioctl(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         argp
     );
 
-    // let result =
-    //     system::proc::with_fd_table(|table| match table.get_mut(fd)? {
-    //         FdKind::File(file) => file.ioctl(request, argp),
-    //         _ => {
-    //             log::error!("ioctl syscall: fd {} is not ioctlable", fd);
-    //             Err(VFSError::PermissionDenied)
-    //         },
-    //     });
-    Err(KError::ENOTTY)
+    let result =
+        system::proc::with_fd_table(|table| match table.get_mut(fd)? {
+            FdKind::File(file) => file.ioctl(request, argp as usize),
+            FdKind::Stdout => match request as usize {
+                flower_abi::system::TIOCGWINSZ => {
+                    let win_size = WinSize {
+                        ws_row: 0,
+                        ws_col: 0,
+                        ws_xpixel: 0,
+                        ws_ypixel: 0,
+                    };
+
+                    arch::user::copy_to_user(
+                        VirtAddr::new(argp as u64),
+                        win_size,
+                    )
+                    .expect("failed to copy win_size to libc");
+                    Ok(0)
+                },
+                _ => Err(KError::ENOTTY),
+            },
+            _ => {
+                log::error!("ioctl syscall: fd {} is not ioctlable", fd);
+                Err(KError::ENOTTY)
+            },
+        });
+
+    if result.is_ok() { Ok(0) } else { Err(KError::ENOTTY) }
 }
 
 pub fn access(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {

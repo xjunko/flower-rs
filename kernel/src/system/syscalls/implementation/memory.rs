@@ -25,12 +25,11 @@ use flower_abi::memory::{
 use crate::arch::addr::VirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
-use crate::system::ToPosixError;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallReturnCode;
-use crate::system::vfs::{FdKind, VFSError};
+use crate::system::vfs::FdKind;
 use crate::{arch, system};
 
 fn range_is_mapped(
@@ -200,7 +199,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
                     flags as c_int,
                     offset,
                 ),
-                _ => Err(VFSError::Unsupported),
+                _ => Err(KError::ENOSYS),
             });
 
         if let Ok(data) = result {
@@ -215,15 +214,18 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
             log::debug!(
                 "mmap: fd {} mmap returned data pointer {:#x}",
                 fd,
-                data as u64
+                data
             );
 
             let address_space = AddressSpace::current();
 
             for i in 0..heap_pages {
                 let src_virt = VirtAddr::new(unsafe {
-                    data.add(i as usize * arch::layout::PAGE_SIZE) as u64
+                    data.as_ptr::<*mut u64>()
+                        .add(i as usize * arch::layout::PAGE_SIZE)
+                        as u64
                 });
+
                 let src_phys = address_space.translate(src_virt).ok_or_else(|| {
                     log::error!(
                         "mmap failed: could not translate source virt {:#x} to phys",
@@ -258,7 +260,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
             Ok(heap_start)
         } else {
             log::error!("mmap failed for fd {}", fd);
-            Err(result.err().unwrap().to_posix_error())
+            Err(result.expect_err("no error while erroring"))
         }
     } else {
         let address_space =

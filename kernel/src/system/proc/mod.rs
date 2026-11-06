@@ -32,8 +32,9 @@ use spin::Mutex;
 pub use self::exit::exit;
 pub use self::sleep::sleep;
 use crate::arch;
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::proc::scheduler::Scheduler;
-use crate::system::vfs::{FdTable, VFSError, VFSResult};
+use crate::system::vfs::FdTable;
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -70,11 +71,11 @@ pub fn spawn(name: &str, entry: fn()) {
 }
 
 /// loops over the file descriptors of the current process
-pub fn with_fd_table<F, R>(f: F) -> VFSResult<R>
-where F: FnOnce(&mut FdTable) -> VFSResult<R> {
+pub fn with_fd_table<F, R>(f: F) -> KResult<R>
+where F: FnOnce(&mut FdTable) -> KResult<R> {
     let mut guard = SCHEDULER.lock();
-    let sched = guard.as_mut().ok_or(VFSError::IOError)?;
-    let task = sched.current().ok_or(VFSError::IOError)?;
+    let sched = guard.as_mut().ok_or(KError::ESRCH)?;
+    let task = sched.current().ok_or(KError::ESRCH)?;
     task.lock().with_fd_table(f)
 }
 

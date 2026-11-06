@@ -25,8 +25,9 @@ use crate::arch::layout::KERNEL_STACK_SIZE;
 use crate::arch::paging::MapFlags;
 use crate::arch::{self, Multitasking, Paging, Processor};
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::posix::errno::KResult;
 use crate::system::syscalls::SyscallFrame;
-use crate::system::vfs::{FdTable, VFSResult};
+use crate::system::vfs::FdTable;
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -140,8 +141,8 @@ impl Process {
 }
 
 impl Process {
-    pub fn with_fd_table<F, R>(&mut self, f: F) -> VFSResult<R>
-    where F: FnOnce(&mut FdTable) -> VFSResult<R> {
+    pub fn with_fd_table<F, R>(&mut self, f: F) -> KResult<R>
+    where F: FnOnce(&mut FdTable) -> KResult<R> {
         f(&mut self.fds)
     }
 }

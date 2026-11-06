@@ -21,42 +21,11 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::ffi::c_int;
 
-use crate::system::ToPosixError;
-use crate::system::posix::errno::KError;
+use crate::arch::addr::PhysAddr;
+use crate::system::posix::errno::{KError, KResult};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum VFSPermission {
-    Read = 0b100,
-    Write = 0b010,
-    Execute = 0b001,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum VFSPermissionShift {
-    Owner = 6,
-    Group = 3,
-    Other = 0,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct VFSPermissions {
-    bits: u16,
-}
-
-impl VFSPermissions {
-    pub fn new() -> Self { Self { bits: 0 } }
-
-    pub fn from_unix(perm: usize) -> Self {
-        Self { bits: (perm & 0o777) as u16 }
-    }
-
-    pub fn has(&self, perm: VFSPermission, shift: VFSPermissionShift) -> bool {
-        (self.bits & ((perm as u16) << (shift as u16))) != 0
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum VFSMetadataFileType {
+pub enum FileType {
     File,
     Directory,
     Device,
@@ -66,120 +35,79 @@ pub enum VFSMetadataFileType {
 }
 
 #[derive(Debug, Clone)]
-pub struct VFSMetadata {
+pub struct Stat {
     pub name: String,
     pub size: usize,
-    pub typ: VFSMetadataFileType,
+    pub typ: FileType,
     pub last_modified: usize,
-    pub owner_id: usize,
-    pub group_id: usize,
-    pub permissions: VFSPermissions,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum VFSWhence {
+pub enum Whence {
     Start,
     Current,
     End,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum VFSError {
-    NotFound,
-    AlreadyExists,
-    InvalidSeek,
-    PermissionDenied,
-    NoSpace,
-    IOError,
-    Unsupported,
-    Unknown(String),
+pub enum FileLike {
+    File(Box<dyn File>),
+    Directory(Box<dyn Directory>),
 }
 
-impl ToPosixError for VFSError {
-    fn to_posix_error(&self) -> KError {
-        match self {
-            Self::NotFound => KError::ENOENT,
-            Self::AlreadyExists => KError::EEXIST,
-            Self::InvalidSeek => KError::EINVAL,
-            Self::PermissionDenied => KError::EACCES,
-            Self::NoSpace => KError::ENOSPC,
-            Self::IOError => KError::EIO,
-            Self::Unsupported => KError::EIO,
-            Self::Unknown(_) => KError::EIO,
-        }
-    }
-}
-
-pub type VFSResult<T> = Result<T, VFSError>;
-
-pub enum VFSFilelike {
-    File(Box<dyn VFSFile>),
-    Directory(Box<dyn VFSDirectory>),
-}
-
-pub trait VFSFile: Send + Sync {
+pub trait File: Send + Sync {
     /// gets the name of the file
-    fn name(&self) -> VFSResult<String>;
+    fn name(&self) -> KResult<String> { Err(KError::ENOSYS) }
+
+    /// gets the info for the file
+    fn stat(&self) -> KResult<Stat> { Err(KError::ENOSYS) }
 
     /// reads data into the given buffer and returns the number of bytes read
-    fn read(&self, buf: &mut [u8]) -> VFSResult<usize>;
+    fn read(&self, buf: &mut [u8]) -> KResult<usize>;
 
     /// writes data from the given buffer and returns the number of bytes written
-    fn write(&self, buf: &mut [u8]) -> VFSResult<usize>;
+    fn write(&self, buf: &mut [u8]) -> KResult<usize>;
 
     /// seeks to the given position and returns the new position
-    fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize>;
+    fn seek(&mut self, offset: i64, pos: Whence) -> KResult<usize>;
+
+    /// ioctl
+    fn ioctl(&self, _cmd: u64, _arg: usize) -> KResult<usize> {
+        Err(KError::ENOSYS)
+    }
 
     /// maps the file into memory and returns a pointer to the mapped region
     fn mmap(
         &self,
-        len: usize,
-        prot: c_int,
-        flags: c_int,
-        offset: u64,
-    ) -> VFSResult<*mut u8>;
-
-    /// gets the info for the file
-    fn metadata(&self) -> VFSResult<VFSMetadata>;
-
-    /// changes the permissions of the file
-    fn chmod(&self, _mode: u32) -> VFSResult<()> { Err(VFSError::Unsupported) }
-
-    /// changes the owner of the file
-    fn chown(&self, _uid: u32, _gid: u32) -> VFSResult<()> {
-        Err(VFSError::Unsupported)
+        _len: usize,
+        _prot: c_int,
+        _flags: c_int,
+        _offset: u64,
+    ) -> KResult<PhysAddr> {
+        Err(KError::ENOSYS)
     }
 }
 
-pub trait VFSDirectory: Send + Sync {
+pub trait Directory: Send + Sync {
     /// get the name of the directory
-    fn name(&self) -> VFSResult<String>;
+    fn name(&self) -> KResult<String>;
 
     /// get the contents of the directory
-    fn contents(&self) -> VFSResult<Vec<VFSFilelike>>;
+    fn contents(&self) -> KResult<Vec<FileLike>>;
 
     /// deletes a file in the directory
-    fn delete(&self, name: &str) -> VFSResult<()>;
-
-    /// changes the permissions of the directory
-    fn chmod(&self, _mode: u32) -> VFSResult<()> { Err(VFSError::Unsupported) }
-
-    /// changes the owner of the directory
-    fn chown(&self, _uid: u32, _gid: u32) -> VFSResult<()> {
-        Err(VFSError::Unsupported)
-    }
+    fn delete(&self, name: &str) -> KResult<()>;
 }
 
-pub trait VFSImplementation: Send + Sync {
+pub trait FileSystem: Send + Sync {
     /// initializes the filesystem
-    fn initialize(&mut self) -> VFSResult<()>;
+    fn initialize(&mut self) -> KResult<()>;
 
     /// opens the file
-    fn open(&self, path: &str, flags: u32) -> VFSResult<VFSFilelike>;
+    fn open(&self, path: &str, flags: u32) -> KResult<FileLike>;
 
     /// gets the info for the file
-    fn metadata(&self, path: &str) -> VFSResult<VFSMetadata>;
+    fn stat(&self, path: &str) -> KResult<Stat>;
 
     /// checks if the file exists
-    fn exists(&self, path: &str) -> bool { self.metadata(path).is_ok() }
+    fn exists(&self, path: &str) -> bool { self.stat(path).is_ok() }
 }

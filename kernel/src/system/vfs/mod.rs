@@ -30,11 +30,12 @@ mod types;
 
 pub use self::fds::*;
 pub use self::types::*;
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::tarfs::TarFS;
 
 pub struct Mount {
     path: String,
-    fs: Box<dyn VFSImplementation>,
+    fs: Box<dyn FileSystem>,
 }
 
 pub struct Vfs {
@@ -47,7 +48,7 @@ impl Vfs {
     pub fn new() -> Self { Self { mounts: Vec::new() } }
 
     /// start up all the filesystems
-    pub fn initialize(&mut self) -> VFSResult<()> {
+    pub fn initialize(&mut self) -> KResult<()> {
         for mount in &mut self.mounts {
             mount.fs.initialize()?;
         }
@@ -58,12 +59,12 @@ impl Vfs {
     pub fn mount(
         &mut self,
         path: &str,
-        fs: Box<dyn VFSImplementation>,
-    ) -> VFSResult<()> {
+        fs: Box<dyn FileSystem>,
+    ) -> KResult<()> {
         let path = path.to_string();
 
         if self.mounts.iter().any(|m| m.path == path) {
-            return Err(VFSError::AlreadyExists);
+            return Err(KError::EEXIST);
         }
 
         self.mounts.push(Mount { path, fs });
@@ -72,25 +73,22 @@ impl Vfs {
     }
 
     /// unmounts the filesystem at the given path
-    pub fn unmount(&mut self, path: &str) -> VFSResult<()> {
+    pub fn unmount(&mut self, path: &str) -> KResult<()> {
         let path = path.to_string();
 
         let idx = self
             .mounts
             .iter()
             .position(|m| m.path == path)
-            .ok_or(VFSError::NotFound)?;
+            .ok_or(KError::EEXIST)?;
         self.mounts.remove(idx);
         Ok(())
     }
 
     /// resolves the given path to a filesystem and relative path
-    pub fn resolve(
-        &self,
-        path: &str,
-    ) -> VFSResult<(&dyn VFSImplementation, String)> {
+    pub fn resolve(&self, path: &str) -> KResult<(&dyn FileSystem, String)> {
         let path = path.to_string();
-        let mut best: Option<(&dyn VFSImplementation, usize, String)> = None;
+        let mut best: Option<(&dyn FileSystem, usize, String)> = None;
 
         for mount in &self.mounts {
             let matches = if mount.path == "/" {
@@ -121,7 +119,7 @@ impl Vfs {
 
         match best {
             Some((fs, _, relative)) => Ok((fs, relative)),
-            None => Err(VFSError::NotFound),
+            None => Err(KError::EEXIST),
         }
     }
 }
@@ -129,7 +127,7 @@ impl Vfs {
 // public api
 impl Vfs {
     /// opens the file at the given path with the given flags
-    pub fn open(&self, path: &str, flags: u32) -> VFSResult<VFSFilelike> {
+    pub fn open(&self, path: &str, flags: u32) -> KResult<FileLike> {
         let (fs, relative) = self.resolve(path)?;
         fs.open(&relative, flags)
     }
@@ -159,7 +157,7 @@ pub fn install() {
 }
 
 // public methods
-pub fn open(path: &str, flags: u32) -> VFSResult<VFSFilelike> {
+pub fn open(path: &str, flags: u32) -> KResult<FileLike> {
     ROOT_VFS.lock().open(path, flags)
 }
 
@@ -167,11 +165,11 @@ pub fn open(path: &str, flags: u32) -> VFSResult<VFSFilelike> {
 /// only for internal use
 pub fn __read(path: &str) -> Result<Vec<u8>, &'static str> {
     let file = match open(path, 0).map_err(|_| "failed to read file")? {
-        VFSFilelike::File(f) => f,
+        FileLike::File(f) => f,
         _ => return Err("expected a regular file"),
     };
 
-    let metadata = file.metadata().map_err(|_| "failed to stat file")?;
+    let metadata = file.stat().map_err(|_| "failed to stat file")?;
 
     let mut file_data = Vec::with_capacity(metadata.size.max(1));
     let mut tmp = alloc::vec![0u8; 4096];

@@ -29,14 +29,13 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 
 pub use proc::create_procfs;
 
-use crate::system::vfs::{
-    VFSError, VFSFile, VFSFilelike, VFSImplementation, VFSMetadata,
-    VFSMetadataFileType, VFSPermissions, VFSResult, VFSWhence,
-};
+use crate::arch::addr::PhysAddr;
+use crate::system::posix::errno::{KError, KResult};
+use crate::system::vfs::{File, FileLike, FileSystem, FileType, Stat, Whence};
 
 type ReadFn = fn(usize, &mut [u8]) -> usize;
 type WriteFn = fn(&[u8]) -> usize;
-type MmapFn = fn(usize, c_int, c_int, u64) -> VFSResult<*mut u8>;
+type MmapFn = fn(usize, c_int, c_int, u64) -> KResult<PhysAddr>;
 
 pub struct DevFile {
     path: String,
@@ -76,10 +75,10 @@ impl Clone for DevFile {
     }
 }
 
-impl VFSFile for DevFile {
-    fn name(&self) -> VFSResult<String> { Ok(self.path.clone()) }
+impl File for DevFile {
+    fn name(&self) -> KResult<String> { Ok(self.path.clone()) }
 
-    fn read(&self, buf: &mut [u8]) -> VFSResult<usize> {
+    fn read(&self, buf: &mut [u8]) -> KResult<usize> {
         if let Some(read_fn) = self.fn_read {
             let position = self.position.load(Ordering::Acquire);
             let read = read_fn(position, buf);
@@ -88,24 +87,24 @@ impl VFSFile for DevFile {
             }
             Ok(read)
         } else {
-            Err(VFSError::Unsupported)
+            Err(KError::EOPNOTSUPP)
         }
     }
 
-    fn write(&self, buf: &mut [u8]) -> VFSResult<usize> {
+    fn write(&self, buf: &mut [u8]) -> KResult<usize> {
         if let Some(write_fn) = self.fn_write {
             Ok(write_fn(buf))
         } else {
-            Err(VFSError::Unsupported)
+            Err(KError::EOPNOTSUPP)
         }
     }
 
-    fn seek(&mut self, offset: i64, pos: VFSWhence) -> VFSResult<usize> {
+    fn seek(&mut self, offset: i64, pos: Whence) -> KResult<usize> {
         let current = self.position.load(Ordering::Acquire);
         let new_pos = match pos {
-            VFSWhence::Start => offset as usize,
-            VFSWhence::Current => current.saturating_add(offset as usize),
-            VFSWhence::End => offset as usize, // HACK: just treat it as is
+            Whence::Start => offset as usize,
+            Whence::Current => current.saturating_add(offset as usize),
+            Whence::End => offset as usize, // HACK: just treat it as is
         };
 
         self.position.store(new_pos, Ordering::Release);
@@ -118,28 +117,25 @@ impl VFSFile for DevFile {
         prot: core::ffi::c_int,
         flags: core::ffi::c_int,
         offset: u64,
-    ) -> VFSResult<*mut u8> {
+    ) -> KResult<PhysAddr> {
         if let Some(mmap_fn) = self.fn_mmap {
             mmap_fn(len, prot, flags, offset)
         } else {
-            Err(VFSError::Unsupported)
+            Err(KError::EOPNOTSUPP)
         }
     }
 
-    fn metadata(&self) -> VFSResult<VFSMetadata> {
-        Ok(VFSMetadata {
+    fn stat(&self) -> KResult<Stat> {
+        Ok(Stat {
             name: self
                 .path
                 .split("/")
                 .last()
                 .unwrap_or(self.path.as_str())
                 .to_string(),
-            typ: VFSMetadataFileType::Device,
+            typ: FileType::Device,
             size: 0,
             last_modified: 0,
-            owner_id: 0,
-            group_id: 0,
-            permissions: VFSPermissions::new(),
         })
     }
 }
@@ -154,24 +150,24 @@ impl DevFS {
     pub fn bind(&mut self, file: DevFile) { self.files.push(file); }
 }
 
-impl VFSImplementation for DevFS {
+impl FileSystem for DevFS {
     // DevFS is special since it can easily be used on the other parts of the kernel, so we don't need to initialize it
-    fn initialize(&mut self) -> VFSResult<()> { Ok(()) }
+    fn initialize(&mut self) -> KResult<()> { Ok(()) }
 
-    fn open(&self, path: &str, _flags: u32) -> VFSResult<VFSFilelike> {
+    fn open(&self, path: &str, _flags: u32) -> KResult<FileLike> {
         self.files
             .iter()
             .find(|f| f.path == path)
-            .map(|f| VFSFilelike::File(Box::new(f.clone())))
-            .ok_or(VFSError::NotFound)
+            .map(|f| FileLike::File(Box::new(f.clone())))
+            .ok_or(KError::EEXIST)
     }
 
-    fn metadata(&self, path: &str) -> VFSResult<VFSMetadata> {
+    fn stat(&self, path: &str) -> KResult<Stat> {
         self.files
             .iter()
             .find(|f| f.path == path)
-            .map(|f| f.metadata())
-            .ok_or(VFSError::NotFound)?
+            .map(|f| f.stat())
+            .ok_or(KError::EEXIST)?
     }
 }
 

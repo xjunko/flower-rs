@@ -21,8 +21,9 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::system::vfs::tarfs::file::{TarFSFileType, TarFile};
-use crate::system::vfs::{VFSDirectory, VFSError, VFSFilelike, VFSResult};
+use crate::system::posix::errno::{KError, KResult};
+use crate::system::vfs::tarfs::file::{TarFile, TarFileType};
+use crate::system::vfs::{Directory, FileLike};
 
 pub struct TarFSDirectory {
     pub name: String,
@@ -42,10 +43,10 @@ impl TarFSDirectory {
     }
 }
 
-impl VFSDirectory for TarFSDirectory {
-    fn name(&self) -> VFSResult<String> { Ok(self.name.clone()) }
+impl Directory for TarFSDirectory {
+    fn name(&self) -> KResult<String> { Ok(self.name.clone()) }
 
-    fn contents(&self) -> VFSResult<Vec<VFSFilelike>> {
+    fn contents(&self) -> KResult<Vec<FileLike>> {
         let prefix = self.child_prefix();
 
         let children = self.files.iter().filter(|f| {
@@ -57,20 +58,20 @@ impl VFSDirectory for TarFSDirectory {
 
         Ok(children
             .map(|file| match file.file_type {
-                TarFSFileType::Directory => {
-                    VFSFilelike::Directory(Box::new(TarFSDirectory {
+                TarFileType::Directory => {
+                    FileLike::Directory(Box::new(TarFSDirectory {
                         name: file.name.clone(),
                         path: file.path.clone(),
                         files: Arc::clone(&self.files),
                     }))
                 },
-                _ => VFSFilelike::File(Box::new(file.clone())),
+                _ => FileLike::File(Box::new(file.clone())),
             })
             .collect())
     }
 
-    fn delete(&self, _name: &str) -> VFSResult<()> {
+    fn delete(&self, _name: &str) -> KResult<()> {
         // read-only fs, consistent with TarFile::write
-        Err(VFSError::Unsupported)
+        Err(KError::EPERM)
     }
 }

@@ -19,9 +19,9 @@
 use alloc::string::ToString;
 use core::ffi::c_int;
 
-use crate::boot::limine::FRAMEBUFFER_REQUEST;
+use crate::arch::addr::PhysAddr;
+use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::devfs::{DevFS, DevFile};
-use crate::system::vfs::{VFSError, VFSResult};
 
 fn framebuffer_read(_offset: usize, _buf: &mut [u8]) -> usize {
     unimplemented!()
@@ -33,17 +33,11 @@ fn framebuffer_mmap(
     _prot: c_int,
     _flags: c_int,
     _offset: u64,
-) -> VFSResult<*mut u8> {
-    if let Some(fb) = FRAMEBUFFER_REQUEST
-        .get_response()
-        .expect("no valid framebuffer")
-        .framebuffers()
-        .next()
-    {
-        // should we map a virtual address
-        Ok(fb.addr())
+) -> KResult<PhysAddr> {
+    if let Some(fb_drv) = crate::drivers::fb::get() {
+        Ok(fb_drv.addr)
     } else {
-        Err(VFSError::NotFound)
+        Err(KError::EEXIST)
     }
 }
 
