@@ -16,7 +16,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::arch::layout::USER_STACK_TOP_PAGE;
 use crate::system::proc::user::stack::build_user_image;
 use crate::system::proc::{Process, SCHEDULER};
 
@@ -33,33 +32,15 @@ pub use waitpid::waitpid;
 pub fn spawn_elf(name: &str, elf_data: &[u8]) -> Result<u64, &'static str> {
     let argv = [name];
     let image = build_user_image(elf_data, &argv)?;
+    let entry = image.entry;
 
-    let mut proc = Process::new_user(
-        name,
-        image.address_space,
-        image.entry,
-        image.stack_ptr,
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
-    );
+    let proc = Process::new_user(name, image);
+    let proc_id = proc.id();
 
-    // Set the stack/heap bounds after process creation
-    proc.set_user_stack_bounds(image.stack_bottom, USER_STACK_TOP_PAGE);
-    proc.set_user_heap_bounds(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
-        image.heap_max,
-    );
-
-    let proc_id = proc.id;
     log::trace!(
         "created process {} with entry point {:#x}",
-        proc.name,
-        image.entry
-    );
-
-    proc.set_user_stack_bounds(image.stack_bottom, USER_STACK_TOP_PAGE);
-    proc.set_user_heap_bounds(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
-        image.heap_max,
+        proc.name(),
+        entry
     );
 
     if let Some(sched) = SCHEDULER.lock().as_mut() {

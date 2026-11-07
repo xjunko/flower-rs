@@ -93,7 +93,7 @@ fn kcrash(info: &core::panic::PanicInfo) {
 #[panic_handler]
 fn rust_panic(info: &core::panic::PanicInfo) -> ! {
     if let Some(thread) = system::proc::current() {
-        let thread_id = thread.lock().id;
+        let thread_id = thread.lock().id();
 
         // if we're on tid 0 just bail out.
         if thread_id == 0 {

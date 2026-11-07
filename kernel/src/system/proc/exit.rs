@@ -17,7 +17,7 @@
  */
 
 use crate::arch;
-use crate::system::proc::{ProcessState, schedule};
+use crate::system::proc::schedule;
 use crate::system::{self};
 
 /// exits the current process.
@@ -27,13 +27,7 @@ pub fn exit(status: u64) {
 
         if let Some(sched) = system::proc::SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
-                let mut proc = proc.lock();
-                proc.exit_status = Some(status);
-                proc.state = if proc.parent_id.is_some() {
-                    ProcessState::Zombie
-                } else {
-                    ProcessState::Dead
-                };
+                proc.lock().mark_exited(status);
             } else {
                 panic!("trying to exit while no process is running!");
             }

@@ -17,6 +17,7 @@
  */
 
 mod exit;
+mod memory;
 mod process;
 mod scheduler;
 mod sleep;
@@ -26,6 +27,7 @@ pub mod user;
 use alloc::string::String;
 use alloc::sync::Arc;
 
+pub use memory::{KUserImage, KUserRange};
 pub use process::*;
 use spin::Mutex;
 
@@ -58,13 +60,13 @@ pub fn schedule() {
     });
 }
 
-/// spawns a new process with the given entry point and name.
+/// spawns a new kernel process with the given entry point and name.
 pub fn spawn(name: &str, entry: fn()) {
-    let new_process = Process::new(name, entry);
-    log::debug!("created process {}", new_process.name);
+    let new_process = Process::new_kernel(name, entry);
+    log::debug!("created process {}", new_process.name());
     arch::interrupts::without(|| {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
-            log::debug!("adding process {} to scheduler", new_process.name);
+            log::debug!("adding process {} to scheduler", new_process.name());
             sched.add(new_process);
         }
     });
@@ -100,7 +102,7 @@ pub fn name() -> String {
             .lock()
             .as_ref()
             .map(|sched| {
-                sched.processes[sched.current_idx()].lock().name.clone()
+                String::from(sched.processes[sched.current_idx()].lock().name())
             })
             .unwrap_or(String::from("undefined"))
     })
@@ -109,7 +111,7 @@ pub fn name() -> String {
 /// installs the scheduler, initializing the null process and adding it to the scheduler.
 pub fn install() {
     let mut scheduler = Scheduler::new();
-    scheduler.add(null_process());
+    scheduler.add(Process::null());
     arch::interrupts::without(|| {
         *SCHEDULER.lock() = Some(scheduler);
     });

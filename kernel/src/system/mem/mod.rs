@@ -21,6 +21,7 @@ use crate::boot::KBootInfo;
 
 pub mod fault;
 pub mod heap;
+pub mod kstack;
 pub mod pmm;
 pub mod vma;
 pub mod vmm;

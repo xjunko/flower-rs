@@ -63,15 +63,15 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let requested = frame.rdi;
     let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
-    let current_break = proc.user_heap_position();
+
+    let heap = proc.heap().ok_or(KError::EINVAL)?;
+    let current_break = heap.brk();
 
     if requested == 0 || requested == current_break {
         return Ok(current_break);
     }
 
-    let heap_base = proc.user_heap();
-    let heap_max = proc.user_heap_max();
-    if requested < heap_base || requested > heap_max {
+    if requested < heap.base() || requested > heap.limit() {
         return Ok(current_break);
     }
 
@@ -82,15 +82,10 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         let last = align_up(requested, PAGE_SIZE_U64);
 
         if first < last {
-            proc.address_space
-                .as_ref()
+            proc.address_space()
                 .ok_or(KError::EINVAL)?
                 .ensure_user_pages(first, last, flags)
                 .map_err(|_| KError::ENOMEM)?;
-        }
-
-        if last > proc.user_heap_top() {
-            proc.set_user_heap_bounds(last, heap_max);
         }
     } else {
         // release the pages above the new break. the heap vma still covers the
@@ -100,7 +95,7 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
         if first < last {
             let address_space =
-                proc.address_space.as_mut().ok_or(KError::EINVAL)?;
+                proc.address_space_mut().ok_or(KError::EINVAL)?;
 
             let mut page = first;
             while page < last {
@@ -113,7 +108,10 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         }
     }
 
-    proc.set_user_heap_position(requested);
+    if let Some(heap) = proc.heap_mut() {
+        heap.set_brk(requested);
+    }
+
     Ok(requested)
 }
 
@@ -180,7 +178,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
         None
     };
 
-    let address_space = proc.address_space.as_mut().ok_or(KError::EINVAL)?;
+    let address_space = proc.address_space_mut().ok_or(KError::EINVAL)?;
 
     // MAP_FIXED uses the address verbatim. hints are honoured when the range
     // is actually free, otherwise they are ignored like linux does.
@@ -255,8 +253,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
 
-    proc.address_space
-        .as_mut()
+    proc.address_space_mut()
         .ok_or(KError::EINVAL)?
         .unmap_user_range(start, end)
         .map_err(|_| KError::EINVAL)?;
@@ -279,8 +276,7 @@ pub fn mprotect(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
 
-    proc.address_space
-        .as_mut()
+    proc.address_space_mut()
         .ok_or(KError::EINVAL)?
         .protect_user_range(addr, end, flags)
         .map_err(|_| KError::EINVAL)?;

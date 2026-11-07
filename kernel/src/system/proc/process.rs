@@ -20,49 +20,17 @@ use alloc::format;
 use alloc::string::String;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::arch::addr::KVirtAddr;
-use crate::arch::layout::{KERNEL_STACK_SIZE, PAGE_SIZE};
-use crate::arch::paging::MapFlags;
-use crate::arch::{self, Multitasking, Paging, Processor};
+use crate::arch::{self, Multitasking, Processor};
+use crate::system::mem::kstack::KKernelStack;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::posix::errno::KResult;
+use crate::system::proc::memory::{KImageLoad, KUserHeap, KUserImage};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::vfs::FdTable;
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct ProcessUserMemory {
-    entry: u64,
-    stack: u64,
-    heap: u64,
-    heap_position: u64,
-    stack_bottom: u64,
-    stack_top: u64,
-    heap_top: u64,
-    heap_max: u64,
-}
-
-impl ProcessUserMemory {
-    fn new() -> Self {
-        Self {
-            entry: 0,
-            stack: 0,
-            heap: 0,
-            heap_position: 0,
-            stack_bottom: 0,
-            stack_top: 0,
-            heap_top: 0,
-            heap_max: 0,
-        }
-    }
-
-    fn from_user(entry: u64, stack: u64, heap: u64) -> Self {
-        Self { entry, stack, heap, heap_position: heap, ..Self::new() }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessState {
     Ready,
     Running,
@@ -71,226 +39,189 @@ pub enum ProcessState {
     Dead,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ProcessLevel {
-    RING0,
-    RING3,
-}
-
+/// a schedulable process.
+///
+/// a process owns its address space, its kernel stack and its heap
+/// bookkeeping. a kernel process has no address space and no heap; user
+/// process state is only created from a loaded [`KUserImage`].
 pub struct Process {
-    pub id: u64,
-    pub name: String,
-    pub state: ProcessState,
-    pub level: ProcessLevel,
-    pub address_space: Option<AddressSpace>,
-    pub parent_id: Option<u64>,
-    pub exit_status: Option<u64>,
+    id: u64,
+    name: String,
+    state: ProcessState,
+    parent_id: Option<u64>,
+    exit_status: Option<u64>,
+
     pub fds: FdTable,
 
-    pub cr3: u64,
-
-    pub stack_ptr: u64,
-    pub kernel_stack_top: u64,
-    /// start of the kernel valloc reservation for this process' kernel stack.
-    /// zero for processes without one (the null process).
-    kernel_stack_virt: u64,
-
-    pub _fsbase: u64,
-    user: ProcessUserMemory,
+    address_space: Option<AddressSpace>,
+    heap: Option<KUserHeap>,
+    kernel_stack: KKernelStack,
+    fsbase: u64,
 }
 
 impl Process {
-    pub fn user_entry(&self) -> u64 { self.user.entry }
+    pub const fn id(&self) -> u64 { self.id }
 
-    pub fn set_user_entry(&mut self, user_entry: u64) {
-        self.user.entry = user_entry;
+    pub fn name(&self) -> &str { &self.name }
+
+    pub fn set_name(&mut self, name: String) { self.name = name; }
+
+    pub const fn state(&self) -> ProcessState { self.state }
+
+    pub fn set_state(&mut self, state: ProcessState) { self.state = state; }
+
+    pub const fn parent_id(&self) -> Option<u64> { self.parent_id }
+
+    pub const fn exit_status(&self) -> Option<u64> { self.exit_status }
+
+    /// true for processes that have a user address space.
+    pub const fn is_user(&self) -> bool { self.address_space.is_some() }
+
+    pub fn address_space(&self) -> Option<&AddressSpace> {
+        self.address_space.as_ref()
     }
 
-    pub fn user_stack(&self) -> u64 { self.user.stack }
-
-    pub fn set_user_stack(&mut self, user_stack: u64) {
-        self.user.stack = user_stack;
+    pub fn address_space_mut(&mut self) -> Option<&mut AddressSpace> {
+        self.address_space.as_mut()
     }
 
-    pub fn user_heap(&self) -> u64 { self.user.heap }
-
-    pub fn set_user_heap(&mut self, user_heap: u64) {
-        self.user.heap = user_heap;
+    /// the root page table this process runs on. kernel processes run in the
+    /// kernel address space.
+    pub fn address_space_root(&self) -> u64 {
+        match &self.address_space {
+            Some(address_space) => address_space.root_phys(),
+            None => AddressSpace::kernel().root_phys(),
+        }
     }
 
-    pub fn user_heap_position(&self) -> u64 { self.user.heap_position }
+    pub fn kernel_stack(&self) -> &KKernelStack { &self.kernel_stack }
 
-    pub fn set_user_heap_position(&mut self, user_heap_position: u64) {
-        self.user.heap_position = user_heap_position;
+    pub fn kernel_stack_mut(&mut self) -> &mut KKernelStack {
+        &mut self.kernel_stack
     }
 
-    pub fn user_stack_bottom(&self) -> u64 { self.user.stack_bottom }
+    /// true if this process has an allocated kernel stack with a saved
+    /// context to switch to.
+    pub fn valid_stack(&self) -> bool { self.kernel_stack.is_valid() }
 
-    pub fn user_stack_top(&self) -> u64 { self.user.stack_top }
+    pub fn heap(&self) -> Option<&KUserHeap> { self.heap.as_ref() }
 
-    pub fn set_user_stack_bounds(&mut self, bottom: u64, top: u64) {
-        self.user.stack_bottom = bottom;
-        self.user.stack_top = top;
+    pub fn heap_mut(&mut self) -> Option<&mut KUserHeap> { self.heap.as_mut() }
+
+    /// installs a new user image, replacing the address space and resetting
+    /// the heap and fsbase.
+    ///
+    /// the previous address space is returned instead of dropped: the caller
+    /// must switch cr3 before dropping it.
+    pub fn load_image(&mut self, image: KUserImage) -> KImageLoad {
+        let KUserImage {
+            address_space,
+            entry,
+            stack_pointer,
+            heap,
+            program_break,
+        } = image;
+
+        let previous_address_space = self.address_space.replace(address_space);
+        self.heap = Some(KUserHeap::new(heap, program_break));
+        self.fsbase = 0;
+
+        KImageLoad { previous_address_space, entry, stack_pointer }
     }
 
-    pub fn user_heap_top(&self) -> u64 { self.user.heap_top }
+    pub const fn fsbase(&self) -> u64 { self.fsbase }
 
-    pub fn user_heap_max(&self) -> u64 { self.user.heap_max }
+    pub fn set_fsbase(&mut self, fsbase: u64) { self.fsbase = fsbase; }
 
-    pub fn set_user_heap_bounds(&mut self, top: u64, max: u64) {
-        self.user.heap_top = top;
-        self.user.heap_max = max;
+    /// records the exit status and moves the process to its final state.
+    pub fn mark_exited(&mut self, status: u64) {
+        self.exit_status = Some(status);
+        self.state = if self.parent_id.is_some() {
+            ProcessState::Zombie
+        } else {
+            ProcessState::Dead
+        };
     }
-}
 
-impl Process {
     pub fn with_fd_table<F, R>(&mut self, f: F) -> KResult<R>
     where F: FnOnce(&mut FdTable) -> KResult<R> {
         f(&mut self.fds)
     }
-}
-
-impl Process {
-    pub fn valid_stack(&self) -> bool {
-        self.kernel_stack_top != 0 && self.stack_ptr != 0
-    }
 
     pub unsafe fn switch_stack(&self) {
-        arch::stacks::set_kernel_stack(KVirtAddr::new(self.kernel_stack_top));
-        arch::stacks::set_user_stack(KVirtAddr::new(self.user_stack()));
+        arch::stacks::set_kernel_stack(self.kernel_stack.top());
         arch::stacks::write_context();
     }
 }
 
-#[allow(clippy::fn_to_numeric_cast)]
+// constructors
 impl Process {
-    /// creates a new kernel process
-    pub fn new(name: &str, entry: fn()) -> Self {
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-
-        let stack_size = KERNEL_STACK_SIZE;
-        let reservation_size = stack_size + Processor::PAGE_SIZE;
-
-        let stack_virt = AddressSpace::reserve_virt(reservation_size)
-            .expect("failed to allocate process stack virt");
-
-        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
-        let stack_top = stack_bottom.as_u64() + stack_size as u64;
-
-        AddressSpace::kernel()
-            .map_range_alloc(
-                stack_bottom,
-                stack_size,
-                MapFlags::READ | MapFlags::WRITE,
-            )
-            .expect("failed to allocate process stack");
-
-        let stack = Processor::prepare_stack_kernel(stack_top, entry);
-
-        let cr3 = Processor::paging_root_active();
+    /// creates a kernel process with the given entry point.
+    pub fn new_kernel(name: &str, entry: fn()) -> Self {
+        let mut kernel_stack = KKernelStack::new()
+            .expect("failed to allocate the process kernel stack");
+        let pointer =
+            Processor::prepare_stack_kernel(kernel_stack.top().as_u64(), entry);
+        kernel_stack.set_pointer(pointer);
 
         Self {
-            id,
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             name: String::from(name),
             state: ProcessState::Ready,
-            level: ProcessLevel::RING0,
+            parent_id: None,
+            exit_status: None,
+            fds: FdTable::new(),
             address_space: None,
-            parent_id: None,
-            exit_status: None,
-            fds: FdTable::new(),
-
-            cr3,
-
-            stack_ptr: stack,
-            kernel_stack_top: stack_top,
-            kernel_stack_virt: stack_virt.as_u64(),
-
-            user: ProcessUserMemory::new(),
-
-            _fsbase: 0,
+            heap: None,
+            kernel_stack,
+            fsbase: 0,
         }
     }
 
-    /// creates a new user process
-    pub fn new_user(
-        name: &str,
-        address_space: AddressSpace,
-        user_entry: u64,
-        user_stack: u64,
-        user_heap: u64,
-    ) -> Self {
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack_size = KERNEL_STACK_SIZE;
-        let reservation_size = stack_size + Processor::PAGE_SIZE;
+    /// creates a user process from a loaded image.
+    pub fn new_user(name: &str, image: KUserImage) -> Self {
+        let KUserImage {
+            address_space,
+            entry,
+            stack_pointer,
+            heap,
+            program_break,
+        } = image;
 
-        let stack_virt = AddressSpace::reserve_virt(reservation_size)
-            .expect("failed to allocate process stack virt");
-
-        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
-        let stack_top = stack_bottom.as_u64() + stack_size as u64;
-
-        AddressSpace::kernel()
-            .map_range_alloc(
-                stack_bottom,
-                stack_size,
-                MapFlags::READ | MapFlags::WRITE,
-            )
-            .expect("failed to allocate process stack");
-
-        let stack =
-            Processor::prepare_stack_user(stack_top, user_entry, user_stack);
-
-        let cr3 = address_space.root_phys();
+        let mut kernel_stack = KKernelStack::new()
+            .expect("failed to allocate the process kernel stack");
+        let pointer = Processor::prepare_stack_user(
+            kernel_stack.top().as_u64(),
+            entry,
+            stack_pointer,
+        );
+        kernel_stack.set_pointer(pointer);
 
         Self {
-            id,
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             name: String::from(name),
             state: ProcessState::Ready,
-            level: ProcessLevel::RING3,
-            address_space: Some(address_space),
-
             parent_id: None,
             exit_status: None,
             fds: FdTable::new(),
-            cr3,
-
-            stack_ptr: stack,
-            kernel_stack_top: stack_top,
-            kernel_stack_virt: stack_virt.as_u64(),
-
-            user: ProcessUserMemory::from_user(
-                user_entry, user_stack, user_heap,
-            ),
-
-            _fsbase: 0,
+            address_space: Some(address_space),
+            heap: Some(KUserHeap::new(heap, program_break)),
+            kernel_stack,
+            fsbase: 0,
         }
     }
 
-    /// creates a new process by copying the current one
+    /// creates a child process by copying the parent's user-visible state.
+    /// the caller supplies the already-cloned address space.
     pub fn new_forked(
         parent: &Process,
         address_space: AddressSpace,
         frame: &SyscallFrame,
     ) -> Self {
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let stack_size = KERNEL_STACK_SIZE;
-        let reservation_size = stack_size + Processor::PAGE_SIZE;
+        let mut kernel_stack = KKernelStack::new()
+            .expect("failed to allocate the process kernel stack");
+        let mut stack_ptr = kernel_stack.top().as_u64();
 
-        let stack_virt = AddressSpace::reserve_virt(reservation_size)
-            .expect("failed to allocate process stack virt");
-
-        let stack_bottom = stack_virt + Processor::PAGE_SIZE as u64;
-        let stack_top = stack_bottom.as_u64() + stack_size as u64;
-
-        AddressSpace::kernel()
-            .map_range_alloc(
-                stack_bottom,
-                stack_size,
-                MapFlags::READ | MapFlags::WRITE,
-            )
-            .expect("failed to allocate process stack");
-
-        let mut stack_ptr = stack_top;
         let mut child_frame = *frame;
         child_frame.rax = 0;
 
@@ -323,90 +254,36 @@ impl Process {
 
             stack_ptr = Processor::prepare_stack_fork(stack_ptr);
         }
-
-        let cr3 = address_space.root_phys();
+        kernel_stack.set_pointer(stack_ptr);
 
         Self {
-            id,
-            name: format!("{}-fork", parent.name),
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            name: format!("{}-fork", parent.name()),
             state: ProcessState::Ready,
-            level: parent.level,
-            address_space: Some(address_space),
-            parent_id: Some(parent.id),
+            parent_id: Some(parent.id()),
             exit_status: None,
             fds: parent.fds.clone(),
-
-            cr3,
-
-            stack_ptr,
-            kernel_stack_top: stack_top,
-            kernel_stack_virt: stack_virt.as_u64(),
-
-            user: ProcessUserMemory {
-                entry: frame.rip,
-                stack: frame.rsp,
-                heap: parent.user_heap(),
-                heap_position: parent.user_heap_position(),
-                stack_bottom: parent.user_stack_bottom(),
-                stack_top: parent.user_stack_top(),
-                heap_top: parent.user_heap_top(),
-                heap_max: parent.user_heap_max(),
-            },
-
-            _fsbase: parent._fsbase,
+            address_space: Some(address_space),
+            heap: parent.heap().copied(),
+            kernel_stack,
+            fsbase: parent.fsbase(),
         }
     }
-}
 
-/// creates a null process that does nothing and never sleeps, used as the initial process before the scheduler starts.
-pub fn null_process() -> Process {
-    let cr3 = Processor::paging_root_active();
-
-    Process {
-        id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
-        name: String::from("null"),
-        state: ProcessState::Running,
-        level: ProcessLevel::RING0,
-        address_space: None,
-        parent_id: None,
-        exit_status: None,
-        fds: FdTable::new(),
-
-        cr3,
-
-        stack_ptr: 0,
-        kernel_stack_top: 0,
-        kernel_stack_virt: 0,
-
-        user: ProcessUserMemory::new(),
-        _fsbase: 0,
-    }
-}
-
-impl Drop for Process {
-    fn drop(&mut self) {
-        if self.kernel_stack_virt == 0 {
-            return;
-        }
-
-        // the kernel stack lives in the shared kernel half, so it can be torn
-        // down from any address space. the guard page below it was never
-        // mapped; the mapped stack starts one page after the reservation.
-        let stack_bottom =
-            KVirtAddr::new(self.kernel_stack_virt + PAGE_SIZE as u64);
-        let reservation = KERNEL_STACK_SIZE + PAGE_SIZE;
-
-        if let Err(e) =
-            AddressSpace::kernel().unmap_range(stack_bottom, KERNEL_STACK_SIZE)
-        {
-            log::error!("failed to unmap kernel stack: {}", e);
-        }
-
-        if let Err(e) = AddressSpace::release_virt(
-            KVirtAddr::new(self.kernel_stack_virt),
-            reservation,
-        ) {
-            log::error!("failed to release kernel stack valloc range: {}", e);
+    /// the idle process used before the scheduler starts. it never owns a
+    /// stack or an address space.
+    pub fn null() -> Self {
+        Self {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            name: String::from("null"),
+            state: ProcessState::Running,
+            parent_id: None,
+            exit_status: None,
+            fds: FdTable::new(),
+            address_space: None,
+            heap: None,
+            kernel_stack: KKernelStack::placeholder(),
+            fsbase: 0,
         }
     }
 }

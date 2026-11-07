@@ -28,7 +28,7 @@ pub fn sleep(nanos: u64) {
         if let Some(sched) = SCHEDULER.lock().as_mut() {
             if let Some(proc) = sched.current() {
                 let mut proc = proc.lock();
-                proc.state = ProcessState::Sleeping(wake_at);
+                proc.set_state(ProcessState::Sleeping(wake_at));
             } else {
                 panic!("trying to sleep while no process is running!");
             }

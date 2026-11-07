@@ -1013,11 +1013,9 @@ impl AddressSpace {
         let root = Processor::paging_clone_user(self.root)?;
         let child = Self { root, owned: true, vm: self.vm.clone() };
 
-        if let Err(e) = child.rebind_shared(self) {
-            // dropping the child frees its page tables (releasing the
-            // mappings' frame references) and then its shared vmas.
-            return Err(e);
-        }
+        // on failure the child is dropped, which frees its page tables
+        // (releasing the mappings' frame references) and then its shared vmas.
+        child.rebind_shared(self)?;
 
         Ok(child)
     }

@@ -23,8 +23,6 @@ use x86_64::PhysAddr;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::PhysFrame;
 
-use crate::arch::layout::USER_STACK_TOP_PAGE;
-use crate::system::proc::ProcessLevel;
 use crate::system::syscalls::SyscallFrame;
 use crate::system::{self, vfs};
 
@@ -48,6 +46,14 @@ pub fn execve(
 
     let image = system::proc::user::build_user_image(&elf_data, &argv_refs)?;
     let new_cr3 = image.address_space.root_phys();
+
+    let current = system::proc::current().ok_or("no current process")?;
+    let mut proc = current.lock();
+
+    if !proc.is_user() {
+        return Err("execve is only supported for user processes");
+    }
+
     let (current_frame, current_flags) = Cr3::read();
     if current_frame.start_address().as_u64() != new_cr3 {
         let new_frame = PhysFrame::containing_address(PhysAddr::new(new_cr3));
@@ -56,50 +62,22 @@ pub fn execve(
         }
     }
 
-    let current = system::proc::current().ok_or("no current process")?;
-    let mut proc = current.lock();
+    let loaded = proc.load_image(image);
+    proc.set_name(name);
 
-    if proc.level != ProcessLevel::RING3 {
-        return Err("execve is only supported for user processes");
-    }
-
-    let old_address_space = proc.address_space.take();
-
-    proc.name = name;
-    proc.address_space = Some(image.address_space);
-    proc.cr3 = new_cr3;
-    proc.set_user_entry(image.entry);
-    proc.set_user_stack(image.stack_ptr);
-    proc.set_user_heap(image.heap_start);
-
-    proc.set_user_heap_position(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
+    log::trace!(
+        "execve: switching to '{}' at {:#x}",
+        proc.name(),
+        loaded.entry
     );
-
-    proc.set_user_heap_bounds(
-        image.heap_start + crate::arch::layout::PAGE_SIZE as u64,
-        image.heap_max,
-    );
-
-    proc.set_user_stack_bounds(
-        image.stack_bottom,
-        USER_STACK_TOP_PAGE + crate::arch::layout::PAGE_SIZE as u64,
-    );
-
-    proc._fsbase = 0;
-
-    log::trace!("execve: address space switched, preparing to switch stacks");
     unsafe {
         proc.switch_stack();
     }
-    log::trace!(
-        "execve: stacks switched, dropping old address space and writing fsbase"
-    );
 
-    drop(old_address_space);
+    drop(loaded.previous_address_space);
 
-    frame.rip = image.entry;
-    frame.rsp = image.stack_ptr;
+    frame.rip = loaded.entry;
+    frame.rsp = loaded.stack_pointer;
     frame.rax = 0;
 
     Ok(())

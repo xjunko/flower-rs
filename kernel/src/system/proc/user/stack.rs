@@ -27,17 +27,9 @@ use crate::arch::layout::{
 };
 use crate::system::elf::{self, ELFLoadType};
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::proc::{KUserImage, KUserRange};
 use crate::system::vfs::FileLike;
 use crate::{arch, system};
-
-pub struct UserImageInfo {
-    pub address_space: AddressSpace,
-    pub entry: u64,
-    pub stack_ptr: u64,
-    pub stack_bottom: u64,
-    pub heap_start: u64,
-    pub heap_max: u64,
-}
 
 const PAGE_SIZE: u64 = arch::layout::PAGE_SIZE as u64;
 struct StackBuilder<'a> {
@@ -130,7 +122,7 @@ impl<'a> StackBuilder<'a> {
 pub fn build_user_image(
     elf_data: &[u8],
     argv: &[&str],
-) -> Result<UserImageInfo, &'static str> {
+) -> Result<KUserImage, &'static str> {
     let mut address_space = AddressSpace::new()?;
     let loaded =
         elf::load_into(elf_data, &mut address_space, ELFLoadType::Main)?;
@@ -256,12 +248,12 @@ pub fn build_user_image(
 
     log::debug!("User stack built at {:#x}", user_stack);
 
-    Ok(UserImageInfo {
+    Ok(KUserImage {
         address_space,
         entry,
-        stack_ptr: user_stack,
-        stack_bottom: stack_low,
-        heap_start: user_heap,
-        heap_max,
+        stack_pointer: user_stack,
+        heap: KUserRange::new(user_heap, heap_max),
+        // the loader maps the first heap page.
+        program_break: user_heap + PAGE_SIZE,
     })
 }

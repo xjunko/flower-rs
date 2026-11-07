@@ -45,9 +45,7 @@ pub extern "x86-interrupt" fn page_fault_handler(
         let proc = current.lock();
 
         // okay, it's from the user, probably fine.
-        if proc.level == system::proc::ProcessLevel::RING3
-            && let Some(address_space) = proc.address_space.as_ref()
-        {
+        if let Some(address_space) = proc.address_space() {
             let page = KVirtAddr::new(fault_addr & !(PAGE_SIZE as u64 - 1));
 
             match address_space.demand_page(page) {

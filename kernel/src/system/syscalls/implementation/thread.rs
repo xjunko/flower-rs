@@ -28,7 +28,7 @@ pub fn set_tid_address(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     }
 
     let current_thread = system::proc::current().ok_or(KError::ESRCH)?;
-    let current_tid = current_thread.lock().id;
+    let current_tid = current_thread.lock().id();
 
     arch::user::copy_to_user(
         crate::arch::addr::KVirtAddr::new(tid_ptr.addr() as u64),
@@ -41,6 +41,6 @@ pub fn set_tid_address(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
 pub fn get_tid(_frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let current_thread = system::proc::current().ok_or(KError::ESRCH)?;
-    let current_tid = current_thread.lock().id;
+    let current_tid = current_thread.lock().id();
     Ok(current_tid)
 }

@@ -16,7 +16,9 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::{arch, system};
+use crate::arch;
+use crate::system::proc::ProcessState;
+use crate::system::{self};
 
 pub fn waitpid(pid: u64) -> Result<u64, &'static str> {
     loop {
@@ -25,24 +27,24 @@ pub fn waitpid(pid: u64) -> Result<u64, &'static str> {
             let sched = guard.as_mut().ok_or("scheduler not initialized")?;
 
             let current = sched.current().ok_or("no current process")?;
-            let current_id = current.lock().id;
+            let current_id = current.lock().id();
 
             let child_idx = sched
                 .processes
                 .iter()
                 .position(|proc| {
                     let proc = proc.lock();
-                    proc.id == pid && proc.parent_id == Some(current_id)
+                    proc.id() == pid && proc.parent_id() == Some(current_id)
                 })
                 .ok_or("no child process")?;
 
             let status = {
                 let child = sched.processes[child_idx].lock();
-                if child.state != system::proc::ProcessState::Zombie {
+                if child.state() != ProcessState::Zombie {
                     return Ok(None);
                 }
 
-                child.exit_status.unwrap_or(0)
+                child.exit_status().unwrap_or(0)
             };
 
             sched.processes.remove(child_idx);

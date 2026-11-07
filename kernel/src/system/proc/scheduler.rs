@@ -22,7 +22,7 @@ use alloc::sync::Arc;
 use spin::Mutex;
 
 use crate::arch::{self, Multitasking, Processor};
-use crate::system::proc::{Process, ProcessLevel, ProcessState};
+use crate::system::proc::{Process, ProcessState};
 
 pub struct Scheduler {
     pub processes: VecDeque<Arc<Mutex<Process>>>,
@@ -45,7 +45,7 @@ impl Scheduler {
         let length = self.processes.len();
         for i in 1..length {
             let idx = (self.current + i) % length;
-            if self.processes[idx].lock().state == ProcessState::Ready {
+            if self.processes[idx].lock().state() == ProcessState::Ready {
                 return Some(idx);
             }
         }
@@ -59,15 +59,15 @@ impl Scheduler {
             i -= 1;
             let reapable = {
                 let proc = self.processes[i].lock();
-                proc.state == ProcessState::Dead
-                    || (proc.state == ProcessState::Zombie
-                        && proc.parent_id.is_none())
+                proc.state() == ProcessState::Dead
+                    || (proc.state() == ProcessState::Zombie
+                        && proc.parent_id().is_none())
             };
 
             if i != self.current && reapable {
                 log::trace!(
                     "reaping process {}",
-                    self.processes[i].lock().name
+                    self.processes[i].lock().name()
                 );
                 self.processes.remove(i);
                 if i < self.current {
@@ -83,16 +83,16 @@ impl Scheduler {
         for proc in self.processes.iter_mut() {
             let mut proc = proc.lock();
 
-            match proc.state {
+            match proc.state() {
                 ProcessState::Sleeping(wake_at_ns) => {
                     if nanos > wake_at_ns {
                         log::trace!(
                             "awakening process {} (woke at {}, current ticks {})",
-                            proc.name,
+                            proc.name(),
                             wake_at_ns,
                             nanos
                         );
-                        proc.state = ProcessState::Ready;
+                        proc.set_state(ProcessState::Ready);
                     }
                 },
                 _ => continue,
@@ -118,16 +118,16 @@ impl Scheduler {
         let mut current_proc = self.processes[current].lock();
         let mut next_proc = self.processes[next].lock();
 
-        if current_proc.state == ProcessState::Running {
-            current_proc.state = ProcessState::Ready;
+        if current_proc.state() == ProcessState::Running {
+            current_proc.set_state(ProcessState::Ready);
         }
-        next_proc.state = ProcessState::Running;
+        next_proc.set_state(ProcessState::Running);
 
-        let old_sp = &mut current_proc.stack_ptr as *mut u64;
-        let new_sp = next_proc.stack_ptr;
+        let old_sp = current_proc.kernel_stack_mut().pointer_mut() as *mut u64;
+        let new_sp = next_proc.kernel_stack().pointer();
 
-        let old_cr3 = current_proc.cr3;
-        let new_cr3 = next_proc.cr3;
+        let old_cr3 = current_proc.address_space_root();
+        let new_cr3 = next_proc.address_space_root();
         let cr3_to_load = if old_cr3 != new_cr3 { new_cr3 } else { 0 };
 
         #[cfg(target_arch = "x86_64")]
@@ -136,8 +136,8 @@ impl Scheduler {
             use x86_64::VirtAddr;
             use x86_64::registers::model_specific::FsBase;
 
-            if current_proc.level == ProcessLevel::RING3 {
-                current_proc._fsbase = FsBase::read().as_u64();
+            if current_proc.is_user() {
+                current_proc.set_fsbase(FsBase::read().as_u64());
             }
 
             if next_proc.valid_stack() {
@@ -146,8 +146,8 @@ impl Scheduler {
                 }
             }
 
-            if next_proc.level == ProcessLevel::RING3 {
-                FsBase::write(VirtAddr::new(next_proc._fsbase));
+            if next_proc.is_user() {
+                FsBase::write(VirtAddr::new(next_proc.fsbase()));
             } else {
                 FsBase::write(VirtAddr::new(0));
             }
@@ -159,12 +159,12 @@ impl Scheduler {
     /// adds a process to the scheduler.
     pub fn add(&mut self, process: Process) {
         let process = Arc::new(Mutex::new(process));
-        if process.lock().state != ProcessState::Ready
-            && process.lock().state != ProcessState::Running
+        if process.lock().state() != ProcessState::Ready
+            && process.lock().state() != ProcessState::Running
         {
             panic!(
                 "cannot add process {} to scheduler because it is not ready",
-                process.lock().name
+                process.lock().name()
             );
         }
 
