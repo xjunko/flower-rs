@@ -22,6 +22,7 @@ use crate::boot::KBootInfo;
 pub mod fault;
 pub mod heap;
 pub mod pmm;
+pub mod vma;
 pub mod vmm;
 
 mod tests;
@@ -30,14 +31,16 @@ pub fn install() {
     let boot_info = KBootInfo::get();
     let memory_map = boot_info.memory.lock();
 
+    log::debug!("==== MEMORY MAP ====");
     memory_map.iter().for_each(|x| {
         log::debug!(
-            "{:#018x} - {:#018x} ({:?})",
-            x.address.as_u64(),
-            x.address.as_u64() + x.length as u64,
+            "[{:#x} - {:#x}] {:?}",
+            x.address,
+            x.address + x.length as u64,
             x.usage
-        )
+        );
     });
+    log::debug!("========");
     drop(memory_map);
 
     arch::generic::addr::HHDM.call_once(|| boot_info.hhdm.unwrap());

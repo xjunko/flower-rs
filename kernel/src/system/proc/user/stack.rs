@@ -131,8 +131,9 @@ pub fn build_user_image(
     elf_data: &[u8],
     argv: &[&str],
 ) -> Result<UserImageInfo, &'static str> {
-    let address_space = AddressSpace::new()?;
-    let loaded = elf::load_into(elf_data, &address_space, ELFLoadType::Main)?;
+    let mut address_space = AddressSpace::new()?;
+    let loaded =
+        elf::load_into(elf_data, &mut address_space, ELFLoadType::Main)?;
 
     let mut entry = loaded.entry;
     let mut base = loaded.base;
@@ -148,7 +149,7 @@ pub fn build_user_image(
                     f.read(&mut buffer).expect("failed to read interp");
                     let interp_loaded = elf::load_into(
                         &buffer,
-                        &address_space,
+                        &mut address_space,
                         ELFLoadType::Interpreter,
                     )
                     .expect("failed to load elf");
@@ -176,6 +177,12 @@ pub fn build_user_image(
         .expect("failed to allocate initial heap");
     let heap_max = user_heap + (512 * PAGE_SIZE); // Allow heap to grow up to 512 pages (2MB)
 
+    // the heap is demand-paged through its vma: only the first page is
+    // populated up front.
+    address_space
+        .add_anonymous_vma(user_heap, heap_max, flags)
+        .expect("failed to register heap vma");
+
     // Allocate only the initial stack page (will grow on demand)
     let stack_top_page = USER_STACK_TOP_PAGE;
     address_space
@@ -183,6 +190,12 @@ pub fn build_user_image(
         .expect("failed to allocate initial stack");
 
     let stack_low = USER_STACK_TOP_PAGE - (USER_STACK_PAGES * PAGE_SIZE);
+
+    // the whole stack reservation is a vma; pages are populated on fault.
+    address_space
+        .add_anonymous_vma(stack_low, stack_top_page + PAGE_SIZE, flags)
+        .expect("failed to register stack vma");
+
     let user_stack_top =
         (USER_STACK_TOP_PAGE + PAGE_SIZE - USER_STACK_INITIAL_SLACK) & !0xF;
     debug_assert!(

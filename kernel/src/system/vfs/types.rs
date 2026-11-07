@@ -75,7 +75,8 @@ pub trait File: Send + Sync {
         Err(KError::ENOSYS)
     }
 
-    /// maps the file into memory and returns a pointer to the mapped region
+    /// maps the file into memory and returns the physical address of the
+    /// first mapped page.
     fn mmap(
         &self,
         _len: usize,

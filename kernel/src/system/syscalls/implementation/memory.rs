@@ -19,34 +19,44 @@
 use core::ffi::c_int;
 
 use flower_abi::memory::{
-    MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
+    MAP_ANONYMOUS, MAP_FIXED, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE,
+    PROT_WRITE,
 };
 
-use crate::arch::addr::KVirtAddr;
+use crate::arch::addr::{KVirtAddr, align_up};
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
-use crate::system::mem::vmm::AddressSpace;
+use crate::system;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallReturnCode;
 use crate::system::vfs::FdKind;
-use crate::{arch, system};
 
-fn range_is_mapped(
-    address_space: &AddressSpace,
-    start: u64,
-    pages: u64,
-) -> Result<bool, KError> {
-    let page_size = arch::layout::PAGE_SIZE as u64;
-    for page in 0..pages {
-        let address = start
-            .checked_add(page.checked_mul(page_size).ok_or(KError::EINVAL)?)
-            .ok_or(KError::EINVAL)?;
-        if address_space.is_mapped(KVirtAddr::new(address)) {
-            return Ok(true);
-        }
+const PAGE_SIZE_U64: u64 = PAGE_SIZE as u64;
+
+fn align_range_up(value: u64) -> KResult<u64> {
+    value
+        .checked_add(PAGE_SIZE_U64 - 1)
+        .map(|value| value & !(PAGE_SIZE_U64 - 1))
+        .ok_or(KError::EINVAL)
+}
+
+fn prot_to_flags(prot: u64) -> MapFlags {
+    let mut flags = MapFlags::empty();
+
+    if prot != PROT_NONE {
+        flags |= MapFlags::USER;
     }
-    Ok(false)
+
+    if prot & PROT_WRITE != 0 {
+        flags |= MapFlags::WRITE;
+    }
+
+    if prot & PROT_EXEC != 0 {
+        flags |= MapFlags::EXEC;
+    }
+
+    flags
 }
 
 pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
@@ -65,30 +75,41 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         return Ok(current_break);
     }
 
-    if requested > current_break {
-        let page_size = PAGE_SIZE as u64;
-        let first_page =
-            current_break.checked_add(page_size - 1).ok_or(KError::EINVAL)?
-                & !(page_size - 1);
-        let last_page =
-            requested.checked_add(page_size - 1).ok_or(KError::EINVAL)?
-                & !(page_size - 1);
-        let flags = MapFlags::READ | MapFlags::WRITE | MapFlags::USER;
-        let address_space =
-            proc.address_space.as_mut().ok_or(KError::EINVAL)?;
+    let flags = MapFlags::READ | MapFlags::WRITE | MapFlags::USER;
 
-        let mut page = first_page;
-        while page < last_page {
-            if !address_space.is_mapped(KVirtAddr::new(page)) {
-                address_space
-                    .map_page_alloc(KVirtAddr::new(page), flags)
-                    .map_err(|_| KError::ENOMEM)?;
-            }
-            page += page_size;
+    if requested > current_break {
+        let first = align_up(current_break, PAGE_SIZE_U64);
+        let last = align_up(requested, PAGE_SIZE_U64);
+
+        if first < last {
+            proc.address_space
+                .as_ref()
+                .ok_or(KError::EINVAL)?
+                .ensure_user_pages(first, last, flags)
+                .map_err(|_| KError::ENOMEM)?;
         }
 
-        if last_page > proc.user_heap_top() {
-            proc.set_user_heap_bounds(last_page, heap_max);
+        if last > proc.user_heap_top() {
+            proc.set_user_heap_bounds(last, heap_max);
+        }
+    } else {
+        // release the pages above the new break. the heap vma still covers the
+        // whole range, so a later growth can fault them back in.
+        let first = align_up(requested, PAGE_SIZE_U64);
+        let last = align_up(current_break, PAGE_SIZE_U64);
+
+        if first < last {
+            let address_space =
+                proc.address_space.as_mut().ok_or(KError::EINVAL)?;
+
+            let mut page = first;
+            while page < last {
+                let virt = KVirtAddr::new(page);
+                if address_space.is_mapped(virt) {
+                    let _ = address_space.unmap_page(virt);
+                }
+                page += PAGE_SIZE_U64;
+            }
         }
     }
 
@@ -96,7 +117,6 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     Ok(requested)
 }
 
-#[allow(clippy::manual_is_multiple_of)]
 pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
     let addr = frame.rdi;
     let size = frame.rsi;
@@ -118,262 +138,130 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
         return Err(KError::EINVAL);
     }
 
-    if flags & flower_abi::memory::MAP_FIXED != 0
-        && !addr.is_multiple_of(arch::layout::PAGE_SIZE as u64)
-    {
+    let fixed = flags & MAP_FIXED != 0;
+
+    if fixed && (addr == 0 || !addr.is_multiple_of(PAGE_SIZE_U64)) {
         log::error!("mmap failed: MAP_FIXED address is not page-aligned");
         return Err(KError::EINVAL);
     }
 
-    if offset % arch::layout::PAGE_SIZE as u64 != 0 {
+    if !offset.is_multiple_of(PAGE_SIZE_U64) {
         log::error!("mmap failed: offset is not page-aligned");
         return Err(KError::EINVAL);
     }
 
-    let has_shared = flags & MAP_SHARED != 0;
-    let has_private = flags & MAP_PRIVATE != 0;
+    let len = align_range_up(size)?;
+    let prot_flags = prot_to_flags(prot);
 
     if fd != -1 && flags & MAP_ANONYMOUS == 0 {
-        if !has_shared && !has_private {
-            log::error!(
-                "mmap failed: file mapping requires MAP_SHARED or MAP_PRIVATE"
-            );
-            return Err(KError::EINVAL);
-        }
+        let has_shared = flags & MAP_SHARED != 0;
+        let has_private = flags & MAP_PRIVATE != 0;
 
-        if has_shared && has_private {
+        if has_shared == has_private {
             log::error!(
-                "mmap failed: MAP_SHARED and MAP_PRIVATE cannot both be set"
+                "mmap failed: file mapping needs exactly one of MAP_SHARED/MAP_PRIVATE"
             );
             return Err(KError::EINVAL);
         }
     }
+
     let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
 
-    let mut heap_start = if addr == 0 {
-        proc.user_heap_position()
+    // ask the file for its backing frames before borrowing the address space.
+    let file_phys = if fd != -1 && flags & MAP_ANONYMOUS == 0 {
+        Some(proc.with_fd_table(|table| match table.get(fd as usize)? {
+            FdKind::File(file) => {
+                file.mmap(len as usize, prot as c_int, flags as c_int, offset)
+            },
+            _ => Err(KError::ENOSYS),
+        })?)
     } else {
-        addr & !(arch::layout::PAGE_SIZE as u64 - 1)
+        None
     };
-    let page_size = arch::layout::PAGE_SIZE as u64;
-    let heap_pages =
-        size.checked_add(page_size - 1).ok_or(KError::EINVAL)? / page_size;
 
-    if flags & flower_abi::memory::MAP_FIXED == 0 {
-        let address_space =
-            proc.address_space.as_ref().ok_or(KError::EINVAL)?;
+    let address_space = proc.address_space.as_mut().ok_or(KError::EINVAL)?;
 
-        if addr != 0 && range_is_mapped(address_space, heap_start, heap_pages)?
-        {
-            heap_start = proc.user_heap_position();
-        }
-
-        while range_is_mapped(address_space, heap_start, heap_pages)? {
-            heap_start =
-                heap_start.checked_add(page_size).ok_or(KError::EINVAL)?;
-        }
-    }
-
-    let mut heap_ptr = heap_start;
-    let mut page_flags = MapFlags::READ;
-
-    if prot != PROT_NONE {
-        page_flags |= MapFlags::USER;
-    }
-
-    if prot & PROT_WRITE != 0 {
-        page_flags |= MapFlags::WRITE;
-    }
-
-    if prot & PROT_EXEC != 0 {
-        page_flags |= MapFlags::EXEC;
-    }
-
-    if fd != -1 && flags & MAP_ANONYMOUS == 0 {
-        let result =
-            proc.with_fd_table(|table| match table.get(fd as usize)? {
-                FdKind::File(file) => file.mmap(
-                    size as usize,
-                    prot as c_int,
-                    flags as c_int,
-                    offset,
-                ),
-                _ => Err(KError::ENOSYS),
-            });
-
-        if let Ok(data) = result {
-            log::debug!(
-                "mmap: mapping fd {} at offset {} to user heap position {:#x} with size {}",
-                fd,
-                offset,
-                proc.user_heap_position(),
-                size
-            );
-
-            log::debug!(
-                "mmap: fd {} mmap returned data pointer {:#x}",
-                fd,
-                data
-            );
-
-            let address_space = AddressSpace::current();
-
-            for i in 0..heap_pages {
-                let src_virt = KVirtAddr::new(unsafe {
-                    data.as_ptr::<*mut u64>()
-                        .add(i as usize * arch::layout::PAGE_SIZE)
-                        as u64
-                });
-
-                let src_phys = address_space.translate(src_virt).ok_or_else(|| {
-                    log::error!(
-                        "mmap failed: could not translate source virt {:#x} to phys",
-                        src_virt
-                    );
-                    KError::EINVAL
-                })?;
-
-                proc.address_space.as_mut().unwrap().map_page(
-                    KVirtAddr::new(heap_ptr),
-                    src_phys,
-                    page_flags,
-                ).map_err(|_| {
-                    log::debug!(
-                        "mmap failed: could not map page at user heap position {:#x}",
-                        proc.user_heap_position()
-                    );
-                    KError::EINVAL
-                })?;
-
-                heap_ptr += arch::layout::PAGE_SIZE as u64;
-            }
-            if heap_ptr > proc.user_heap_position() {
-                proc.set_user_heap_position(heap_ptr);
-            }
-            log::debug!(
-                "mmap: successfully mapped fd {} to user heap position {:#x} - {:#x}",
-                fd,
-                heap_start,
-                proc.user_heap_position()
-            );
-            Ok(heap_start)
+    // MAP_FIXED uses the address verbatim. hints are honoured when the range
+    // is actually free, otherwise they are ignored like linux does.
+    let start = if fixed {
+        addr
+    } else if addr != 0 {
+        let hint = addr & !(PAGE_SIZE_U64 - 1);
+        if address_space.user_range_free(hint, len as usize) {
+            hint
         } else {
-            log::error!("mmap failed for fd {}", fd);
-            Err(result.expect_err("no error while erroring"))
+            address_space
+                .find_free_user_range(len as usize)
+                .ok_or(KError::ENOMEM)?
         }
     } else {
-        let address_space =
-            proc.address_space.as_mut().ok_or(KError::EINVAL)?;
+        address_space
+            .find_free_user_range(len as usize)
+            .ok_or(KError::ENOMEM)?
+    };
 
-        for page_index in 0..heap_pages {
-            let virt = KVirtAddr::new(heap_ptr);
-            if flags & flower_abi::memory::MAP_FIXED != 0
-                && address_space.is_mapped(virt)
-            {
-                let old_phys = address_space
-                    .unmap_page(virt)
-                    .map_err(|_| KError::EINVAL)?;
-                if system::mem::pmm::is_usable_address(old_phys.as_u64()) {
-                    system::mem::pmm::free(old_phys.as_u64());
-                }
-            }
+    let end = start.checked_add(len).ok_or(KError::EINVAL)?;
 
-            address_space.map_page_alloc(virt, page_flags).map_err(|_| {
-                log::error!(
-                    "mmap failed: addr={:#x}, flags={:#x}, fixed={}, page={}/{}, target={:#x}",
-                    addr,
-                    flags,
-                    flags & flower_abi::memory::MAP_FIXED != 0,
-                    page_index,
-                    heap_pages,
-                    heap_ptr,
-                );
-                KError::EINVAL
-            })?;
-            heap_ptr += arch::layout::PAGE_SIZE as u64;
-        }
-
-        if heap_ptr > proc.user_heap_position() {
-            proc.set_user_heap_position(heap_ptr);
-        }
-        Ok(heap_start)
+    if fixed {
+        // replace whatever used to live there.
+        address_space
+            .unmap_user_range(start, end)
+            .map_err(|_| KError::EINVAL)?;
     }
+
+    let result = match file_phys {
+        Some(phys) => {
+            address_space.map_user_file(start, len as usize, prot_flags, phys)
+        },
+        None if flags & MAP_SHARED != 0 => {
+            address_space.map_user_shared(start, len as usize, prot_flags)
+        },
+        None => {
+            address_space.map_user_anonymous(start, len as usize, prot_flags)
+        },
+    };
+
+    result.map_err(|e| {
+        log::error!(
+            "mmap failed: addr={:#x}, flags={:#x}, fixed={}, start={:#x}, size={:#x}: {}",
+            addr,
+            flags,
+            fixed,
+            start,
+            len,
+            e
+        );
+        KError::ENOMEM
+    })?;
+
+    log::debug!("mmap: mapped {:#x}-{:#x}", start, end);
+    Ok(start)
 }
 
 pub fn munmap(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let addr = frame.rdi;
-    let base = addr & !(arch::layout::PAGE_SIZE as u64 - 1);
     let size = frame.rsi;
 
     if size == 0 {
         return Err(KError::EINVAL);
     }
 
-    let end = addr.checked_add(size).ok_or(KError::EINVAL)?;
+    let end = align_range_up(addr.checked_add(size).ok_or(KError::EINVAL)?)?;
+    let start = addr & !(PAGE_SIZE_U64 - 1);
 
-    let pages = size.div_ceil(arch::layout::PAGE_SIZE as u64);
+    log::debug!("munmap: {:#x}-{:#x}", start, end);
 
-    log::debug!("munmap: addr={:#x}, size={}, pages={}", addr, size, pages);
+    let current = system::proc::current().ok_or(KError::EINVAL)?;
+    let mut proc = current.lock();
 
-    {
-        let current = system::proc::current().ok_or(KError::EINVAL)?;
-        let mut proc = current.lock();
+    proc.address_space
+        .as_mut()
+        .ok_or(KError::EINVAL)?
+        .unmap_user_range(start, end)
+        .map_err(|_| KError::EINVAL)?;
 
-        if addr < proc.user_heap() || end > proc.user_heap_position() {
-            log::error!(
-                "munmap failed: address range {:#x} - {:#x} is out of bounds for user heap ({:#x} - {:#x})",
-                addr,
-                end,
-                proc.user_heap(),
-                proc.user_heap_position()
-            );
-            return Err(KError::EINVAL);
-        }
-
-        for i in 0..pages {
-            let page_addr = base + i * arch::layout::PAGE_SIZE as u64;
-            let phys = proc.address_space.as_mut().unwrap().unmap_page(KVirtAddr::new(page_addr)).map_err(|_| {
-                log::error!(
-                    "munmap failed: could not unmap page at user heap position {:#x}",
-                    page_addr
-                );
-                KError::EINVAL
-            })?;
-
-            // NOTE: this might fuck me later
-            if system::mem::pmm::is_usable_address(phys.as_u64()) {
-                system::mem::pmm::free(phys.as_u64());
-            } else {
-                log::debug!(
-                    "munmap: skipping free for non-usable physical page {:#x}",
-                    phys
-                );
-            }
-        }
-
-        log::debug!("munmap: successfully unmapped pages");
-
-        Ok(0)
-    }
-}
-
-fn prot_to_flags(prot: u64) -> MapFlags {
-    let mut flags = MapFlags::empty();
-
-    if prot != PROT_NONE {
-        flags |= MapFlags::USER;
-    }
-
-    if prot & PROT_WRITE != 0 {
-        flags |= MapFlags::WRITE;
-    }
-
-    if prot & PROT_EXEC != 0 {
-        flags |= MapFlags::EXEC;
-    }
-
-    flags
+    Ok(0)
 }
 
 pub fn mprotect(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
@@ -381,29 +269,21 @@ pub fn mprotect(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let size = frame.rsi;
     let prot = frame.rdx;
 
-    if size == 0 {
+    if size == 0 || !addr.is_multiple_of(PAGE_SIZE_U64) {
         return Err(KError::EINVAL);
     }
 
-    if (addr as usize & (PAGE_SIZE - 1)) != 0 {
-        return Err(KError::EINVAL);
-    }
-
-    let end = addr.checked_add(size).ok_or(KError::EINVAL)?;
+    let end = align_range_up(addr.checked_add(size).ok_or(KError::EINVAL)?)?;
     let flags = prot_to_flags(prot);
 
     let current = system::proc::current().ok_or(KError::EINVAL)?;
     let mut proc = current.lock();
 
-    let mut page = addr;
-    while page < end {
-        proc.address_space
-            .as_mut()
-            .unwrap()
-            .update_page_flags(KVirtAddr::new(page), flags)
-            .map_err(|_| KError::EINVAL)?;
-        page += PAGE_SIZE as u64;
-    }
+    proc.address_space
+        .as_mut()
+        .ok_or(KError::EINVAL)?
+        .protect_user_range(addr, end, flags)
+        .map_err(|_| KError::EINVAL)?;
 
     Ok(0)
 }

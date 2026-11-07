@@ -77,7 +77,7 @@ fn segment_flags(flags: Flags) -> MapFlags {
 
 pub fn load_into(
     elf_data: &[u8],
-    address_space: &AddressSpace,
+    address_space: &mut AddressSpace,
     load_type: ELFLoadType,
 ) -> Result<ELF64, &'static str> {
     let elf = ElfFile::new(elf_data).map_err(|_| "failed to read elf")?;
@@ -144,6 +144,13 @@ pub fn load_into(
                     }
 
                     addr += arch::layout::PAGE_SIZE as u64;
+                }
+
+                // remember the segment so munmap/fork/mprotect know what owns
+                // these frames.
+                if start_page < end_page {
+                    address_space
+                        .add_anonymous_vma(start_page, end_page, flags)?;
                 }
 
                 let offset = program_header.offset() as usize;

@@ -78,8 +78,8 @@ pub fn install() {
             continue;
         }
 
-        let phys = mem::pmm::alloc().expect("oom while populating kernel pml4");
-        unsafe { zero_frame(phys) };
+        let phys =
+            mem::pmm::alloc_zeroed().expect("oom while populating kernel pml4");
 
         pml4[i].set_addr(
             x86PhysAddr::new(phys),
@@ -99,16 +99,6 @@ pub fn install() {
 fn hhdm() -> u64 { *HHDM.get().expect("paging not initialized") }
 
 fn table_ptr(phys: u64) -> *mut PageTable { (phys + hhdm()) as *mut PageTable }
-
-unsafe fn zero_frame(phys: u64) {
-    unsafe {
-        core::ptr::write_bytes(
-            (phys + hhdm()) as *mut u8,
-            0,
-            <Processor as Paging>::PAGE_SIZE,
-        );
-    }
-}
 
 unsafe fn mapper(root: u64) -> OffsetPageTable<'static> {
     let pml4 = unsafe { &mut *table_ptr(root) };
@@ -203,8 +193,7 @@ fn map_alloc(
     virt: u64,
     flags: PageTableFlags,
 ) -> Result<u64, &'static str> {
-    let phys = mem::pmm::alloc().ok_or("oom")?;
-    unsafe { zero_frame(phys) };
+    let phys = mem::pmm::alloc_zeroed().ok_or("oom")?;
 
     if let Err(e) = map_raw(root, virt, phys, flags) {
         mem::pmm::free(phys);
@@ -328,11 +317,9 @@ impl Paging for Processor {
 
     fn paging_root_new() -> Result<Self::Root, &'static str> {
         let kernel_root = *KERNEL_ROOT.get().ok_or("paging not initialized")?;
-        let root = mem::pmm::alloc().ok_or("oom")?;
+        let root = mem::pmm::alloc_zeroed().ok_or("oom")?;
 
         unsafe {
-            zero_frame(root);
-
             let kernel_pml4 = &*table_ptr(kernel_root);
             let new_pml4 = &mut *table_ptr(root);
 

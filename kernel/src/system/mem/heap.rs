@@ -24,7 +24,7 @@ use x86_64::instructions::interrupts;
 
 use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
-use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE};
+use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START};
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::posix::errno::KResult;
 
@@ -45,16 +45,7 @@ fn map_chunk(
     size: usize,
     flags: MapFlags,
 ) -> Result<(), &'static str> {
-    let address_space = AddressSpace::current();
-
-    let pages = size.div_ceil(PAGE_SIZE);
-
-    for i in 0..pages {
-        let page_addr = addr + (i * PAGE_SIZE) as u64;
-        address_space.map_page_alloc(page_addr, flags)?;
-    }
-
-    Ok(())
+    AddressSpace::current().map_range_alloc(addr, size, flags)
 }
 
 unsafe impl GlobalAlloc for Allocator {

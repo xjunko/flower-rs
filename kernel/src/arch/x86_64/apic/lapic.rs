@@ -64,7 +64,7 @@ impl LocalApic {
         }
 
         address_space
-            .map_page(
+            .map_page_raw(
                 virt,
                 KPhysAddr::new(apic_base.start_address().as_u64()),
                 flags,

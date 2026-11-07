@@ -21,7 +21,7 @@ use alloc::string::String;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 use crate::arch::addr::KVirtAddr;
-use crate::arch::layout::KERNEL_STACK_SIZE;
+use crate::arch::layout::{KERNEL_STACK_SIZE, PAGE_SIZE};
 use crate::arch::paging::MapFlags;
 use crate::arch::{self, Multitasking, Paging, Processor};
 use crate::system::mem::vmm::AddressSpace;
@@ -91,6 +91,9 @@ pub struct Process {
 
     pub stack_ptr: u64,
     pub kernel_stack_top: u64,
+    /// start of the kernel valloc reservation for this process' kernel stack.
+    /// zero for processes without one (the null process).
+    kernel_stack_virt: u64,
 
     pub _fsbase: u64,
     user: ProcessUserMemory,
@@ -200,6 +203,7 @@ impl Process {
 
             stack_ptr: stack,
             kernel_stack_top: stack_top,
+            kernel_stack_virt: stack_virt.as_u64(),
 
             user: ProcessUserMemory::new(),
 
@@ -252,6 +256,7 @@ impl Process {
 
             stack_ptr: stack,
             kernel_stack_top: stack_top,
+            kernel_stack_virt: stack_virt.as_u64(),
 
             user: ProcessUserMemory::from_user(
                 user_entry, user_stack, user_heap,
@@ -335,6 +340,7 @@ impl Process {
 
             stack_ptr,
             kernel_stack_top: stack_top,
+            kernel_stack_virt: stack_virt.as_u64(),
 
             user: ProcessUserMemory {
                 entry: frame.rip,
@@ -370,8 +376,37 @@ pub fn null_process() -> Process {
 
         stack_ptr: 0,
         kernel_stack_top: 0,
+        kernel_stack_virt: 0,
 
         user: ProcessUserMemory::new(),
         _fsbase: 0,
+    }
+}
+
+impl Drop for Process {
+    fn drop(&mut self) {
+        if self.kernel_stack_virt == 0 {
+            return;
+        }
+
+        // the kernel stack lives in the shared kernel half, so it can be torn
+        // down from any address space. the guard page below it was never
+        // mapped; the mapped stack starts one page after the reservation.
+        let stack_bottom =
+            KVirtAddr::new(self.kernel_stack_virt + PAGE_SIZE as u64);
+        let reservation = KERNEL_STACK_SIZE + PAGE_SIZE;
+
+        if let Err(e) =
+            AddressSpace::kernel().unmap_range(stack_bottom, KERNEL_STACK_SIZE)
+        {
+            log::error!("failed to unmap kernel stack: {}", e);
+        }
+
+        if let Err(e) = AddressSpace::release_virt(
+            KVirtAddr::new(self.kernel_stack_virt),
+            reservation,
+        ) {
+            log::error!("failed to release kernel stack valloc range: {}", e);
+        }
     }
 }

@@ -20,7 +20,7 @@ use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 
 use crate::arch::addr::KVirtAddr;
-use crate::arch::generic::paging::MapFlags;
+use crate::arch::layout::PAGE_SIZE;
 use crate::arch::x86_64::idt::print_stack_frame;
 use crate::{println, system};
 
@@ -42,76 +42,30 @@ pub extern "x86-interrupt" fn page_fault_handler(
 
     // we might be able to handle this
     if let Some(current) = system::proc::current() {
-        let mut proc = current.lock();
+        let proc = current.lock();
 
         // okay, it's from the user, probably fine.
-        if proc.level == system::proc::ProcessLevel::RING3 {
-            let stack_bottom = proc.user_stack_bottom();
-            let stack_top = proc.user_stack_top();
-            let heap_top = proc.user_heap_top();
-            let heap_max = proc.user_heap_max();
+        if proc.level == system::proc::ProcessLevel::RING3
+            && let Some(address_space) = proc.address_space.as_ref()
+        {
+            let page = KVirtAddr::new(fault_addr & !(PAGE_SIZE as u64 - 1));
 
-            // inside the stack region?
-            if fault_addr >= stack_bottom && fault_addr <= stack_top {
-                // inside the region, just allocate...
-                if let Some(address_space) = proc.address_space.as_ref() {
-                    let page_addr = KVirtAddr::new(fault_addr & !0xFFF);
-                    let flags = MapFlags::WRITE | MapFlags::USER;
-
+            match address_space.demand_page(page) {
+                Ok(true) => {
                     log::debug!(
-                        "stack fault: addr={:#x} page={:#x} already_mapped={}",
-                        fault_addr,
-                        page_addr.as_u64(),
-                        address_space.is_mapped(page_addr)
+                        "demand-paged user page at {:#x}",
+                        page.as_u64()
                     );
-
-                    match address_space.map_page_alloc(page_addr, flags) {
-                        Ok(_) => {
-                            if page_addr.as_u64() < stack_bottom {
-                                proc.set_user_stack_bounds(
-                                    page_addr.as_u64(),
-                                    stack_top,
-                                );
-                            }
-                            log::debug!(
-                                "allocated stack page at {:#x}",
-                                page_addr.as_u64()
-                            );
-                            return;
-                        },
-                        Err(e) => {
-                            log::error!(
-                                "stack demand-page alloc FAILED at {:#x}: {}",
-                                page_addr.as_u64(),
-                                e
-                            );
-                        },
-                    }
-                }
-            }
-
-            // inside the heap region?
-            if fault_addr >= heap_top && fault_addr < heap_max {
-                // inside the region, just allocate...
-                if let Some(address_space) = proc.address_space.as_ref() {
-                    let page_addr = KVirtAddr::new(fault_addr & !0xFFF);
-                    let flags = MapFlags::WRITE | MapFlags::USER;
-
-                    if address_space.map_page_alloc(page_addr, flags).is_ok() {
-                        // extend heap, if necessary
-                        if page_addr.as_u64() + 0x1000 > heap_top {
-                            proc.set_user_heap_bounds(
-                                page_addr.as_u64() + 0x1000,
-                                heap_max,
-                            );
-                        }
-                        log::debug!(
-                            "allocated heap page at {:#x}",
-                            page_addr.as_u64()
-                        );
-                        return;
-                    }
-                }
+                    return;
+                },
+                Ok(false) => {},
+                Err(e) => {
+                    log::error!(
+                        "demand-page allocation FAILED at {:#x}: {}",
+                        page.as_u64(),
+                        e
+                    );
+                },
             }
         }
     }

@@ -53,7 +53,7 @@ impl IoApic {
         let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
         address_space
-            .map_page(virt, KPhysAddr::new(ioapic_addr as u64), flags)
+            .map_page_raw(virt, KPhysAddr::new(ioapic_addr as u64), flags)
             .expect("failed to map ioapic");
 
         Self { virt_base: virt, gsi_base: ioapic_gsi_base }

@@ -51,7 +51,7 @@ impl acpi::Handler for AcpiReader {
             let page_virt = AddressSpace::phys_to_virt(page_phys);
 
             if !address_space.is_mapped(page_virt)
-                && let Err(e) = address_space.map_page(
+                && let Err(e) = address_space.map_page_raw(
                     page_virt,
                     page_phys,
                     MapFlags::WRITE,
