@@ -58,7 +58,7 @@ pub enum KFile {
 }
 
 pub enum KMapBacking {
-    Physical(KPhysAddr),
+    Physical { phys: KPhysAddr, managed: bool },
     Shmem(Arc<Shmem>),
 }
 

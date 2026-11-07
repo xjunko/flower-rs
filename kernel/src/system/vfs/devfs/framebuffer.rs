@@ -35,7 +35,7 @@ fn framebuffer_mmap(
     _offset: u64,
 ) -> KResult<KPhysAddr> {
     if let Some(fb_drv) = crate::drivers::fb::get() {
-        Ok(fb_drv.addr)
+        Ok(fb_drv.phys)
     } else {
         Err(KError::EEXIST)
     }

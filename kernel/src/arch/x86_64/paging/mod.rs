@@ -228,7 +228,11 @@ unsafe fn free_table(table_phys: u64, level: u8) {
                 mem::pmm::free(child);
             }
         } else {
-            mem::pmm::free(entry.addr().as_u64());
+            let phys = entry.addr().as_u64();
+
+            if mem::pmm::is_usable_address(phys) {
+                mem::pmm::free(phys);
+            }
         }
 
         entry.set_unused();

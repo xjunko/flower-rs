@@ -19,11 +19,12 @@
 use spin::Mutex;
 
 use crate::arch::addr::KPhysAddr;
+use crate::arch::{Paging, Processor};
 use crate::boot::limine::FRAMEBUFFER_REQUEST;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Framebuffer {
-    pub addr: KPhysAddr,
+    pub phys: KPhysAddr,
 
     pub width: u64,
     pub height: u64,
@@ -37,7 +38,7 @@ impl Framebuffer {
         let offset = y * self.pitch as usize + x * self.bpp as usize / 8;
 
         unsafe {
-            let pixel = self.addr.as_ptr::<u8>().add(offset) as *mut u32;
+            let pixel = self.phys.as_hhdm::<u8>().add(offset) as *mut u32;
             *pixel =
                 (rgb.0 as u32) << 16 | (rgb.1 as u32) << 8 | (rgb.2 as u32);
         }
@@ -53,8 +54,12 @@ pub fn install() {
         .framebuffers()
         .next()
     {
+        let addr = framebuffer.addr() as u64;
+        let hhdm = Processor::paging_hhdm();
+        let virt = if addr >= hhdm { addr } else { addr + hhdm };
+
         let fb = Framebuffer {
-            addr: KPhysAddr::new(framebuffer.addr() as u64),
+            phys: KPhysAddr::new(virt - hhdm),
             width: framebuffer.width(),
             height: framebuffer.height(),
             pitch: framebuffer.pitch(),

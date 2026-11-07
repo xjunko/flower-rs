@@ -719,6 +719,7 @@ impl AddressSpace {
         len: usize,
         flags: MapFlags,
         phys_base: KPhysAddr,
+        managed: bool,
     ) -> Result<(), &'static str> {
         let end = start.checked_add(len as u64).ok_or("user range overflow")?;
         Self::check_user_range(start, end)?;
@@ -727,7 +728,7 @@ impl AddressSpace {
             start,
             end,
             flags,
-            kind: VmaKind::File { phys_base },
+            kind: VmaKind::File { phys_base, managed },
         })?;
 
         let pages = len.div_ceil(PAGE_SIZE);
@@ -737,7 +738,13 @@ impl AddressSpace {
             let phys =
                 KPhysAddr::new(phys_base.as_u64() + (index * PAGE_SIZE) as u64);
 
-            if let Err(e) = self.map_page_shared(virt, phys, flags) {
+            let mapped = if managed {
+                self.map_page_shared(virt, phys, flags)
+            } else {
+                self.map_page_raw(virt, phys, flags)
+            };
+
+            if let Err(e) = mapped {
                 let _ = self.unmap_user_range(start, end);
                 return Err(e);
             }
@@ -773,10 +780,21 @@ impl AddressSpace {
         while page < end {
             let virt = KVirtAddr::new(page);
 
-            if self.is_mapped(virt)
-                && let Err(e) = self.unmap_page(virt)
-            {
-                log::error!("failed to unmap user page {:#x}: {}", page, e);
+            if self.is_mapped(virt) {
+                let managed = removed
+                    .iter()
+                    .find(|vma| vma.contains(page))
+                    .is_none_or(|vma| vma.uses_pmm());
+
+                let result = if managed {
+                    self.unmap_page(virt)
+                } else {
+                    self.unmap_page_raw(virt)
+                };
+
+                if let Err(e) = result {
+                    log::error!("failed to unmap user page {:#x}: {}", page, e);
+                }
             }
 
             page += PAGE_SIZE as u64;
@@ -871,17 +889,12 @@ impl AddressSpace {
         }
     }
 
-    /// for every shared vma, replaces the private pages created by
-    /// `paging_clone_user` with mappings of the parent's shared frames.
-    fn rebind_shared(&self, parent: &Self) -> Result<(), &'static str> {
+    /// replaces the private pages created by `paging_clone_user` with the
+    /// parent's frames for mappings that must not be copied: shared objects
+    /// and raw device memory.
+    fn rebind_mappings(&self, parent: &Self) -> Result<(), &'static str> {
         for vma in self.vm.iter() {
-            let VmaKind::Shared(mapping) = &vma.kind else {
-                continue;
-            };
-
-            // a vma may map only a prefix of the object, so walk the vma's
-            // pages rather than the object's. walking the object would rebind
-            // (and potentially clobber) addresses outside this vma.
+            // a vma may map only part of its backing, so walk the vma's pages.
             let pages = ((vma.end - vma.start) / PAGE_SIZE as u64) as usize;
 
             for index in 0..pages {
@@ -894,12 +907,27 @@ impl AddressSpace {
                     continue;
                 }
 
+                let phys = match &vma.kind {
+                    VmaKind::Shared(mapping) => {
+                        mapping.object.page(mapping.page_offset + index)?
+                    },
+                    VmaKind::File { phys_base, managed: false } => {
+                        KPhysAddr::new(
+                            phys_base.as_u64() + (index * PAGE_SIZE) as u64,
+                        )
+                    },
+                    _ => continue,
+                };
+
                 if self.is_mapped(virt) {
                     self.unmap_page(virt)?;
                 }
 
-                let phys = mapping.object.page(mapping.page_offset + index)?;
-                self.map_page_shared(virt, phys, vma.flags)?;
+                if vma.uses_pmm() {
+                    self.map_page_shared(virt, phys, vma.flags)?;
+                } else {
+                    self.map_page_raw(virt, phys, vma.flags)?;
+                }
             }
         }
 
@@ -1025,7 +1053,7 @@ impl AddressSpace {
 
         // on failure the child is dropped, which frees its page tables
         // (releasing the mappings' frame references) and then its shared vmas.
-        child.rebind_shared(self)?;
+        child.rebind_mappings(self)?;
 
         Ok(child)
     }

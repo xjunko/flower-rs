@@ -112,7 +112,12 @@ pub struct KShmemMapping {
 pub enum VmaKind {
     Anonymous,
     Shared(KShmemMapping),
-    File { phys_base: KPhysAddr },
+    /// pages backed by a file, page cache, or device. `managed` is true when
+    /// the pmm owns the frames, false for raw device memory.
+    File {
+        phys_base: KPhysAddr,
+        managed: bool,
+    },
 }
 
 #[derive(Clone)]
@@ -132,6 +137,13 @@ impl Vma {
 
     pub fn is_anonymous(&self) -> bool {
         matches!(self.kind, VmaKind::Anonymous)
+    }
+
+    pub fn uses_pmm(&self) -> bool {
+        match &self.kind {
+            VmaKind::File { managed, .. } => *managed,
+            _ => true,
+        }
     }
 }
 

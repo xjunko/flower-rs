@@ -208,9 +208,8 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
     }
 
     let result = match backing {
-        Some(KMapBacking::Physical(phys)) => {
-            address_space.map_user_file(start, len as usize, prot_flags, phys)
-        },
+        Some(KMapBacking::Physical { phys, managed }) => address_space
+            .map_user_file(start, len as usize, prot_flags, phys, managed),
         Some(KMapBacking::Shmem(shmem)) => address_space.map_user_shmem(
             start,
             len as usize,

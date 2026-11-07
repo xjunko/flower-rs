@@ -121,7 +121,8 @@ impl File for DevFile {
         offset: u64,
     ) -> KResult<KMapBacking> {
         if let Some(mmap_fn) = self.fn_mmap {
-            mmap_fn(len, prot, flags, offset).map(KMapBacking::Physical)
+            mmap_fn(len, prot, flags, offset)
+                .map(|phys| KMapBacking::Physical { phys, managed: false })
         } else {
             Err(KError::EOPNOTSUPP)
         }
