@@ -2,16 +2,19 @@
 <p align="right" style="float: right; margin: 0 10px 0 0;">Art by <a href="https://www.pixiv.net/en/users/2550807">miwashiiba</a></p>
 
 
-## flower-rs
+## flower-rs (slop-edition)
 a monolithic x86_64 kernel written in rust, a continuation of [riria](https://github.com/xjunko/riria).
 
 it also natively _(somewhat)_ supports x86_64's musl ELFs.
 
-
 <img width="600" height="auto" alt="image" src="https://github.com/user-attachments/assets/fbb6d10e-9565-44e4-9915-ef773d270907"  />
 
 ## what this is
-a thought experiment, just wanted to see if its possible to make a kernel in rust and also to learn rust.
+```diff
+- a thought experiment, just wanted to see if its possible to make a kernel in rust and also to learn rust.
++ a slop implementation of the kernel, to see the capabilities of AI.
++ this is merely a test, check-out on `master` instead if you somehow reached here.
+```
 
 ## what this is not
 - a good kernel, please don't use this as a reference for writing your own kernel.
