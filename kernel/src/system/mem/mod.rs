@@ -27,11 +27,20 @@ pub mod vmm;
 mod tests;
 
 pub fn install() {
-    arch::generic::addr::HHDM.call_once(|| {
-        let boot_info = KBootInfo::get();
-        boot_info.hhdm.unwrap()
-    });
+    let boot_info = KBootInfo::get();
+    let memory_map = boot_info.memory.lock();
 
+    memory_map.iter().for_each(|x| {
+        log::debug!(
+            "{:#018x} - {:#018x} ({:?})",
+            x.address.as_u64(),
+            x.address.as_u64() + x.length as u64,
+            x.usage
+        )
+    });
+    drop(memory_map);
+
+    arch::generic::addr::HHDM.call_once(|| boot_info.hhdm.unwrap());
     pmm::install();
     vmm::install();
     heap::install().expect("failed to install heap");

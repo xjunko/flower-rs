@@ -18,7 +18,7 @@
 
 use spin::mutex::SpinMutex;
 
-use crate::arch::addr::{KPhysAddr, align_up};
+use crate::arch::addr::align_up;
 use crate::arch::layout::PAGE_SIZE;
 use crate::boot::{KBootInfo, KMemoryMapType};
 
@@ -82,25 +82,12 @@ impl BitmapAllocator {
     }
 }
 
-fn page_to_mb(page: usize) -> usize { (page * PAGE_SIZE) / (1024 * 1024) }
-
 pub fn install() {
     let boot_info = KBootInfo::get();
     let memory_map = boot_info.memory.lock();
 
     log::debug!("installing pmm");
-    let mut highest_addr: KPhysAddr = KPhysAddr::new(0);
-
-    for entry in memory_map.iter() {
-        if entry.usage == KMemoryMapType::Usable {
-            let entry_end = entry.end();
-            if entry_end > highest_addr {
-                highest_addr = entry_end;
-            }
-        }
-    }
-
-    log::debug!("highest memory address: {:#x}", highest_addr);
+    let highest_addr = boot_info.highest_phys.expect("no highest_phys");
 
     let total_pages = (highest_addr.as_u64() as usize).div_ceil(PAGE_SIZE);
     let bitmap_size = total_pages.div_ceil(8);
@@ -121,11 +108,7 @@ pub fn install() {
     let bitmap_ptr =
         (bitmap_addr + boot_info.hhdm.unwrap().as_u64()) as *mut u8;
 
-    log::debug!(
-        "Bitmap address: {:#x}, size: {} bytes",
-        bitmap_addr,
-        bitmap_size
-    );
+    log::debug!("pmm: bmap_addr={:#x}, sz: {} bytes", bitmap_addr, bitmap_size);
 
     // set all bits to 1 (allocated)
     unsafe {
@@ -167,13 +150,19 @@ pub fn install() {
 
     allocator.usable_pages = allocator.free_pages;
 
-    log::info!("PMM installed.");
-    log::info!(
-        "PMM: total pages: {}MiB, usable pages: {}MiB, free pages: {}MiB.",
-        page_to_mb(total_pages),
-        page_to_mb(allocator.usable_pages),
-        page_to_mb(allocator.free_pages)
-    );
+    {
+        fn page_to_mb(page: usize) -> usize {
+            (page * PAGE_SIZE) / (1024 * 1024)
+        }
+
+        log::info!("pmm: installed.");
+        log::info!(
+            "pmm: total pages: {}MiB, usable pages: {}MiB, free pages: {}MiB.",
+            page_to_mb(total_pages),
+            page_to_mb(allocator.usable_pages),
+            page_to_mb(allocator.free_pages)
+        );
+    }
 
     *PMM.lock() = Some(allocator);
 }
