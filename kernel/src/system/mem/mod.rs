@@ -16,11 +16,25 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+use crate::arch;
+use crate::boot::KBootInfo;
+
 pub mod fault;
 pub mod heap;
 pub mod pmm;
 pub mod vmm;
 
 mod tests;
+
+pub fn install() {
+    arch::generic::addr::HHDM.call_once(|| {
+        let boot_info = KBootInfo::get();
+        boot_info.hhdm.unwrap()
+    });
+
+    pmm::install();
+    vmm::install();
+    heap::install().expect("failed to install heap");
+}
 
 pub fn self_test() { tests::start(); }

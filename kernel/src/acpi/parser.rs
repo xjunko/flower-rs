@@ -20,7 +20,7 @@ use core::ptr::NonNull;
 
 use acpi::PhysicalMapping;
 
-use crate::arch::addr::PhysAddr;
+use crate::arch::addr::KPhysAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::system::mem::vmm::AddressSpace;
 
@@ -33,9 +33,12 @@ impl acpi::Handler for AcpiReader {
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
+        log::trace!("acpi: addr={:#x} sz={}", physical_address, size);
+
         let address_space = AddressSpace::kernel();
-        let phys_start = PhysAddr::new(physical_address as u64);
+        let phys_start = KPhysAddr::new(physical_address as u64);
         let virt_start = AddressSpace::phys_to_virt(phys_start);
+        log::trace!("acpi: phys={:#x} virt={:#x}", phys_start, virt_start);
 
         // we're gonna map the whole region
         let page_offset = (physical_address as u64 & 0xFFF) as usize;
@@ -44,7 +47,7 @@ impl acpi::Handler for AcpiReader {
         let page_count = total_len.div_ceil(4096);
 
         for i in 0..page_count {
-            let page_phys = PhysAddr::new(aligned_phys + (i as u64 * 4096));
+            let page_phys = KPhysAddr::new(aligned_phys + (i as u64 * 4096));
             let page_virt = AddressSpace::phys_to_virt(page_phys);
 
             if !address_space.is_mapped(page_virt)

@@ -20,7 +20,7 @@ use alloc::format;
 use alloc::string::String;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::layout::KERNEL_STACK_SIZE;
 use crate::arch::paging::MapFlags;
 use crate::arch::{self, Multitasking, Paging, Processor};
@@ -153,8 +153,8 @@ impl Process {
     }
 
     pub unsafe fn switch_stack(&self) {
-        arch::stacks::set_kernel_stack(VirtAddr::new(self.kernel_stack_top));
-        arch::stacks::set_user_stack(VirtAddr::new(self.user_stack()));
+        arch::stacks::set_kernel_stack(KVirtAddr::new(self.kernel_stack_top));
+        arch::stacks::set_user_stack(KVirtAddr::new(self.user_stack()));
         arch::stacks::write_context();
     }
 }

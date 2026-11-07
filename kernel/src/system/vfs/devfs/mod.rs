@@ -29,13 +29,13 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 
 pub use proc::create_procfs;
 
-use crate::arch::addr::PhysAddr;
+use crate::arch::addr::KPhysAddr;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::{File, FileLike, FileSystem, FileType, Stat, Whence};
 
 type ReadFn = fn(usize, &mut [u8]) -> usize;
 type WriteFn = fn(&[u8]) -> usize;
-type MmapFn = fn(usize, c_int, c_int, u64) -> KResult<PhysAddr>;
+type MmapFn = fn(usize, c_int, c_int, u64) -> KResult<KPhysAddr>;
 
 pub struct DevFile {
     path: String,
@@ -117,7 +117,7 @@ impl File for DevFile {
         prot: core::ffi::c_int,
         flags: core::ffi::c_int,
         offset: u64,
-    ) -> KResult<PhysAddr> {
+    ) -> KResult<KPhysAddr> {
         if let Some(mmap_fn) = self.fn_mmap {
             mmap_fn(len, prot, flags, offset)
         } else {

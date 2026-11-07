@@ -20,7 +20,7 @@ use flower_abi::arch;
 use x86_64::VirtAddr as x86VirtAddr;
 use x86_64::registers::model_specific::FsBase;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::system::mem::vmm::AddressSpace;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
@@ -36,7 +36,7 @@ pub fn prctl(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
     match arg1 {
         arch::ARCH_SET_FS => {
-            if let fs_base = VirtAddr::new(arg2)
+            if let fs_base = KVirtAddr::new(arg2)
                 && address_space.is_mapped(fs_base)
             {
                 log::debug!("writing FSBase with: {:#x}", fs_base);

@@ -23,7 +23,7 @@ use spin::MutexGuard;
 use spin::mutex::Mutex;
 use x86_64::instructions::port::Port;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::drivers::pci::io::PciIO;
 use crate::drivers::pci::parser::PciBus;
@@ -46,7 +46,7 @@ const AC97_BUFFER_STRIDE: u64 = 0x1000;
 static AC97_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 struct AudioBuffer {
-    virt: VirtAddr,
+    virt: KVirtAddr,
     phys: u32,
     has_played: bool,
     data_written: usize,
@@ -57,7 +57,7 @@ pub struct Ac97 {
     nabm: u16,
     entry: usize,
     buffers: [AudioBuffer; AC97_BUFFERS],
-    bdl_virt: VirtAddr,
+    bdl_virt: KVirtAddr,
     temp_buffer: [u8; AC97_BUFFER_SIZE],
     temp_count: usize,
     lock: Mutex<()>,
@@ -128,7 +128,7 @@ impl Ac97 {
             for (i, buffer) in
                 self.buffers.iter_mut().enumerate().take(AC97_BUFFERS)
             {
-                let vaddr = VirtAddr::new(
+                let vaddr = KVirtAddr::new(
                     AC97_BUFFER_VIRT_BASE + (i as u64) * AC97_BUFFER_STRIDE,
                 );
 
@@ -218,7 +218,7 @@ pub fn install(pci: &PciBus) {
 
         log::debug!("AC97 found, NAM={:#x}, NABM={:#x}", nam, nabm);
 
-        let bdl_virt_addr = VirtAddr::new(AC97_BDL_VIRT_BASE);
+        let bdl_virt_addr = KVirtAddr::new(AC97_BDL_VIRT_BASE);
         assert!(
             !address_space.is_mapped(bdl_virt_addr),
             "AC97 BDL virt collision at {:#x}",

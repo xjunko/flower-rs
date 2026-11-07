@@ -18,7 +18,7 @@
 
 pub mod generic;
 pub use self::generic::*;
-use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::addr::{KPhysAddr, KVirtAddr};
 use crate::arch::generic::paging::MapFlags;
 use crate::system::posix::errno::KResult;
 
@@ -70,6 +70,7 @@ pub trait Paging {
     type Root: Copy + Eq;
 
     const PAGE_SIZE: usize;
+    const PAGE_BITS: usize;
     const KERNEL_HALF_START: u64;
 
     fn paging_install();
@@ -85,28 +86,28 @@ pub trait Paging {
 
     fn paging_map(
         root: Self::Root,
-        virt: VirtAddr,
-        phys: PhysAddr,
+        virt: KVirtAddr,
+        phys: KPhysAddr,
         flags: MapFlags,
     ) -> Result<(), &'static str>;
 
     fn paging_unmap(
         root: Self::Root,
-        virt: VirtAddr,
-    ) -> Result<PhysAddr, &'static str>;
+        virt: KVirtAddr,
+    ) -> Result<KPhysAddr, &'static str>;
 
     fn paging_update(
         root: Self::Root,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         flags: MapFlags,
     ) -> Result<(), &'static str>;
 
     fn paging_translate(
         root: Self::Root,
-        virt: VirtAddr,
-    ) -> Option<(PhysAddr, MapFlags)>;
+        virt: KVirtAddr,
+    ) -> Option<(KPhysAddr, MapFlags)>;
 
-    fn paging_flush(virt: VirtAddr);
+    fn paging_flush(virt: KVirtAddr);
     fn paging_flush_all();
 
     fn paging_clone_user(root: Self::Root) -> Result<Self::Root, &'static str>;
@@ -121,8 +122,8 @@ pub trait Multitasking: Paging {
     ) -> u64;
     fn prepare_stack_fork(kernel_stack_top: u64) -> u64;
 
-    fn stack_set_kernel(addr: VirtAddr);
-    fn stack_set_user(addr: VirtAddr);
+    fn stack_set_kernel(addr: KVirtAddr);
+    fn stack_set_user(addr: KVirtAddr);
     fn stack_write_context();
 
     fn switch_context(
@@ -133,8 +134,8 @@ pub trait Multitasking: Paging {
 }
 
 pub trait Userspace {
-    fn copy_to_user<T: Copy>(src: VirtAddr, data: T) -> KResult<()>;
-    fn copy_from_user<T: Copy>(dest: VirtAddr) -> KResult<T>;
+    fn copy_to_user<T: Copy>(src: KVirtAddr, data: T) -> KResult<()>;
+    fn copy_from_user<T: Copy>(dest: KVirtAddr) -> KResult<T>;
 }
 
 pub struct Processor {}

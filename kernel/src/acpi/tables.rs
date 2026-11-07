@@ -23,7 +23,7 @@ use acpi::sdt::fadt::Fadt;
 use acpi::sdt::madt::{Madt, MadtEntry};
 
 use crate::acpi::parser::AcpiReader;
-use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::addr::{KPhysAddr, KVirtAddr};
 
 #[derive(Debug)]
 pub struct LapicInfo {
@@ -49,18 +49,18 @@ pub struct InterruptSourceOverrideInfo {
 
 #[derive(Debug)]
 pub struct KernelAcpiReader {
-    pub lapic_base: VirtAddr,
+    pub lapic_base: KVirtAddr,
     pub lapics: Vec<LapicInfo>,
     pub ioapics: Vec<IoApicInfo>,
     pub interrupt_overrides: Vec<InterruptSourceOverrideInfo>,
 
-    pub pm_timer_block_addr: Option<PhysAddr>,
+    pub pm_timer_block_addr: Option<KPhysAddr>,
 }
 
 impl Default for KernelAcpiReader {
     fn default() -> Self {
         Self {
-            lapic_base: VirtAddr::new(0),
+            lapic_base: KVirtAddr::new(0),
             lapics: Vec::new(),
             ioapics: Vec::new(),
             interrupt_overrides: Vec::new(),
@@ -73,7 +73,7 @@ impl KernelAcpiReader {
     pub fn parse_madt(&mut self, acpi: &AcpiTables<AcpiReader>) {
         for madt in acpi.find_tables::<Madt>() {
             self.lapic_base =
-                VirtAddr::new(madt.get().local_apic_address as u64);
+                KVirtAddr::new(madt.get().local_apic_address as u64);
 
             for entry in madt.get().entries() {
                 match entry {
@@ -111,7 +111,7 @@ impl KernelAcpiReader {
         for fadt in acpi.find_tables::<Fadt>() {
             if let Some(pm_timer) = fadt.pm_timer_block().unwrap() {
                 self.pm_timer_block_addr =
-                    Some(PhysAddr::new(pm_timer.address));
+                    Some(KPhysAddr::new(pm_timer.address));
 
                 log::debug!("acpi: pm timer found at: {:#x}", pm_timer.address);
             }

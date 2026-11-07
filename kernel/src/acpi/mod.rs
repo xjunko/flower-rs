@@ -21,7 +21,7 @@ use spin::Once;
 
 use crate::acpi::parser::AcpiReader;
 use crate::acpi::tables::KernelAcpiReader;
-use crate::boot::limine::RSDP_REQUEST;
+use crate::boot::KBootInfo;
 
 mod parser;
 mod tables;
@@ -29,14 +29,16 @@ mod tables;
 pub static ACPI_TABLES: Once<KernelAcpiReader> = Once::new();
 
 pub fn install() {
+    let boot_info = KBootInfo::get();
     let mut tables = KernelAcpiReader::default();
 
     log::debug!("ACPI: searching for RSDP...");
-    if let Some(rsdp) = RSDP_REQUEST.get_response() {
-        log::debug!("ACPI: RSDP found at {:#x}", rsdp.address());
+    if let Some(rsdp) = boot_info.rsdp_addr {
+        log::debug!("ACPI: RSDP found at {:#x}", rsdp);
 
         unsafe {
-            if let Ok(acpi) = AcpiTables::from_rsdp(AcpiReader, rsdp.address())
+            if let Ok(acpi) =
+                AcpiTables::from_rsdp(AcpiReader, rsdp.as_u64() as usize)
             {
                 tables.parse_madt(&acpi);
                 tables.parse_fadt(&acpi);
@@ -45,7 +47,7 @@ pub fn install() {
             }
         }
     } else {
-        panic!("ACPI: RSDP not found");
+        log::error!("ACPI: RSDP not found");
     }
 
     ACPI_TABLES.call_once(|| tables);

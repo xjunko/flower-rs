@@ -23,7 +23,7 @@ use xmas_elf::program::{Flags, Type};
 use xmas_elf::{ElfFile, header};
 
 use crate::arch;
-use crate::arch::addr::{VirtAddr, align_down, align_up};
+use crate::arch::addr::{KVirtAddr, align_down, align_up};
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::USER_DYNAMIC_LINKER_BASE;
 use crate::system::mem::vmm::AddressSpace;
@@ -133,7 +133,7 @@ pub fn load_into(
                 let mut addr = start_page;
 
                 while addr < end_page {
-                    let page = VirtAddr::new(addr);
+                    let page = KVirtAddr::new(addr);
 
                     if !address_space.is_mapped(page) {
                         address_space.map_page_alloc(page, flags)?;
@@ -157,13 +157,13 @@ pub fn load_into(
                 }
 
                 address_space.write(
-                    VirtAddr::new(vaddr + load_base),
+                    KVirtAddr::new(vaddr + load_base),
                     &elf_data[offset..file_end],
                 )?;
 
                 if mem_size > file_size as u64 {
                     address_space.zero(
-                        VirtAddr::new(vaddr + file_size as u64 + load_base),
+                        KVirtAddr::new(vaddr + file_size as u64 + load_base),
                         (mem_size - file_size as u64) as usize,
                     )?;
                 }

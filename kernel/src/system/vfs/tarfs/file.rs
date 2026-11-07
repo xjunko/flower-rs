@@ -21,7 +21,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::arch::addr::PhysAddr;
+use crate::arch::addr::KPhysAddr;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::{File, FileType, Stat, Whence};
 
@@ -169,7 +169,7 @@ impl File for TarFile {
         _prot: core::ffi::c_int,
         _flags: core::ffi::c_int,
         _offset: u64,
-    ) -> KResult<PhysAddr> {
+    ) -> KResult<KPhysAddr> {
         unimplemented!()
     }
 

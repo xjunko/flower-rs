@@ -22,7 +22,7 @@ use flower_abi::memory::{
     MAP_ANONYMOUS, MAP_PRIVATE, MAP_SHARED, PROT_EXEC, PROT_NONE, PROT_WRITE,
 };
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::PAGE_SIZE;
 use crate::system::mem::vmm::AddressSpace;
@@ -42,7 +42,7 @@ fn range_is_mapped(
         let address = start
             .checked_add(page.checked_mul(page_size).ok_or(KError::EINVAL)?)
             .ok_or(KError::EINVAL)?;
-        if address_space.is_mapped(VirtAddr::new(address)) {
+        if address_space.is_mapped(KVirtAddr::new(address)) {
             return Ok(true);
         }
     }
@@ -79,9 +79,9 @@ pub fn brk(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
         let mut page = first_page;
         while page < last_page {
-            if !address_space.is_mapped(VirtAddr::new(page)) {
+            if !address_space.is_mapped(KVirtAddr::new(page)) {
                 address_space
-                    .map_page_alloc(VirtAddr::new(page), flags)
+                    .map_page_alloc(KVirtAddr::new(page), flags)
                     .map_err(|_| KError::ENOMEM)?;
             }
             page += page_size;
@@ -220,7 +220,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
             let address_space = AddressSpace::current();
 
             for i in 0..heap_pages {
-                let src_virt = VirtAddr::new(unsafe {
+                let src_virt = KVirtAddr::new(unsafe {
                     data.as_ptr::<*mut u64>()
                         .add(i as usize * arch::layout::PAGE_SIZE)
                         as u64
@@ -235,7 +235,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
                 })?;
 
                 proc.address_space.as_mut().unwrap().map_page(
-                    VirtAddr::new(heap_ptr),
+                    KVirtAddr::new(heap_ptr),
                     src_phys,
                     page_flags,
                 ).map_err(|_| {
@@ -267,7 +267,7 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
             proc.address_space.as_mut().ok_or(KError::EINVAL)?;
 
         for page_index in 0..heap_pages {
-            let virt = VirtAddr::new(heap_ptr);
+            let virt = KVirtAddr::new(heap_ptr);
             if flags & flower_abi::memory::MAP_FIXED != 0
                 && address_space.is_mapped(virt)
             {
@@ -333,7 +333,7 @@ pub fn munmap(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
 
         for i in 0..pages {
             let page_addr = base + i * arch::layout::PAGE_SIZE as u64;
-            let phys = proc.address_space.as_mut().unwrap().unmap_page(VirtAddr::new(page_addr)).map_err(|_| {
+            let phys = proc.address_space.as_mut().unwrap().unmap_page(KVirtAddr::new(page_addr)).map_err(|_| {
                 log::error!(
                     "munmap failed: could not unmap page at user heap position {:#x}",
                     page_addr
@@ -400,7 +400,7 @@ pub fn mprotect(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
         proc.address_space
             .as_mut()
             .unwrap()
-            .update_page_flags(VirtAddr::new(page), flags)
+            .update_page_flags(KVirtAddr::new(page), flags)
             .map_err(|_| KError::EINVAL)?;
         page += PAGE_SIZE as u64;
     }

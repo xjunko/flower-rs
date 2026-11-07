@@ -18,7 +18,7 @@
 
 use core::arch::{asm, naked_asm};
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::x86_64::{gdt, syscalls};
 use crate::arch::{self, Multitasking, Processor};
 use crate::system::proc;
@@ -190,12 +190,12 @@ impl Multitasking for Processor {
         stack_ptr
     }
 
-    fn stack_set_kernel(addr: VirtAddr) {
+    fn stack_set_kernel(addr: KVirtAddr) {
         gdt::set_kernel_stack(addr.as_u64());
         syscalls::set_kernel_stack(addr.as_u64());
     }
 
-    fn stack_set_user(addr: VirtAddr) {
+    fn stack_set_user(addr: KVirtAddr) {
         syscalls::set_user_stack(addr.as_u64());
     }
 

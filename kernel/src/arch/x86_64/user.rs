@@ -18,7 +18,7 @@
 
 use core::mem::size_of;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::{Paging, Processor, Userspace};
 use crate::system::posix::errno::{KError, KResult};
@@ -26,7 +26,11 @@ use crate::system::posix::errno::{KError, KResult};
 // TODO: move this?
 const USER_ADDR_END: u64 = 0x0000_7FFF_FFFF_FFFF;
 
-fn validate_user_range(addr: VirtAddr, len: usize, write: bool) -> KResult<()> {
+fn validate_user_range(
+    addr: KVirtAddr,
+    len: usize,
+    write: bool,
+) -> KResult<()> {
     if len == 0 {
         return Ok(());
     }
@@ -44,7 +48,7 @@ fn validate_user_range(addr: VirtAddr, len: usize, write: bool) -> KResult<()> {
 
     while page < end {
         let flags =
-            <Processor as Paging>::paging_translate(root, VirtAddr::new(page))
+            <Processor as Paging>::paging_translate(root, KVirtAddr::new(page))
                 .map(|(_, flags)| flags)
                 .ok_or(KError::EFAULT)?;
 
@@ -61,7 +65,7 @@ fn validate_user_range(addr: VirtAddr, len: usize, write: bool) -> KResult<()> {
 }
 
 impl Userspace for Processor {
-    fn copy_to_user<T: Copy>(src: VirtAddr, data: T) -> KResult<()> {
+    fn copy_to_user<T: Copy>(src: KVirtAddr, data: T) -> KResult<()> {
         validate_user_range(src, size_of::<T>(), true)?;
         unsafe {
             core::ptr::write_unaligned(src.as_mut_ptr::<T>(), data);
@@ -70,7 +74,7 @@ impl Userspace for Processor {
         Ok(())
     }
 
-    fn copy_from_user<T: Copy>(dest: VirtAddr) -> KResult<T> {
+    fn copy_from_user<T: Copy>(dest: KVirtAddr) -> KResult<T> {
         validate_user_range(dest, size_of::<T>(), false)?;
         Ok(unsafe { core::ptr::read_unaligned(dest.as_ptr::<T>()) })
     }

@@ -22,7 +22,7 @@ use flower_abi::fs;
 use flower_abi::structs::FileStat;
 use flower_abi::system::WinSize;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::{SyscallFrame, SyscallReturnCode};
 use crate::system::vfs::{FdKind, FileLike, Whence};
@@ -293,7 +293,7 @@ pub fn ioctl(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
                     };
 
                     arch::user::copy_to_user(
-                        VirtAddr::new(argp as u64),
+                        KVirtAddr::new(argp as u64),
                         win_size,
                     )
                     .expect("failed to copy win_size to libc");

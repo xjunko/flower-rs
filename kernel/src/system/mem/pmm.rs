@@ -16,14 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use limine::memory_map::EntryType;
-use spin::Mutex;
-use x86_64::{VirtAddr, align_up};
+use spin::mutex::SpinMutex;
 
+use crate::arch::addr::{KPhysAddr, align_up};
 use crate::arch::layout::PAGE_SIZE;
-use crate::boot;
+use crate::boot::{KBootInfo, KMemoryMapType};
 
-static PMM: Mutex<Option<BitmapAllocator>> = Mutex::new(None);
+static PMM: SpinMutex<Option<BitmapAllocator>> = SpinMutex::new(None);
 
 unsafe impl Send for BitmapAllocator {}
 unsafe impl Sync for BitmapAllocator {}
@@ -86,45 +85,32 @@ impl BitmapAllocator {
 fn page_to_mb(page: usize) -> usize { (page * PAGE_SIZE) / (1024 * 1024) }
 
 pub fn install() {
-    log::debug!("Installing PMM");
+    let boot_info = KBootInfo::get();
+    let memory_map = boot_info.memory.lock();
 
-    let (hhdm, mmap) = {
-        (
-            VirtAddr::new(
-                boot::limine::HHDM_REQUEST
-                    .get_response()
-                    .expect("no hhdm")
-                    .offset(),
-            ),
-            boot::limine::MEMORY_MAP_REQUEST
-                .get_response()
-                .expect("no mmap")
-                .entries(),
-        )
-    };
-    log::debug!("HHDM={:#x}", hhdm.as_u64());
+    log::debug!("installing pmm");
+    let mut highest_addr: KPhysAddr = KPhysAddr::new(0);
 
-    let mut highest_addr: u64 = 0;
-
-    for entry in mmap {
-        if entry.entry_type == EntryType::USABLE {
-            let end = entry.base + entry.length;
-            if end > highest_addr {
-                highest_addr = end;
+    for entry in memory_map.iter() {
+        if entry.usage == KMemoryMapType::Usable {
+            let entry_end = entry.end();
+            if entry_end > highest_addr {
+                highest_addr = entry_end;
             }
         }
     }
 
-    log::debug!("Highest Memory Address: {:#x}", highest_addr);
+    log::debug!("highest memory address: {:#x}", highest_addr);
 
-    let total_pages = (highest_addr as usize).div_ceil(PAGE_SIZE);
+    let total_pages = (highest_addr.as_u64() as usize).div_ceil(PAGE_SIZE);
     let bitmap_size = total_pages.div_ceil(8);
 
     let mut bitmap_addr: Option<u64> = None;
-    for entry in mmap {
-        let aligned_base = align_up(entry.base, PAGE_SIZE as u64);
-        if entry.entry_type == EntryType::USABLE
-            && entry.length >= (aligned_base - entry.base) + bitmap_size as u64
+    for entry in memory_map.iter() {
+        let aligned_base = align_up(entry.address.as_u64(), PAGE_SIZE as u64);
+        if entry.usage == KMemoryMapType::Usable
+            && entry.length as u64
+                >= (aligned_base - entry.address.as_u64()) + bitmap_size as u64
         {
             bitmap_addr = Some(aligned_base);
             break;
@@ -132,7 +118,8 @@ pub fn install() {
     }
 
     let bitmap_addr = bitmap_addr.expect("no space for pmm bitmap");
-    let bitmap_ptr = (bitmap_addr + hhdm.as_u64()) as *mut u8;
+    let bitmap_ptr =
+        (bitmap_addr + boot_info.hhdm.unwrap().as_u64()) as *mut u8;
 
     log::debug!(
         "Bitmap address: {:#x}, size: {} bytes",
@@ -153,10 +140,12 @@ pub fn install() {
         free_pages: 0,
     };
 
-    for entry in mmap {
-        if entry.entry_type == EntryType::USABLE {
-            let start_page = (entry.base as usize).div_ceil(PAGE_SIZE);
-            let end_page = (entry.base + entry.length) as usize / PAGE_SIZE;
+    for entry in memory_map.iter() {
+        if entry.usage == KMemoryMapType::Usable {
+            let start_page =
+                (entry.address.as_u64() as usize).div_ceil(PAGE_SIZE);
+            let end_page =
+                (entry.address.as_u64() as usize + entry.length) / PAGE_SIZE;
 
             for page in start_page..end_page {
                 allocator.clear_bit(page);
@@ -168,8 +157,6 @@ pub fn install() {
     let bitmap_start_page = (bitmap_addr as usize) / PAGE_SIZE;
     let bitmap_end_page =
         ((bitmap_addr as usize) + bitmap_size).div_ceil(PAGE_SIZE);
-    // let bitmap_end_page =
-    //     ((bitmap_addr as usize) + bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
 
     for page in bitmap_start_page..bitmap_end_page {
         if !allocator.test_bit(page) {
@@ -212,16 +199,16 @@ pub fn is_usable_address(addr: u64) -> bool {
         return false;
     }
 
-    let Some(response) = boot::limine::MEMORY_MAP_REQUEST.get_response() else {
-        return false;
-    };
+    let boot_info = KBootInfo::get();
 
-    for entry in response.entries() {
-        if entry.entry_type != EntryType::USABLE {
+    for entry in boot_info.memory.lock().iter() {
+        if entry.usage != KMemoryMapType::Usable {
             continue;
         }
 
-        let Some(entry_end) = entry.base.checked_add(entry.length) else {
+        let Some(entry_end) =
+            entry.address.as_u64().checked_add(entry.length as u64)
+        else {
             continue;
         };
 
@@ -229,7 +216,7 @@ pub fn is_usable_address(addr: u64) -> bool {
             return false;
         };
 
-        if addr >= entry.base && page_end <= entry_end {
+        if addr >= entry.address.as_u64() && page_end <= entry_end {
             return true;
         }
     }

@@ -29,7 +29,7 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr as x86PhysAddr, VirtAddr as x86VirtAddr};
 
-use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::addr::{KPhysAddr, KVirtAddr};
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::{KERNEL_VALLOC_END, KERNEL_VALLOC_START};
 use crate::arch::{Paging, Processor};
@@ -308,6 +308,7 @@ impl Paging for Processor {
     type Root = u64;
 
     const KERNEL_HALF_START: u64 = 0xffff_8000_0000_0000;
+    const PAGE_BITS: usize = 12;
     const PAGE_SIZE: usize = 0x1000;
 
     fn paging_install() { install() }
@@ -353,8 +354,8 @@ impl Paging for Processor {
 
     fn paging_map(
         root: Self::Root,
-        virt: VirtAddr,
-        phys: PhysAddr,
+        virt: KVirtAddr,
+        phys: KPhysAddr,
         flags: MapFlags,
     ) -> Result<(), &'static str> {
         map_raw(root, virt.as_u64(), phys.as_u64(), to_hw(flags))
@@ -362,8 +363,8 @@ impl Paging for Processor {
 
     fn paging_unmap(
         root: Self::Root,
-        virt: VirtAddr,
-    ) -> Result<PhysAddr, &'static str> {
+        virt: KVirtAddr,
+    ) -> Result<KPhysAddr, &'static str> {
         let page = page_of(virt.as_u64())?;
 
         unsafe {
@@ -380,13 +381,13 @@ impl Paging for Processor {
 
             // flushing is the caller's job (see `tlb_flush`)
             flush.ignore();
-            Ok(PhysAddr::new(frame.start_address().as_u64()))
+            Ok(KPhysAddr::new(frame.start_address().as_u64()))
         }
     }
 
     fn paging_update(
         root: Self::Root,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         flags: MapFlags,
     ) -> Result<(), &'static str> {
         let page = page_of(virt.as_u64())?;
@@ -408,21 +409,21 @@ impl Paging for Processor {
 
     fn paging_translate(
         root: Self::Root,
-        virt: VirtAddr,
-    ) -> Option<(PhysAddr, MapFlags)> {
+        virt: KVirtAddr,
+    ) -> Option<(KPhysAddr, MapFlags)> {
         let virt = x86VirtAddr::new(virt.as_u64());
 
         let mapper = unsafe { mapper(root) };
         match mapper.translate(virt) {
             TranslateResult::Mapped { frame, offset, flags } => Some((
-                PhysAddr::new(frame.start_address().as_u64() + offset),
+                KPhysAddr::new(frame.start_address().as_u64() + offset),
                 from_hw(flags),
             )),
             _ => None,
         }
     }
 
-    fn paging_flush(virt: VirtAddr) {
+    fn paging_flush(virt: KVirtAddr) {
         unsafe {
             asm!(
                 "invlpg [{}]",

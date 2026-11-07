@@ -21,7 +21,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::ffi::c_int;
 
-use crate::arch::addr::PhysAddr;
+use crate::arch::addr::KPhysAddr;
 use crate::system::posix::errno::{KError, KResult};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -82,7 +82,7 @@ pub trait File: Send + Sync {
         _prot: c_int,
         _flags: c_int,
         _offset: u64,
-    ) -> KResult<PhysAddr> {
+    ) -> KResult<KPhysAddr> {
         Err(KError::ENOSYS)
     }
 }

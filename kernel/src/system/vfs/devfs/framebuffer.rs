@@ -19,7 +19,7 @@
 use alloc::string::ToString;
 use core::ffi::c_int;
 
-use crate::arch::addr::PhysAddr;
+use crate::arch::addr::KPhysAddr;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::devfs::{DevFS, DevFile};
 
@@ -33,7 +33,7 @@ fn framebuffer_mmap(
     _prot: c_int,
     _flags: c_int,
     _offset: u64,
-) -> KResult<PhysAddr> {
+) -> KResult<KPhysAddr> {
     if let Some(fb_drv) = crate::drivers::fb::get() {
         Ok(fb_drv.addr)
     } else {

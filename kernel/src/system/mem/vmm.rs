@@ -18,7 +18,7 @@
 
 use spin::Mutex;
 
-use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::addr::{KPhysAddr, KVirtAddr};
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::{KERNEL_VALLOC_END, KERNEL_VALLOC_START};
 use crate::arch::{Paging, Processor};
@@ -84,18 +84,18 @@ impl AddressSpace {
     pub fn root(&self) -> Root { self.root }
 
     /// translates a virtual address to a physical address, if it's mapped
-    pub fn translate(&self, virt: VirtAddr) -> Option<PhysAddr> {
+    pub fn translate(&self, virt: KVirtAddr) -> Option<KPhysAddr> {
         Processor::paging_translate(self.root, virt).map(|(phys, _)| phys)
     }
 
     /// returns true if the given virtual address is mapped in this address space
-    pub fn is_mapped(&self, virt: VirtAddr) -> bool {
+    pub fn is_mapped(&self, virt: KVirtAddr) -> bool {
         self.translate(virt).is_some()
     }
 
     /// translates a virtual address of the currently active address space to a physical one
-    pub fn virt_to_phys(virt: VirtAddr) -> Option<PhysAddr> {
-        let hhdm = VirtAddr::new(Processor::paging_hhdm());
+    pub fn virt_to_phys(virt: KVirtAddr) -> Option<KPhysAddr> {
+        let hhdm = KVirtAddr::new(Processor::paging_hhdm());
 
         // can safely short circuit here
         if let Some(max_phys) = mem::pmm::max_phys_address()
@@ -103,15 +103,15 @@ impl AddressSpace {
             && virt >= hhdm
             && virt.as_u64() < hhdm_end
         {
-            return Some(PhysAddr::new(virt - hhdm));
+            return Some(KPhysAddr::new(virt - hhdm));
         }
 
         Self::current().translate(virt)
     }
 
     /// returns a virtual address for the given physical address in the HHDM
-    pub fn phys_to_virt(phys: PhysAddr) -> VirtAddr {
-        VirtAddr::new(phys.as_u64() + Processor::paging_hhdm())
+    pub fn phys_to_virt(phys: KPhysAddr) -> KVirtAddr {
+        KVirtAddr::new(phys.as_u64() + Processor::paging_hhdm())
     }
 }
 
@@ -120,12 +120,12 @@ impl AddressSpace {
     /// maps a single page at the given virtual address to the given physical address with the specified flags
     pub fn map_page(
         &self,
-        virt: VirtAddr,
-        phys: PhysAddr,
+        virt: KVirtAddr,
+        phys: KPhysAddr,
         flags: MapFlags,
     ) -> Result<(), &'static str> {
-        let virt = VirtAddr::new(virt.as_u64() & !PAGE_MASK);
-        let phys = PhysAddr::new(phys.as_u64() & !PAGE_MASK);
+        let virt = KVirtAddr::new(virt.as_u64() & !PAGE_MASK);
+        let phys = KPhysAddr::new(phys.as_u64() & !PAGE_MASK);
 
         Processor::paging_map(self.root, virt, phys, flags).inspect_err(
             |e| {
@@ -147,10 +147,10 @@ impl AddressSpace {
     /// maps a single page at the given virtual address to a newly allocated, zeroed physical page
     pub fn map_page_alloc(
         &self,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         flags: MapFlags,
-    ) -> Result<PhysAddr, &'static str> {
-        let phys = PhysAddr::new(mem::pmm::alloc().ok_or("oom")?);
+    ) -> Result<KPhysAddr, &'static str> {
+        let phys = KPhysAddr::new(mem::pmm::alloc().ok_or("oom")?);
 
         unsafe {
             core::ptr::write_bytes(
@@ -178,7 +178,7 @@ impl AddressSpace {
     /// maps a range of virtual addresses to newly allocated physical pages with the specified flags
     pub fn map_range_alloc(
         &self,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         size: usize,
         flags: MapFlags,
     ) -> Result<(), &'static str> {
@@ -217,8 +217,11 @@ impl AddressSpace {
     }
 
     /// unmaps the page at the given virtual address and returns the physical address that was mapped there
-    pub fn unmap_page(&self, virt: VirtAddr) -> Result<PhysAddr, &'static str> {
-        let virt = VirtAddr::new(virt.as_u64() & !PAGE_MASK);
+    pub fn unmap_page(
+        &self,
+        virt: KVirtAddr,
+    ) -> Result<KPhysAddr, &'static str> {
+        let virt = KVirtAddr::new(virt.as_u64() & !PAGE_MASK);
         let phys = Processor::paging_unmap(self.root, virt)?;
         self.flush(virt);
         Ok(phys)
@@ -227,7 +230,7 @@ impl AddressSpace {
     /// unmaps a range of virtual addresses and frees the physical pages that were mapped there
     pub fn unmap_range(
         &self,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         size: usize,
     ) -> Result<(), &'static str> {
         let (start, end) = Self::page_span(virt, size)?;
@@ -247,10 +250,13 @@ impl AddressSpace {
     }
 
     /// returns the page flags for the given virtual address, or an error if it's not mapped
-    pub fn page_flags(&self, virt: VirtAddr) -> Result<MapFlags, &'static str> {
+    pub fn page_flags(
+        &self,
+        virt: KVirtAddr,
+    ) -> Result<MapFlags, &'static str> {
         Processor::paging_translate(
             self.root,
-            VirtAddr::new(virt.as_u64() & !PAGE_MASK),
+            KVirtAddr::new(virt.as_u64() & !PAGE_MASK),
         )
         .map(|(_, flags)| flags)
         .ok_or("page not mapped")
@@ -259,10 +265,10 @@ impl AddressSpace {
     /// updates the page flags for the given virtual address, returns an error if it's not mapped or if the update fails
     pub fn update_page_flags(
         &self,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         flags: MapFlags,
     ) -> Result<(), &'static str> {
-        let virt = VirtAddr::new(virt.as_u64() & !PAGE_MASK);
+        let virt = KVirtAddr::new(virt.as_u64() & !PAGE_MASK);
         Processor::paging_update(self.root, virt, flags)?;
         self.flush(virt);
         Ok(())
@@ -270,22 +276,22 @@ impl AddressSpace {
 }
 
 // vmem alloc
-static KERNEL_VALLOC_NEXT: Mutex<VirtAddr> =
-    Mutex::new(VirtAddr::new(KERNEL_VALLOC_START));
+static KERNEL_VALLOC_NEXT: Mutex<KVirtAddr> =
+    Mutex::new(KVirtAddr::new(KERNEL_VALLOC_START));
 
 impl AddressSpace {
     /// reserves a range of virtual addresses in the kernel address space, returns an error if the range is exhausted
-    pub fn reserve_virt(size: usize) -> Result<VirtAddr, &'static str> {
+    pub fn reserve_virt(size: usize) -> Result<KVirtAddr, &'static str> {
         let pages = size.div_ceil(PAGE_SIZE) as u64;
         let bytes = pages * PAGE_SIZE as u64;
 
         let mut next = KERNEL_VALLOC_NEXT.lock();
 
         let start = *next;
-        let end = VirtAddr::new(
+        let end = KVirtAddr::new(
             start.as_u64().checked_add(bytes).ok_or("valloc size overflow")?,
         );
-        if end > VirtAddr::new(KERNEL_VALLOC_END) {
+        if end > KVirtAddr::new(KERNEL_VALLOC_END) {
             return Err("valloc space exhausted");
         }
         *next = end;
@@ -297,7 +303,7 @@ impl AddressSpace {
         &self,
         size: usize,
         flags: MapFlags,
-    ) -> Result<VirtAddr, &'static str> {
+    ) -> Result<KVirtAddr, &'static str> {
         if size == 0 {
             return Err("invalid size");
         }
@@ -321,7 +327,7 @@ impl AddressSpace {
     /// frees a range of virtual addresses, used along alloc_virt
     pub fn free_virt(
         &self,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         size: usize,
     ) -> Result<(), &'static str> {
         self.unmap_range(virt, size)
@@ -332,9 +338,9 @@ impl AddressSpace {
 impl AddressSpace {
     /// returns the first and last page (inclusive) touched by `[virt, virt + size)`
     fn page_span(
-        virt: VirtAddr,
+        virt: KVirtAddr,
         size: usize,
-    ) -> Result<(VirtAddr, VirtAddr), &'static str> {
+    ) -> Result<(KVirtAddr, KVirtAddr), &'static str> {
         if size == 0 {
             return Err("invalid size");
         }
@@ -344,15 +350,15 @@ impl AddressSpace {
             .checked_add(size as u64 - 1)
             .ok_or("address range overflow")?;
         Ok((
-            VirtAddr::new(virt.as_u64() & !PAGE_MASK),
-            VirtAddr::new(last & !PAGE_MASK),
+            KVirtAddr::new(virt.as_u64() & !PAGE_MASK),
+            KVirtAddr::new(last & !PAGE_MASK),
         ))
     }
 
     /// flushes the tlb entry for `virt` if this address space can be cached on this cpu.
     /// the kernel half is shared between every address space, so it is always flushed.
-    fn flush(&self, virt: VirtAddr) {
-        if virt >= VirtAddr::new(Processor::KERNEL_HALF_START)
+    fn flush(&self, virt: KVirtAddr) {
+        if virt >= KVirtAddr::new(Processor::KERNEL_HALF_START)
             || self.root == Processor::paging_root_active()
         {
             Processor::paging_flush(virt);
@@ -360,10 +366,10 @@ impl AddressSpace {
     }
 
     /// translates a (possibly unaligned) virtual address to its physical address
-    fn phys_of(&self, virt: VirtAddr) -> Result<PhysAddr, &'static str> {
+    fn phys_of(&self, virt: KVirtAddr) -> Result<KPhysAddr, &'static str> {
         let (phys, _) = Processor::paging_translate(
             self.root,
-            VirtAddr::new(virt.as_u64() & !PAGE_MASK),
+            KVirtAddr::new(virt.as_u64() & !PAGE_MASK),
         )
         .ok_or("page not mapped")?;
         Ok(phys + (virt.as_u64() & PAGE_MASK))
@@ -373,7 +379,11 @@ impl AddressSpace {
 // copying/zero
 impl AddressSpace {
     /// zeros the given range of virtual addresses, returns an error if any page in the range is not mapped
-    pub fn zero(&self, virt: VirtAddr, len: usize) -> Result<(), &'static str> {
+    pub fn zero(
+        &self,
+        virt: KVirtAddr,
+        len: usize,
+    ) -> Result<(), &'static str> {
         let mut offset = 0;
 
         while offset < len {
@@ -401,7 +411,7 @@ impl AddressSpace {
     /// writes the given data to the given virtual address, returns an error if any page in the range is not mapped
     pub fn write(
         &self,
-        virt: VirtAddr,
+        virt: KVirtAddr,
         data: &[u8],
     ) -> Result<(), &'static str> {
         let mut offset = 0;

@@ -18,7 +18,7 @@
 
 use flower_abi::time;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::syscalls::SyscallFrame;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::types::SyscallReturnCode;
@@ -63,7 +63,7 @@ pub fn mtime(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     }
 
     arch::user::copy_to_user(
-        VirtAddr::new(time_ptr.addr() as u64),
+        KVirtAddr::new(time_ptr.addr() as u64),
         arch::timers::ticks(),
     )
     .map_err(|_| KError::EFAULT)?;

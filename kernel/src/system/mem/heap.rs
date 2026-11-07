@@ -22,10 +22,11 @@ use linked_list_allocator::Heap;
 use spin::Mutex;
 use x86_64::instructions::interrupts;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START, PAGE_SIZE};
 use crate::system::mem::vmm::AddressSpace;
+use crate::system::posix::errno::KResult;
 
 struct Allocator;
 #[global_allocator]
@@ -40,7 +41,7 @@ static ALLOC_STATE: Mutex<AllocStateInner> =
     Mutex::new(AllocStateInner { heap: None, heap_size: 0 });
 
 fn map_chunk(
-    addr: VirtAddr,
+    addr: KVirtAddr,
     size: usize,
     flags: MapFlags,
 ) -> Result<(), &'static str> {
@@ -64,7 +65,7 @@ unsafe impl GlobalAlloc for Allocator {
             let mut state = ALLOC_STATE.lock();
 
             if state.heap.is_none() {
-                let base = VirtAddr::new(KERNEL_HEAP_START as u64);
+                let base = KVirtAddr::new(KERNEL_HEAP_START as u64);
                 if map_chunk(base, KERNEL_HEAP_SIZE, flags).is_err() {
                     return core::ptr::null_mut();
                 }
@@ -83,8 +84,9 @@ unsafe impl GlobalAlloc for Allocator {
                     return ptr.as_ptr();
                 }
 
-                let addr =
-                    VirtAddr::new((KERNEL_HEAP_START + state.heap_size) as u64);
+                let addr = KVirtAddr::new(
+                    (KERNEL_HEAP_START + state.heap_size) as u64,
+                );
 
                 if let Err(reason) = map_chunk(addr, KERNEL_HEAP_SIZE, flags) {
                     log::error!(
@@ -119,7 +121,7 @@ unsafe impl GlobalAlloc for Allocator {
     }
 }
 
-pub fn install() -> Result<(), &'static str> { Ok(()) }
+pub fn install() -> KResult<bool> { Ok(true) }
 
 pub fn free_memory() -> usize {
     interrupts::without_interrupts(|| {

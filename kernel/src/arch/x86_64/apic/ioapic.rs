@@ -17,7 +17,7 @@
  */
 
 use crate::acpi;
-use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::addr::{KPhysAddr, KVirtAddr};
 use crate::arch::{MapFlags, Paging, Processor};
 use crate::system::mem::vmm::AddressSpace;
 
@@ -25,7 +25,7 @@ const IOAPIC_REDIR_TABLE: u32 = 0x10;
 const IOAPIC_SIZE: usize = Processor::PAGE_SIZE;
 
 pub struct IoApic {
-    virt_base: VirtAddr,
+    virt_base: KVirtAddr,
     gsi_base: u32,
 }
 
@@ -53,7 +53,7 @@ impl IoApic {
         let flags = MapFlags::WRITE | MapFlags::NO_CACHE;
 
         address_space
-            .map_page(virt, PhysAddr::new(ioapic_addr as u64), flags)
+            .map_page(virt, KPhysAddr::new(ioapic_addr as u64), flags)
             .expect("failed to map ioapic");
 
         Self { virt_base: virt, gsi_base: ioapic_gsi_base }

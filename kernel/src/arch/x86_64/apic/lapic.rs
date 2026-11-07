@@ -21,7 +21,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use x86_64::registers::model_specific::{ApicBase, ApicBaseFlags};
 
 use crate::arch::MapFlags;
-use crate::arch::addr::{PhysAddr, VirtAddr};
+use crate::arch::addr::{KPhysAddr, KVirtAddr};
 use crate::arch::x86_64::layout::PAGE_SIZE;
 use crate::arch::x86_64::timers::acpi_pmt;
 use crate::system::mem::vmm::AddressSpace;
@@ -37,7 +37,7 @@ const LAPIC_ID: u64 = 0x020;
 const CALIBRATE_MS: u32 = 10;
 
 pub struct LocalApic {
-    virt_base: VirtAddr,
+    virt_base: KVirtAddr,
     ticks_per_ms: AtomicU32,
 }
 
@@ -66,7 +66,7 @@ impl LocalApic {
         address_space
             .map_page(
                 virt,
-                PhysAddr::new(apic_base.start_address().as_u64()),
+                KPhysAddr::new(apic_base.start_address().as_u64()),
                 flags,
             )
             .expect("failed to map lapic");

@@ -49,10 +49,9 @@ fn kmain() {
     logging::install();
 
     arch::cpu::bsp_install();
+    boot::install();
 
-    system::mem::pmm::install();
-    system::mem::vmm::install();
-    system::mem::heap::install().expect("failed to install heap");
+    system::mem::install();
 
     acpi::install();
     arch::timers::install();
@@ -65,7 +64,7 @@ fn kmain() {
     system::proc::install();
     arch::interrupts::enable();
 
-    // past this point, the kernel can now do dynamic allocation
+    // past this point, the vmm _should_ work...
     system::vfs::install();
     drivers::tty::terminal::install();
     system::mem::self_test();

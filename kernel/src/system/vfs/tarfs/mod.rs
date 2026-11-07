@@ -27,7 +27,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::AtomicUsize;
 
-use crate::boot::limine::MODULE_REQUESTS;
+use crate::boot::KBootInfo;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::tarfs::consts::*;
 use crate::system::vfs::tarfs::directory::TarFSDirectory;
@@ -65,17 +65,8 @@ const INITRD_FILE: &str = "/boot/initrd";
 impl FileSystem for TarFS {
     fn initialize(&mut self) -> KResult<()> {
         let file = {
-            MODULE_REQUESTS
-                .get_response()
-                .expect("no modules provider")
-                .modules()
-                .iter()
-                .find(|m| {
-                    m.path()
-                        .to_str()
-                        .map(|path| path == INITRD_FILE)
-                        .unwrap_or(false)
-                })
+            let boot_info = KBootInfo::get();
+            boot_info.files.iter().find(|f| f.path == INITRD_FILE)
         }
         .ok_or("failed to find initramfs");
 
@@ -85,11 +76,11 @@ impl FileSystem for TarFS {
         }
 
         if let Ok(file) = file {
-            let size = file.size() as usize;
+            let size = file.length;
             let mut data = alloc::vec![0u8; size];
             unsafe {
                 core::ptr::copy_nonoverlapping(
-                    file.addr(),
+                    file.data.as_hhdm::<u8>(),
                     data.as_mut_ptr(),
                     size,
                 );

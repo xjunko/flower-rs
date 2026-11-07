@@ -16,11 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::{Multitasking, Processor};
 
-pub fn set_kernel_stack(stack: VirtAddr) { Processor::stack_set_kernel(stack); }
+pub fn set_kernel_stack(stack: KVirtAddr) {
+    Processor::stack_set_kernel(stack);
+}
 
-pub fn set_user_stack(stack: VirtAddr) { Processor::stack_set_user(stack); }
+pub fn set_user_stack(stack: KVirtAddr) { Processor::stack_set_user(stack); }
 
 pub fn write_context() { Processor::stack_write_context(); }

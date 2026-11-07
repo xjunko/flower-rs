@@ -19,7 +19,7 @@
 use flower_abi::system;
 
 use crate::arch;
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::syscalls::SyscallFrame;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::posix::utsname::UTSNAME;
@@ -33,7 +33,7 @@ pub fn uname(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     log::trace!("uname syscall: ptr={:?}", ptr);
 
     let utsname = UTSNAME.lock();
-    arch::user::copy_to_user(VirtAddr::new(ptr.addr() as u64), *utsname)
+    arch::user::copy_to_user(KVirtAddr::new(ptr.addr() as u64), *utsname)
         .map_err(|_| KError::EFAULT)?;
 
     Ok(0)

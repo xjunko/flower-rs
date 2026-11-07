@@ -16,14 +16,14 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::{Processor, Userspace};
 use crate::system::posix::errno::KResult;
 
-pub fn copy_to_user<T: Copy>(src: VirtAddr, data: T) -> KResult<()> {
+pub fn copy_to_user<T: Copy>(src: KVirtAddr, data: T) -> KResult<()> {
     Processor::copy_to_user(src, data)
 }
 
-pub fn copy_from_user<T: Copy>(dest: VirtAddr) -> KResult<T> {
+pub fn copy_from_user<T: Copy>(dest: KVirtAddr) -> KResult<T> {
     Processor::copy_from_user(dest)
 }

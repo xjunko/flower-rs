@@ -19,7 +19,7 @@
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptStackFrame, PageFaultErrorCode};
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::x86_64::idt::print_stack_frame;
 use crate::{println, system};
@@ -55,7 +55,7 @@ pub extern "x86-interrupt" fn page_fault_handler(
             if fault_addr >= stack_bottom && fault_addr <= stack_top {
                 // inside the region, just allocate...
                 if let Some(address_space) = proc.address_space.as_ref() {
-                    let page_addr = VirtAddr::new(fault_addr & !0xFFF);
+                    let page_addr = KVirtAddr::new(fault_addr & !0xFFF);
                     let flags = MapFlags::WRITE | MapFlags::USER;
 
                     log::debug!(
@@ -94,7 +94,7 @@ pub extern "x86-interrupt" fn page_fault_handler(
             if fault_addr >= heap_top && fault_addr < heap_max {
                 // inside the region, just allocate...
                 if let Some(address_space) = proc.address_space.as_ref() {
-                    let page_addr = VirtAddr::new(fault_addr & !0xFFF);
+                    let page_addr = KVirtAddr::new(fault_addr & !0xFFF);
                     let flags = MapFlags::WRITE | MapFlags::USER;
 
                     if address_space.map_page_alloc(page_addr, flags).is_ok() {

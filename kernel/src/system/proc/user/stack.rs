@@ -20,7 +20,7 @@ use alloc::vec::Vec;
 
 use flower_abi::elf::AuxType;
 
-use crate::arch::addr::VirtAddr;
+use crate::arch::addr::KVirtAddr;
 use crate::arch::generic::paging::MapFlags;
 use crate::arch::layout::{
     USER_STACK_INITIAL_SLACK, USER_STACK_PAGES, USER_STACK_TOP_PAGE,
@@ -66,7 +66,7 @@ impl<'a> StackBuilder<'a> {
             return Err("user stack overflow");
         }
         self.adress_space
-            .write(VirtAddr::new(self.stack_pointer), &value.to_ne_bytes())?;
+            .write(KVirtAddr::new(self.stack_pointer), &value.to_ne_bytes())?;
         Ok(self.stack_pointer)
     }
 
@@ -77,7 +77,7 @@ impl<'a> StackBuilder<'a> {
         if self.stack_pointer < self.stack_bottom {
             return Err("user stack overflow");
         }
-        self.adress_space.write(VirtAddr::new(self.stack_pointer), data)?;
+        self.adress_space.write(KVirtAddr::new(self.stack_pointer), data)?;
         Ok(self.stack_pointer)
     }
 }
@@ -162,7 +162,7 @@ pub fn build_user_image(
         }
     }
 
-    if !address_space.is_mapped(VirtAddr::new(entry & !0xFFF)) {
+    if !address_space.is_mapped(KVirtAddr::new(entry & !0xFFF)) {
         return Err("entry point is not mapped");
     }
 
@@ -172,14 +172,14 @@ pub fn build_user_image(
     let mut user_heap = loaded.end;
     user_heap = (user_heap + PAGE_SIZE - 1) & !0xFFF;
     address_space
-        .map_page_alloc(VirtAddr::new(user_heap), flags)
+        .map_page_alloc(KVirtAddr::new(user_heap), flags)
         .expect("failed to allocate initial heap");
     let heap_max = user_heap + (512 * PAGE_SIZE); // Allow heap to grow up to 512 pages (2MB)
 
     // Allocate only the initial stack page (will grow on demand)
     let stack_top_page = USER_STACK_TOP_PAGE;
     address_space
-        .map_page_alloc(VirtAddr::new(stack_top_page), flags)
+        .map_page_alloc(KVirtAddr::new(stack_top_page), flags)
         .expect("failed to allocate initial stack");
 
     let stack_low = USER_STACK_TOP_PAGE - (USER_STACK_PAGES * PAGE_SIZE);

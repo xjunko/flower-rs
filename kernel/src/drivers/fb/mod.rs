@@ -18,12 +18,12 @@
 
 use spin::Mutex;
 
-use crate::arch::addr::PhysAddr;
+use crate::arch::addr::KPhysAddr;
 use crate::boot::limine::FRAMEBUFFER_REQUEST;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Framebuffer {
-    pub addr: PhysAddr,
+    pub addr: KPhysAddr,
 
     pub width: u64,
     pub height: u64,
@@ -54,7 +54,7 @@ pub fn install() {
         .next()
     {
         let fb = Framebuffer {
-            addr: PhysAddr::new(framebuffer.addr() as u64),
+            addr: KPhysAddr::new(framebuffer.addr() as u64),
             width: framebuffer.width(),
             height: framebuffer.height(),
             pitch: framebuffer.pitch(),

@@ -31,7 +31,7 @@ pub fn set_tid_address(frame: &mut SyscallFrame) -> KResult<SyscallReturnCode> {
     let current_tid = current_thread.lock().id;
 
     arch::user::copy_to_user(
-        crate::arch::addr::VirtAddr::new(tid_ptr.addr() as u64),
+        crate::arch::addr::KVirtAddr::new(tid_ptr.addr() as u64),
         current_tid as u32,
     )
     .map_err(|_| KError::EFAULT)?;
