@@ -16,12 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ffi::c_int;
 
 use crate::arch::addr::KPhysAddr;
+use crate::system::mem::vma::Shmem;
 use crate::system::posix::errno::{KError, KResult};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,66 +50,60 @@ pub enum Whence {
     End,
 }
 
-pub enum FileLike {
-    File(Box<dyn File>),
-    Directory(Box<dyn Directory>),
+#[derive(Clone)]
+pub enum KFile {
+    File(Arc<dyn File>),
+    Directory(Arc<dyn Directory>),
+    Shmem(Arc<Shmem>),
+}
+
+pub enum KMapBacking {
+    Physical(KPhysAddr),
+    Shmem(Arc<Shmem>),
 }
 
 pub trait File: Send + Sync {
-    /// gets the name of the file
     fn name(&self) -> KResult<String> { Err(KError::ENOSYS) }
 
-    /// gets the info for the file
     fn stat(&self) -> KResult<Stat> { Err(KError::ENOSYS) }
 
-    /// reads data into the given buffer and returns the number of bytes read
     fn read(&self, buf: &mut [u8]) -> KResult<usize>;
 
-    /// writes data from the given buffer and returns the number of bytes written
-    fn write(&self, buf: &mut [u8]) -> KResult<usize>;
+    fn write(&self, buf: &[u8]) -> KResult<usize>;
 
-    /// seeks to the given position and returns the new position
-    fn seek(&mut self, offset: i64, pos: Whence) -> KResult<usize>;
+    fn seek(&self, offset: i64, pos: Whence) -> KResult<usize>;
 
-    /// ioctl
     fn ioctl(&self, _cmd: u64, _arg: usize) -> KResult<usize> {
         Err(KError::ENOSYS)
     }
 
-    /// maps the file into memory and returns the physical address of the
-    /// first mapped page.
     fn mmap(
         &self,
         _len: usize,
         _prot: c_int,
         _flags: c_int,
         _offset: u64,
-    ) -> KResult<KPhysAddr> {
+    ) -> KResult<KMapBacking> {
         Err(KError::ENOSYS)
     }
 }
 
 pub trait Directory: Send + Sync {
-    /// get the name of the directory
     fn name(&self) -> KResult<String>;
 
-    /// get the contents of the directory
-    fn contents(&self) -> KResult<Vec<FileLike>>;
+    fn contents(&self) -> KResult<Vec<KFile>>;
 
-    /// deletes a file in the directory
     fn delete(&self, name: &str) -> KResult<()>;
 }
 
 pub trait FileSystem: Send + Sync {
-    /// initializes the filesystem
     fn initialize(&mut self) -> KResult<()>;
 
-    /// opens the file
-    fn open(&self, path: &str, flags: u32) -> KResult<FileLike>;
+    fn open(&self, path: &str, flags: u32) -> KResult<KFile>;
 
-    /// gets the info for the file
+    fn unlink(&self, _path: &str) -> KResult<()> { Err(KError::EROFS) }
+
     fn stat(&self, path: &str) -> KResult<Stat>;
 
-    /// checks if the file exists
     fn exists(&self, path: &str) -> bool { self.stat(path).is_ok() }
 }

@@ -48,6 +48,8 @@ pub fn start() {
         vmm::test_vma_adjacent_flags_stay_separate();
         vmm::test_vma_shared_fork();
         vmm::test_vma_partial_shmem_fork();
+        vmm::test_shmem_resize();
+        vmm::test_vma_shmem_offset();
     }
 
     // heap

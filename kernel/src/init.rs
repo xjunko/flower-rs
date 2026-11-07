@@ -64,10 +64,12 @@ fn kmain() {
     system::proc::install();
     arch::interrupts::enable();
 
+    // if this fails, something is wrong on the memory side
+    system::mem::self_test();
+
     // past this point, the vmm _should_ work...
     system::vfs::install();
     drivers::tty::terminal::install();
-    system::mem::self_test();
 }
 
 fn kcrash(info: &core::panic::PanicInfo) {

@@ -21,9 +21,8 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::arch::addr::KPhysAddr;
 use crate::system::posix::errno::{KError, KResult};
-use crate::system::vfs::{File, FileType, Stat, Whence};
+use crate::system::vfs::{File, FileType, KMapBacking, Stat, Whence};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TarFileType {
@@ -142,12 +141,12 @@ impl File for TarFile {
         Ok(bytes_to_read)
     }
 
-    fn write(&self, _buf: &mut [u8]) -> KResult<usize> {
+    fn write(&self, _buf: &[u8]) -> KResult<usize> {
         // tarfs is a read-only view over the initramfs archive.
         Err(KError::EPERM)
     }
 
-    fn seek(&mut self, offset: i64, pos: Whence) -> KResult<usize> {
+    fn seek(&self, offset: i64, pos: Whence) -> KResult<usize> {
         let current = self._position.load(Ordering::Acquire) as i128;
         let base = match pos {
             Whence::Start => 0,
@@ -169,8 +168,8 @@ impl File for TarFile {
         _prot: core::ffi::c_int,
         _flags: core::ffi::c_int,
         _offset: u64,
-    ) -> KResult<KPhysAddr> {
-        unimplemented!()
+    ) -> KResult<KMapBacking> {
+        Err(KError::ENOSYS)
     }
 
     fn stat(&self) -> KResult<Stat> {

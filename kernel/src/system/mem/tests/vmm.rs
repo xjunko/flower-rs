@@ -258,7 +258,7 @@ pub fn test_vma_partial_shmem_fork() {
         // map only the first page of a four-page object, then something else
         // directly after it. rebinding must not touch the second page.
         parent
-            .map_user_shmem(first, PAGE_SIZE, flags, shmem.clone())
+            .map_user_shmem(first, PAGE_SIZE, flags, shmem.clone(), 0)
             .expect("partial shared map failed");
         parent
             .map_user_anonymous(second, PAGE_SIZE, flags)
@@ -381,4 +381,63 @@ pub fn test_vma_shared_fork() {
         Some(before),
         "shared mapping leaked frames across fork and teardown"
     );
+}
+pub fn test_shmem_resize() {
+    let before = pmm::free_pages().expect("pmm not installed");
+    let shmem = crate::system::mem::vma::Shmem::new(0);
+
+    assert_eq!(shmem.len(), 0);
+    shmem.resize(PAGE_SIZE).expect("grow failed");
+    assert_eq!(shmem.len(), PAGE_SIZE);
+    assert_eq!(shmem.pages(), 1);
+
+    shmem.page(0).expect("page allocation failed");
+    assert_eq!(pmm::free_pages(), Some(before - 1));
+
+    shmem.resize(2 * PAGE_SIZE).expect("grow failed");
+    assert_eq!(shmem.pages(), 2);
+
+    shmem.resize(0).expect("shrink failed");
+    assert_eq!(shmem.len(), 0);
+    assert_eq!(pmm::free_pages(), Some(before));
+
+    drop(shmem);
+}
+
+pub fn test_vma_shmem_offset() {
+    use crate::arch::addr::KVirtAddr;
+
+    let before = pmm::free_pages().expect("pmm not installed");
+    let flags = MapFlags::READ | MapFlags::WRITE | MapFlags::USER;
+    let shmem = crate::system::mem::vma::Shmem::new(4 * PAGE_SIZE);
+    let base = USER_MMAP_BASE;
+
+    {
+        let mut space = AddressSpace::new().expect("failed to create space");
+
+        space
+            .map_user_shmem(
+                base,
+                2 * PAGE_SIZE,
+                flags,
+                shmem.clone(),
+                2 * PAGE_SIZE as u64,
+            )
+            .expect("offset shared map failed");
+
+        let third = shmem.page(2).expect("page allocation failed");
+        let fourth = shmem.page(3).expect("page allocation failed");
+
+        assert_eq!(space.translate(KVirtAddr::new(base)), Some(third));
+        assert_eq!(
+            space.translate(KVirtAddr::new(base + PAGE_SIZE as u64)),
+            Some(fourth)
+        );
+
+        assert!(!shmem.is_populated(0));
+        assert!(!shmem.is_populated(1));
+    }
+
+    drop(shmem);
+    assert_eq!(pmm::free_pages(), Some(before));
 }

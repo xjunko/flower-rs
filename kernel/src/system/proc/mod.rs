@@ -36,7 +36,7 @@ pub use self::sleep::sleep;
 use crate::arch;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::proc::scheduler::Scheduler;
-use crate::system::vfs::FdTable;
+use crate::system::vfs::{FdKind, FdTable};
 
 pub static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
 
@@ -79,6 +79,12 @@ where F: FnOnce(&mut FdTable) -> KResult<R> {
     let sched = guard.as_mut().ok_or(KError::ESRCH)?;
     let task = sched.current().ok_or(KError::ESRCH)?;
     task.lock().with_fd_table(f)
+}
+
+/// returns a clone of the current process' fd entry.
+pub fn fd(fd: usize) -> KResult<FdKind> {
+    let current = current().ok_or(KError::ESRCH)?;
+    current.lock().fds.get(fd).cloned()
 }
 
 /// returns the current process

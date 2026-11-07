@@ -16,14 +16,13 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::vfs::tarfs::file::{TarFile, TarFileType};
-use crate::system::vfs::{Directory, FileLike};
+use crate::system::vfs::{Directory, KFile};
 
 pub struct TarFSDirectory {
     pub name: String,
@@ -46,7 +45,7 @@ impl TarFSDirectory {
 impl Directory for TarFSDirectory {
     fn name(&self) -> KResult<String> { Ok(self.name.clone()) }
 
-    fn contents(&self) -> KResult<Vec<FileLike>> {
+    fn contents(&self) -> KResult<Vec<KFile>> {
         let prefix = self.child_prefix();
 
         let children = self.files.iter().filter(|f| {
@@ -59,13 +58,13 @@ impl Directory for TarFSDirectory {
         Ok(children
             .map(|file| match file.file_type {
                 TarFileType::Directory => {
-                    FileLike::Directory(Box::new(TarFSDirectory {
+                    KFile::Directory(Arc::new(TarFSDirectory {
                         name: file.name.clone(),
                         path: file.path.clone(),
                         files: Arc::clone(&self.files),
                     }))
                 },
-                _ => FileLike::File(Box::new(file.clone())),
+                _ => KFile::File(Arc::new(file.clone())),
             })
             .collect())
     }

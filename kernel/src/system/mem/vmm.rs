@@ -29,7 +29,7 @@ use crate::arch::layout::{
 };
 use crate::arch::{Paging, Processor};
 use crate::system::mem;
-use crate::system::mem::vma::{Shmem, Vma, VmaKind, VmaMap};
+use crate::system::mem::vma::{KShmemMapping, Shmem, Vma, VmaKind, VmaMap};
 
 type Root = <Processor as Paging>::Root;
 
@@ -653,7 +653,7 @@ impl AddressSpace {
         len: usize,
         flags: MapFlags,
     ) -> Result<(), &'static str> {
-        self.map_user_shmem(start, len, flags, Shmem::new(len))
+        self.map_user_shmem(start, len, flags, Shmem::new(len), 0)
     }
 
     /// maps an existing shared-memory object into this address space.
@@ -667,28 +667,38 @@ impl AddressSpace {
         len: usize,
         flags: MapFlags,
         shmem: Arc<Shmem>,
+        offset: u64,
     ) -> Result<(), &'static str> {
         let end = start.checked_add(len as u64).ok_or("user range overflow")?;
         Self::check_user_range(start, end)?;
 
-        if len > shmem.len() {
-            return Err("shared mapping is larger than the shmem object");
+        if !offset.is_multiple_of(PAGE_SIZE as u64) {
+            return Err("shared mapping offset is not page-aligned");
+        }
+
+        let page_offset = (offset / PAGE_SIZE as u64) as usize;
+        let pages = len.div_ceil(PAGE_SIZE);
+
+        if page_offset.checked_add(pages).is_none_or(|end| end > shmem.pages())
+        {
+            return Err("shared mapping is outside the shmem object");
         }
 
         self.vm.insert(Vma {
             start,
             end,
             flags,
-            kind: VmaKind::Shared(shmem.clone()),
+            kind: VmaKind::Shared(KShmemMapping {
+                object: Arc::clone(&shmem),
+                page_offset,
+            }),
         })?;
-
-        let pages = len.div_ceil(PAGE_SIZE);
 
         for index in 0..pages {
             let virt = KVirtAddr::new(start + (index * PAGE_SIZE) as u64);
 
             let mapped = shmem
-                .page(index)
+                .page(page_offset + index)
                 .and_then(|phys| self.map_page_shared(virt, phys, flags));
 
             if let Err(e) = mapped {
@@ -850,10 +860,10 @@ impl AddressSpace {
                 self.map_page_alloc(page, vma.flags)?;
                 Ok(true)
             },
-            VmaKind::Shared(shmem) => {
-                let index =
-                    ((page.as_u64() - vma.start) / PAGE_SIZE as u64) as usize;
-                let phys = shmem.page(index)?;
+            VmaKind::Shared(mapping) => {
+                let index = mapping.page_offset
+                    + ((page.as_u64() - vma.start) / PAGE_SIZE as u64) as usize;
+                let phys = mapping.object.page(index)?;
                 self.map_page_shared(page, phys, vma.flags)?;
                 Ok(true)
             },
@@ -865,7 +875,7 @@ impl AddressSpace {
     /// `paging_clone_user` with mappings of the parent's shared frames.
     fn rebind_shared(&self, parent: &Self) -> Result<(), &'static str> {
         for vma in self.vm.iter() {
-            let VmaKind::Shared(shmem) = &vma.kind else {
+            let VmaKind::Shared(mapping) = &vma.kind else {
                 continue;
             };
 
@@ -888,7 +898,7 @@ impl AddressSpace {
                     self.unmap_page(virt)?;
                 }
 
-                let phys = shmem.page(index)?;
+                let phys = mapping.object.page(mapping.page_offset + index)?;
                 self.map_page_shared(virt, phys, vma.flags)?;
             }
         }

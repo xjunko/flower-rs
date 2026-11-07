@@ -30,7 +30,7 @@ use crate::system;
 use crate::system::posix::errno::{KError, KResult};
 use crate::system::syscalls::SyscallFrame;
 use crate::system::syscalls::types::SyscallReturnCode;
-use crate::system::vfs::FdKind;
+use crate::system::vfs::{FdKind, KMapBacking};
 
 const PAGE_SIZE_U64: u64 = PAGE_SIZE as u64;
 
@@ -163,21 +163,20 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
         }
     }
 
-    let current = system::proc::current().ok_or(KError::EINVAL)?;
-    let mut proc = current.lock();
-
-    // ask the file for its backing frames before borrowing the address space.
-    let file_phys = if fd != -1 && flags & MAP_ANONYMOUS == 0 {
-        Some(proc.with_fd_table(|table| match table.get(fd as usize)? {
+    let backing = if fd >= 0 && flags & MAP_ANONYMOUS == 0 {
+        Some(match system::proc::fd(fd as usize)? {
             FdKind::File(file) => {
-                file.mmap(len as usize, prot as c_int, flags as c_int, offset)
+                file.mmap(len as usize, prot as c_int, flags as c_int, offset)?
             },
-            _ => Err(KError::ENOSYS),
-        })?)
+            FdKind::Shmem(shmem) => KMapBacking::Shmem(shmem),
+            _ => return Err(KError::ENODEV),
+        })
     } else {
         None
     };
 
+    let current = system::proc::current().ok_or(KError::EINVAL)?;
+    let mut proc = current.lock();
     let address_space = proc.address_space_mut().ok_or(KError::EINVAL)?;
 
     // MAP_FIXED uses the address verbatim. hints are honoured when the range
@@ -208,10 +207,17 @@ pub fn mmap(frame: &mut SyscallFrame) -> KResult<u64> {
             .map_err(|_| KError::EINVAL)?;
     }
 
-    let result = match file_phys {
-        Some(phys) => {
+    let result = match backing {
+        Some(KMapBacking::Physical(phys)) => {
             address_space.map_user_file(start, len as usize, prot_flags, phys)
         },
+        Some(KMapBacking::Shmem(shmem)) => address_space.map_user_shmem(
+            start,
+            len as usize,
+            prot_flags,
+            shmem,
+            offset,
+        ),
         None if flags & MAP_SHARED != 0 => {
             address_space.map_user_shared(start, len as usize, prot_flags)
         },

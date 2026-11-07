@@ -16,27 +16,34 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-use alloc::boxed::Box;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
+use crate::system::mem::vma::Shmem;
 use crate::system::posix::errno::{KError, KResult};
+use crate::system::vfs::pipe::KPipeEnd;
 use crate::system::vfs::types::File;
 
-pub const MAX_FDS: usize = 8;
+pub const MAX_FDS: usize = 256;
 
+/// an entry in a process' fd table.
+#[derive(Clone)]
 pub enum FdKind {
-    File(Box<dyn File>),
+    File(Arc<dyn File>),
+    Pipe(Arc<KPipeEnd>),
+    Shmem(Arc<Shmem>),
     Stdin,
     Stdout,
     Stderr,
 }
 
 pub struct FdTable {
-    fds: [Option<FdKind>; MAX_FDS],
+    fds: Vec<Option<FdKind>>,
 }
 
 impl FdTable {
     pub fn new() -> Self {
-        let mut table = Self { fds: core::array::from_fn(|_| None) };
+        let mut table = Self { fds: alloc::vec![None; 3] };
         table.fds[0] = Some(FdKind::Stdin);
         table.fds[1] = Some(FdKind::Stdout);
         table.fds[2] = Some(FdKind::Stderr);
@@ -44,55 +51,57 @@ impl FdTable {
     }
 
     pub fn alloc(&mut self, kind: FdKind) -> KResult<usize> {
-        for (i, slot) in self.fds.iter_mut().enumerate().skip(3) {
+        for (fd, slot) in self.fds.iter_mut().enumerate() {
             if slot.is_none() {
                 *slot = Some(kind);
-                return Ok(i);
+                return Ok(fd);
             }
         }
-        Err(KError::ENOSPC)
+
+        if self.fds.len() >= MAX_FDS {
+            return Err(KError::EMFILE);
+        }
+
+        self.fds.push(Some(kind));
+        Ok(self.fds.len() - 1)
     }
 
     pub fn get(&self, fd: usize) -> KResult<&FdKind> {
-        if fd >= MAX_FDS {
-            return Err(KError::EBADFD);
-        }
-        self.fds.get(fd).and_then(|opt| opt.as_ref()).ok_or(KError::EBADFD)
+        self.fds.get(fd).and_then(|slot| slot.as_ref()).ok_or(KError::EBADF)
     }
 
-    pub fn get_mut(&mut self, fd: usize) -> KResult<&mut FdKind> {
+    pub fn get_cloned(&self, fd: usize) -> KResult<FdKind> {
+        self.get(fd).cloned()
+    }
+
+    pub fn set(&mut self, fd: usize, kind: FdKind) -> KResult<()> {
         if fd >= MAX_FDS {
-            return Err(KError::EBADFD);
+            return Err(KError::EBADF);
         }
-        self.fds.get_mut(fd).and_then(|opt| opt.as_mut()).ok_or(KError::EBADF)
+
+        if fd >= self.fds.len() {
+            self.fds.resize(fd + 1, None);
+        }
+
+        self.fds[fd] = Some(kind);
+        Ok(())
     }
 
     pub fn close(&mut self, fd: usize) -> KResult<()> {
-        if fd >= MAX_FDS {
-            return Err(KError::EBADFD);
+        let slot = self.fds.get_mut(fd).ok_or(KError::EBADF)?;
+
+        if slot.take().is_none() {
+            return Err(KError::EBADF);
         }
-        if fd < 3 {
-            return Err(KError::EPERM);
-        }
-        if self.fds[fd].is_none() {
-            return Err(KError::EBADFD);
-        }
-        self.fds[fd] = None;
+
         Ok(())
     }
 }
 
+impl Default for FdTable {
+    fn default() -> Self { Self::new() }
+}
+
 impl Clone for FdTable {
-    fn clone(&self) -> Self {
-        let mut table = Self::new();
-        for (fd, slot) in self.fds.iter().enumerate().skip(3) {
-            match slot.as_ref() {
-                Some(FdKind::Stdin) => table.fds[fd] = Some(FdKind::Stdin),
-                Some(FdKind::Stdout) => table.fds[fd] = Some(FdKind::Stdout),
-                Some(FdKind::Stderr) => table.fds[fd] = Some(FdKind::Stderr),
-                Some(FdKind::File(_)) | None => {},
-            }
-        }
-        table
-    }
+    fn clone(&self) -> Self { Self { fds: self.fds.clone() } }
 }

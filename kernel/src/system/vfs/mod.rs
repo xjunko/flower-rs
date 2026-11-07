@@ -25,12 +25,16 @@ use spin::{Lazy, Mutex};
 
 mod devfs;
 mod fds;
+pub mod pipe;
+mod shm;
 mod tarfs;
+mod tests;
 mod types;
 
 pub use self::fds::*;
 pub use self::types::*;
 use crate::system::posix::errno::{KError, KResult};
+use crate::system::vfs::shm::SharedMemoryFS;
 use crate::system::vfs::tarfs::TarFS;
 
 pub struct Mount {
@@ -127,9 +131,15 @@ impl Vfs {
 // public api
 impl Vfs {
     /// opens the file at the given path with the given flags
-    pub fn open(&self, path: &str, flags: u32) -> KResult<FileLike> {
+    pub fn open(&self, path: &str, flags: u32) -> KResult<KFile> {
         let (fs, relative) = self.resolve(path)?;
         fs.open(&relative, flags)
+    }
+
+    /// removes the named entry at the given path
+    pub fn unlink(&self, path: &str) -> KResult<()> {
+        let (fs, relative) = self.resolve(path)?;
+        fs.unlink(&relative)
     }
 }
 
@@ -152,20 +162,31 @@ pub fn install() {
         .mount("/proc", Box::new(procfs))
         .expect("failed to mount procfs");
 
+    ROOT_VFS
+        .lock()
+        .mount("/dev/shm", Box::new(SharedMemoryFS::new()))
+        .expect("failed to mount shmfs");
+
     log::info!("mounted {} filesystems", ROOT_VFS.lock().mounts.len());
     ROOT_VFS.lock().initialize().expect("failed to initialize vfs");
+
+    log::debug!("testing vfs...");
+    tests::run();
 }
 
 // public methods
-pub fn open(path: &str, flags: u32) -> KResult<FileLike> {
+pub fn open(path: &str, flags: u32) -> KResult<KFile> {
     ROOT_VFS.lock().open(path, flags)
 }
+
+/// removes the named entry at the given path
+pub fn unlink(path: &str) -> KResult<()> { ROOT_VFS.lock().unlink(path) }
 
 /// reads the entire contents of the file then returns it as a vector of bytes.
 /// only for internal use
 pub fn __read(path: &str) -> Result<Vec<u8>, &'static str> {
     let file = match open(path, 0).map_err(|_| "failed to read file")? {
-        FileLike::File(f) => f,
+        KFile::File(f) => f,
         _ => return Err("expected a regular file"),
     };
 

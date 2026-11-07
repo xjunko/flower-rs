@@ -22,6 +22,7 @@ mod types;
 pub use types::SyscallFrame;
 use x86_64::instructions::interrupts;
 
+use crate::system::posix::errno::KError;
 use crate::system::syscalls::implementation::SYSCALL_HANDLERS;
 use crate::system::syscalls::types::SyscallReturnCode;
 
@@ -47,6 +48,7 @@ fn syscall_handler_unwrapped(
             },
         }
     } else {
-        panic!("invalid syscall number: {} | frame: {:?}", num, frame);
+        log::debug!("unimplemented syscall {} | frame: {:?}", num, frame);
+        -(KError::ENOSYS as i32) as SyscallReturnCode
     }
 }

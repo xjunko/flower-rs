@@ -21,8 +21,8 @@ mod framebuffer;
 mod keyboard;
 mod proc;
 
-use alloc::boxed::Box;
 use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ffi::c_int;
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -31,7 +31,9 @@ pub use proc::create_procfs;
 
 use crate::arch::addr::KPhysAddr;
 use crate::system::posix::errno::{KError, KResult};
-use crate::system::vfs::{File, FileLike, FileSystem, FileType, Stat, Whence};
+use crate::system::vfs::{
+    File, FileSystem, FileType, KFile, KMapBacking, Stat, Whence,
+};
 
 type ReadFn = fn(usize, &mut [u8]) -> usize;
 type WriteFn = fn(&[u8]) -> usize;
@@ -91,7 +93,7 @@ impl File for DevFile {
         }
     }
 
-    fn write(&self, buf: &mut [u8]) -> KResult<usize> {
+    fn write(&self, buf: &[u8]) -> KResult<usize> {
         if let Some(write_fn) = self.fn_write {
             Ok(write_fn(buf))
         } else {
@@ -99,7 +101,7 @@ impl File for DevFile {
         }
     }
 
-    fn seek(&mut self, offset: i64, pos: Whence) -> KResult<usize> {
+    fn seek(&self, offset: i64, pos: Whence) -> KResult<usize> {
         let current = self.position.load(Ordering::Acquire);
         let new_pos = match pos {
             Whence::Start => offset as usize,
@@ -117,9 +119,9 @@ impl File for DevFile {
         prot: core::ffi::c_int,
         flags: core::ffi::c_int,
         offset: u64,
-    ) -> KResult<KPhysAddr> {
+    ) -> KResult<KMapBacking> {
         if let Some(mmap_fn) = self.fn_mmap {
-            mmap_fn(len, prot, flags, offset)
+            mmap_fn(len, prot, flags, offset).map(KMapBacking::Physical)
         } else {
             Err(KError::EOPNOTSUPP)
         }
@@ -154,11 +156,11 @@ impl FileSystem for DevFS {
     // DevFS is special since it can easily be used on the other parts of the kernel, so we don't need to initialize it
     fn initialize(&mut self) -> KResult<()> { Ok(()) }
 
-    fn open(&self, path: &str, _flags: u32) -> KResult<FileLike> {
+    fn open(&self, path: &str, _flags: u32) -> KResult<KFile> {
         self.files
             .iter()
             .find(|f| f.path == path)
-            .map(|f| FileLike::File(Box::new(f.clone())))
+            .map(|f| KFile::File(Arc::new(f.clone())))
             .ok_or(KError::EEXIST)
     }
 

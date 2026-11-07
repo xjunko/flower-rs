@@ -20,7 +20,6 @@ mod consts;
 mod directory;
 mod file;
 
-use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
@@ -51,8 +50,8 @@ impl TarFS {
             .ok_or(KError::EEXIST)
     }
 
-    fn directory_filelike(&self, file: &TarFile) -> FileLike {
-        FileLike::Directory(Box::new(TarFSDirectory {
+    fn directory_filelike(&self, file: &TarFile) -> KFile {
+        KFile::Directory(Arc::new(TarFSDirectory {
             name: file.name.clone(),
             path: file.path.clone(),
             files: Arc::clone(&self.files),
@@ -233,9 +232,9 @@ impl FileSystem for TarFS {
         Ok(())
     }
 
-    fn open(&self, path: &str, _flags: u32) -> KResult<FileLike> {
+    fn open(&self, path: &str, _flags: u32) -> KResult<KFile> {
         if path == "/" && !self.index.contains_key("/") {
-            return Ok(FileLike::Directory(Box::new(TarFSDirectory {
+            return Ok(KFile::Directory(Arc::new(TarFSDirectory {
                 name: String::new(),
                 path: "/".to_string(),
                 files: Arc::clone(&self.files),
@@ -246,7 +245,7 @@ impl FileSystem for TarFS {
 
         match file.file_type {
             TarFileType::Directory => Ok(self.directory_filelike(file)),
-            _ => Ok(FileLike::File(Box::new(file.clone()))),
+            _ => Ok(KFile::File(Arc::new(file.clone()))),
         }
     }
 

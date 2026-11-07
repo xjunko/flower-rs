@@ -17,12 +17,13 @@
  */
 
 use flower_abi::numbers::{
-    SYS_ACCESS, SYS_ARCH_PRCTL, SYS_BRK, SYS_CLOCK_GETTIME, SYS_CLOSE,
-    SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FORK, SYS_GET_TID, SYS_IOCTL,
-    SYS_MMAP, SYS_MPROTECT, SYS_MSLEEP, SYS_MTIME, SYS_MUNMAP, SYS_NANOSLEEP,
-    SYS_OPEN, SYS_PIPE, SYS_READ, SYS_READV, SYS_SEEK, SYS_SET_TID_ADDRESS,
-    SYS_SIG_PROC_MASK, SYS_STAT, SYS_TIMES, SYS_UMASK, SYS_UNAME, SYS_WAIT4,
-    SYS_WAITPID, SYS_WRITE, SYS_WRITEV,
+    SYS_ACCESS, SYS_ARCH_PRCTL, SYS_BRK, SYS_CLOCK_GETTIME, SYS_CLOSE, SYS_DUP,
+    SYS_DUP2, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FCNTL, SYS_FORK,
+    SYS_FTRUNCATE, SYS_GET_TID, SYS_IOCTL, SYS_MEMFD_CREATE, SYS_MMAP,
+    SYS_MPROTECT, SYS_MSLEEP, SYS_MTIME, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPEN,
+    SYS_PIPE, SYS_PIPE2, SYS_READ, SYS_READV, SYS_SEEK, SYS_SET_TID_ADDRESS,
+    SYS_SIG_PROC_MASK, SYS_STAT, SYS_TIMES, SYS_UMASK, SYS_UNAME, SYS_UNLINK,
+    SYS_WAIT4, SYS_WAITPID, SYS_WRITE, SYS_WRITEV,
 };
 
 mod arch;
@@ -38,7 +39,7 @@ use crate::system::syscalls::types::SyscallHandler;
 
 macro_rules! syscall_handlers {
     ($($number:ident => $handler:path),* $(,)?) => {{
-        let mut handlers: [Option<SyscallHandler>; 256] = [None; 256];
+        let mut handlers: [Option<SyscallHandler>; 512] = [None; 512];
 
         $(
             handlers[$number as usize] = Some($handler as SyscallHandler);
@@ -48,7 +49,7 @@ macro_rules! syscall_handlers {
     }};
 }
 
-pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = syscall_handlers! {
+pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 512] = syscall_handlers! {
     SYS_EXIT            => process::exit,
     SYS_EXIT_GROUP      => process::exit_group,
     SYS_FORK            => process::fork,
@@ -78,6 +79,13 @@ pub static SYSCALL_HANDLERS: [Option<SyscallHandler>; 256] = syscall_handlers! {
     SYS_IOCTL       => fs::ioctl,
     SYS_ACCESS      => fs::access,
     SYS_PIPE        => fs::pipe,
+    SYS_PIPE2       => fs::pipe2,
+    SYS_DUP         => fs::dup,
+    SYS_DUP2        => fs::dup2,
+    SYS_FCNTL       => fs::fcntl,
+    SYS_FTRUNCATE   => fs::ftruncate,
+    SYS_UNLINK      => fs::unlink,
+    SYS_MEMFD_CREATE => fs::memfd_create,
     SYS_UMASK       => fs::umask,
 
     SYS_ARCH_PRCTL  => arch::prctl,
